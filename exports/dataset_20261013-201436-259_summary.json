@@ -1,0 +1,76 @@
+{
+  "created_iso": "2026-10-13T20:14:36.350",
+  "stage": "prefer_trimmed",
+  "n_recordings": 63,
+  "n_windows": 1565,
+  "window_samples": 10,
+  "step": 5,
+  "fs": 49.86876270534398,
+  "labels": [
+    "REST"
+  ],
+  "persons": [
+    "Dano"
+  ],
+  "windows_per_label": {
+    "REST": 1565
+  },
+  "windows_per_person": {
+    "Dano": 1565
+  },
+  "validation_note": "Use the groups array for leave-one-person-out or GroupKFold. Do NOT split windows randomly: windows from one recording overlap, so a random split leaks the test set into training.",
+  "config": {
+    "app_version": "1.0.0",
+    "emg_mode": "filtered",
+    "nominal_sample_rate": 50.0,
+    "emg_range": [
+      0,
+      2047
+    ],
+    "gestures": [
+      "REST",
+      "FIST",
+      "OPEN",
+      "THUMB_UP",
+      "WAVE_LEFT",
+      "WAVE_RIGHT"
+    ],
+    "repetitions": 30,
+    "gesture_order": "random",
+    "random_seed": 42,
+    "rest_time": 2.0,
+    "prepare_time": 0.8,
+    "countdown_time": 3.0,
+    "record_time": 2.0,
+    "pause_time": 1.0,
+    "pre_gesture_ms": 300,
+    "post_gesture_ms": 300,
+    "window_ms": 200,
+    "window_overlap": 0.5,
+    "auto_trim": true,
+    "default_cut_seconds": 79.5,
+    "model_spec_file": "model_spec.json",
+    "min_selection_seconds": 0.25,
+    "free_take_max_minutes": 15.0,
+    "trim": {
+      "envelope_ms": 50.0,
+      "baseline_ms": 200.0,
+      "threshold_high": 3.0,
+      "threshold_low": 1.8,
+      "abs_floor": 12.0,
+      "min_active_ms": 120.0,
+      "min_inactive_ms": 250.0,
+      "pre_padding_ms": 100.0,
+      "post_padding_ms": 150.0,
+      "min_active_channels": 2
+    },
+    "quality": {
+      "enabled": true,
+      "min_sample_fraction": 0.8,
+      "max_gap_ms": 120.0,
+      "max_saturated_fraction": 0.02,
+      "max_baseline_rms": 60.0,
+      "min_peak_amplitude": 40.0
+    }
+  }
+}

@@ -1,0 +1,41 @@
+# Myo EMG Dataset Tool -- dependencies
+#
+#   python -m pip install -r requirements.txt
+#
+# Verified on Windows 11 with CPython 3.14.
+
+# --- required: Myo communication (the existing, working layer) --------------
+pyserial>=3.5
+
+# --- required: numerics -----------------------------------------------------
+numpy>=1.24
+
+# --- required: GUI and real-time plotting -----------------------------------
+PySide6>=6.6
+pyqtgraph>=0.13
+
+# --- recommended: dataset handling and signal processing --------------------
+# pandas  -> Recording.to_dataframe(), parquet export
+# scipy   -> reserved for optional filtering; the tool runs without it
+pandas>=2.0
+scipy>=1.10
+
+# --- optional: later ML stages ---------------------------------------------
+# scikit-learn / joblib -> training and the live classifier
+# pyarrow               -> only needed if SAVE_PARQUET = True
+scikit-learn>=1.3
+joblib>=1.3
+pyarrow>=14.0
+
+# --- NOT required: PyTorch -------------------------------------------------
+# The neural-network experiment (train_torch.py) was retired on 2026-10-14:
+# it never beat the simple models (99.2 % per recording against 100 % for a
+# plain LDA). The application has never imported torch, and the live
+# classifier runs on the CPU from models/gesture_model.joblib.
+#
+# Nothing here needs it. Install it only to re-run that retired experiment:
+#   python -m pip install torch==2.9.1+cu128 --index-url https://download.pytorch.org/whl/cu128
+#
+# Note: scikit-learn has no GPU backend, and RAPIDS cuML (which does) has no
+# Windows build and none for Python 3.14 -- so training is CPU work here no
+# matter what is installed. See CLAUDE.md section 8d.

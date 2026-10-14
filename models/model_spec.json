@@ -1,0 +1,224 @@
+{
+  "version": 1,
+  "voting": {
+    "enabled": true,
+    "mode": "soft",
+    "always": false
+  },
+  "auto": {
+    "enabled": false,
+    "max_per_model": 8
+  },
+  "models": [
+    {
+      "name": "LDA-shrinkage",
+      "kind": "lda",
+      "enabled": true,
+      "scaler": "standard",
+      "params": {
+        "solver": "lsqr",
+        "shrinkage": "auto"
+      },
+      "auto": true
+    },
+    {
+      "name": "LDA-svd",
+      "kind": "lda",
+      "enabled": true,
+      "scaler": "standard",
+      "params": {
+        "solver": "svd",
+        "shrinkage": "none"
+      },
+      "auto": true
+    },
+    {
+      "name": "SVM-rbf-C10",
+      "kind": "svm_rbf",
+      "enabled": true,
+      "scaler": "standard",
+      "params": {
+        "C": 10.0,
+        "gamma": "scale",
+        "kernel": "rbf",
+        "class_weight": "none"
+      },
+      "auto": true
+    },
+    {
+      "name": "RandomForest-400",
+      "kind": "random_forest",
+      "enabled": true,
+      "scaler": "none",
+      "params": {
+        "n_estimators": 400,
+        "max_depth": 0,
+        "min_samples_leaf": 1,
+        "max_features": "sqrt",
+        "class_weight": "none"
+      },
+      "auto": true
+    },
+    {
+      "name": "ExtraTrees-400",
+      "kind": "extra_trees",
+      "enabled": true,
+      "scaler": "none",
+      "params": {
+        "n_estimators": 400,
+        "max_depth": 0,
+        "min_samples_leaf": 1,
+        "class_weight": "none"
+      },
+      "auto": true
+    },
+    {
+      "name": "HistGradBoost",
+      "kind": "hist_gradient_boost",
+      "enabled": true,
+      "scaler": "none",
+      "params": {
+        "learning_rate": 0.1,
+        "max_iter": 200,
+        "max_leaf_nodes": 31,
+        "l2_regularization": 0.0,
+        "early_stopping": "auto",
+        "validation_fraction": 0.1,
+        "n_iter_no_change": 10,
+        "class_weight": "none"
+      },
+      "auto": true
+    },
+    {
+      "name": "LogReg",
+      "kind": "logreg",
+      "enabled": true,
+      "scaler": "standard",
+      "params": {
+        "C": 1.0,
+        "penalty": "l2",
+        "l1_ratio": 0.5,
+        "solver": "auto",
+        "max_iter": 2000,
+        "class_weight": "none"
+      },
+      "auto": true
+    },
+    {
+      "name": "SVM-rbf-C1",
+      "kind": "svm_rbf",
+      "enabled": false,
+      "scaler": "standard",
+      "params": {
+        "C": 1.0,
+        "gamma": "scale",
+        "kernel": "rbf",
+        "class_weight": "none"
+      },
+      "auto": true
+    },
+    {
+      "name": "SVM-rbf-C100",
+      "kind": "svm_rbf",
+      "enabled": false,
+      "scaler": "standard",
+      "params": {
+        "C": 100.0,
+        "gamma": "scale",
+        "kernel": "rbf",
+        "class_weight": "none"
+      },
+      "auto": true
+    },
+    {
+      "name": "SVM-rbf-robustscale",
+      "kind": "svm_rbf",
+      "enabled": false,
+      "scaler": "robust",
+      "params": {
+        "C": 10.0,
+        "gamma": "scale",
+        "kernel": "rbf",
+        "class_weight": "none"
+      },
+      "auto": true
+    },
+    {
+      "name": "kNN-5",
+      "kind": "knn",
+      "enabled": false,
+      "scaler": "standard",
+      "params": {
+        "n_neighbors": 5,
+        "weights": "distance"
+      },
+      "auto": true
+    },
+    {
+      "name": "kNN-15",
+      "kind": "knn",
+      "enabled": false,
+      "scaler": "standard",
+      "params": {
+        "n_neighbors": 15,
+        "weights": "distance"
+      },
+      "auto": true
+    },
+    {
+      "name": "MLP-128",
+      "kind": "mlp",
+      "enabled": false,
+      "scaler": "standard",
+      "params": {
+        "hidden_layer_sizes": [
+          128
+        ],
+        "alpha": 0.0001,
+        "solver": "adam",
+        "batch_size": 0,
+        "learning_rate_init": 0.001,
+        "max_iter": 1200,
+        "early_stopping": "yes",
+        "validation_fraction": 0.1,
+        "n_iter_no_change": 10
+      },
+      "auto": true
+    },
+    {
+      "name": "MLP-256-128",
+      "kind": "mlp",
+      "enabled": false,
+      "scaler": "standard",
+      "params": {
+        "hidden_layer_sizes": [
+          256,
+          128
+        ],
+        "alpha": 0.0001,
+        "solver": "adam",
+        "batch_size": 0,
+        "learning_rate_init": 0.001,
+        "max_iter": 1200,
+        "early_stopping": "yes",
+        "validation_fraction": 0.1,
+        "n_iter_no_change": 10
+      },
+      "auto": true
+    },
+    {
+      "name": "RandomForest-800-deep",
+      "kind": "random_forest",
+      "enabled": false,
+      "scaler": "none",
+      "params": {
+        "n_estimators": 800,
+        "max_depth": 0,
+        "min_samples_leaf": 1,
+        "max_features": "sqrt",
+        "class_weight": "none"
+      },
+      "auto": true
+    }
+  ]
+}

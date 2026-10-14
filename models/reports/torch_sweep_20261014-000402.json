@@ -1,0 +1,316 @@
+{
+  "device": {
+    "device": "cuda:0",
+    "gpu": "NVIDIA GeForce GTX 1650",
+    "capability": "7.5",
+    "total_memory_mb": 4095,
+    "torch": "2.9.1+cu128",
+    "cuda_runtime": "12.8",
+    "cudnn": 91002
+  },
+  "chance": 0.5294117647058824,
+  "classes": [
+    "FIST",
+    "REST"
+  ],
+  "results": [
+    {
+      "n_splits": 6,
+      "window_accuracy": 0.9969325153374232,
+      "window_accuracy_std": 0.006859104225459479,
+      "window_macro_f1": 0.9968856280331689,
+      "recording_vote_accuracy": 0.9915966386554622,
+      "n_recordings_voted": 119,
+      "fold_accuracies": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.9815950920245399,
+        1.0
+      ],
+      "confusion_matrix": [
+        [
+          1090,
+          0
+        ],
+        [
+          6,
+          1026
+        ]
+      ],
+      "n_parameters": 29762,
+      "kind": "cnn_lstm",
+      "window_s": 0.5,
+      "win_samples": 30,
+      "overlap": 0.75,
+      "n_windows": 2122,
+      "seconds": 46.78721530002076
+    },
+    {
+      "n_splits": 6,
+      "window_accuracy": 0.9968394437420987,
+      "window_accuracy_std": 0.007067218639379854,
+      "window_macro_f1": 0.9968321326675605,
+      "recording_vote_accuracy": 0.9915966386554622,
+      "n_recordings_voted": 119,
+      "fold_accuracies": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.9810366624525917,
+        1.0
+      ],
+      "confusion_matrix": [
+        [
+          2311,
+          0
+        ],
+        [
+          15,
+          2188
+        ]
+      ],
+      "n_parameters": 29762,
+      "kind": "cnn_lstm",
+      "window_s": 0.3,
+      "win_samples": 18,
+      "overlap": 0.75,
+      "n_windows": 4514,
+      "seconds": 107.4442080000299
+    },
+    {
+      "n_splits": 6,
+      "window_accuracy": 0.9966666666666667,
+      "window_accuracy_std": 0.007453559924999306,
+      "window_macro_f1": 0.9966266697984497,
+      "recording_vote_accuracy": 0.9915966386554622,
+      "n_recordings_voted": 119,
+      "fold_accuracies": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.98,
+        1.0
+      ],
+      "confusion_matrix": [
+        [
+          1514,
+          0
+        ],
+        [
+          9,
+          1401
+        ]
+      ],
+      "n_parameters": 29762,
+      "kind": "cnn_lstm",
+      "window_s": 0.4,
+      "win_samples": 24,
+      "overlap": 0.75,
+      "n_windows": 2924,
+      "seconds": 65.38060239999322
+    },
+    {
+      "n_splits": 6,
+      "window_accuracy": 0.9940589521190325,
+      "window_accuracy_std": 0.008408621553348813,
+      "window_macro_f1": 0.9939411666665329,
+      "recording_vote_accuracy": 0.9831932773109243,
+      "n_recordings_voted": 119,
+      "fold_accuracies": [
+        1.0,
+        1.0,
+        0.9827586206896551,
+        1.0,
+        0.9815950920245399,
+        1.0
+      ],
+      "confusion_matrix": [
+        [
+          1090,
+          0
+        ],
+        [
+          12,
+          1020
+        ]
+      ],
+      "n_parameters": 24418,
+      "kind": "cnn",
+      "window_s": 0.5,
+      "win_samples": 30,
+      "overlap": 0.75,
+      "n_windows": 2122,
+      "seconds": 45.13955729996087
+    },
+    {
+      "n_splits": 6,
+      "window_accuracy": 0.9934276389877194,
+      "window_accuracy_std": 0.008074427205335032,
+      "window_macro_f1": 0.9932159437428955,
+      "recording_vote_accuracy": 0.9831932773109243,
+      "n_recordings_voted": 119,
+      "fold_accuracies": [
+        1.0,
+        0.9962121212121212,
+        0.9827586206896551,
+        1.0,
+        0.9815950920245399,
+        1.0
+      ],
+      "confusion_matrix": [
+        [
+          1090,
+          0
+        ],
+        [
+          13,
+          1019
+        ]
+      ],
+      "n_parameters": 52354,
+      "kind": "lstm",
+      "window_s": 0.5,
+      "win_samples": 30,
+      "overlap": 0.75,
+      "n_windows": 2122,
+      "seconds": 37.85188999999082
+    },
+    {
+      "n_splits": 6,
+      "window_accuracy": 0.9932824466753066,
+      "window_accuracy_std": 0.009925948481035712,
+      "window_macro_f1": 0.9918179471582756,
+      "recording_vote_accuracy": 0.9831932773109243,
+      "n_recordings_voted": 119,
+      "fold_accuracies": [
+        1.0,
+        0.9748653500897666,
+        1.0,
+        1.0,
+        0.9848293299620733,
+        1.0
+      ],
+      "confusion_matrix": [
+        [
+          2311,
+          0
+        ],
+        [
+          26,
+          2177
+        ]
+      ],
+      "n_parameters": 24418,
+      "kind": "cnn",
+      "window_s": 0.3,
+      "win_samples": 18,
+      "overlap": 0.75,
+      "n_windows": 4514,
+      "seconds": 122.58956599998055
+    },
+    {
+      "n_splits": 6,
+      "window_accuracy": 0.9931944444444444,
+      "window_accuracy_std": 0.009627514903124109,
+      "window_macro_f1": 0.9930929274671615,
+      "recording_vote_accuracy": 0.9831932773109243,
+      "n_recordings_voted": 119,
+      "fold_accuracies": [
+        0.9791666666666666,
+        1.0,
+        1.0,
+        1.0,
+        0.98,
+        1.0
+      ],
+      "confusion_matrix": [
+        [
+          1514,
+          0
+        ],
+        [
+          18,
+          1392
+        ]
+      ],
+      "n_parameters": 24418,
+      "kind": "cnn",
+      "window_s": 0.4,
+      "win_samples": 24,
+      "overlap": 0.75,
+      "n_windows": 2924,
+      "seconds": 61.447316400008276
+    },
+    {
+      "n_splits": 6,
+      "window_accuracy": 0.9926503354237264,
+      "window_accuracy_std": 0.010545562895870424,
+      "window_macro_f1": 0.9911853362360926,
+      "recording_vote_accuracy": 0.9831932773109243,
+      "n_recordings_voted": 119,
+      "fold_accuracies": [
+        1.0,
+        0.9748653500897666,
+        1.0,
+        1.0,
+        0.9810366624525917,
+        1.0
+      ],
+      "confusion_matrix": [
+        [
+          2311,
+          0
+        ],
+        [
+          29,
+          2174
+        ]
+      ],
+      "n_parameters": 52354,
+      "kind": "lstm",
+      "window_s": 0.3,
+      "win_samples": 18,
+      "overlap": 0.75,
+      "n_windows": 4514,
+      "seconds": 82.61125150002772
+    },
+    {
+      "n_splits": 6,
+      "window_accuracy": 0.9924569813176009,
+      "window_accuracy_std": 0.009239621743736614,
+      "window_macro_f1": 0.9923517494532561,
+      "recording_vote_accuracy": 0.9831932773109243,
+      "n_recordings_voted": 119,
+      "fold_accuracies": [
+        0.9791666666666666,
+        0.995575221238938,
+        1.0,
+        1.0,
+        0.98,
+        1.0
+      ],
+      "confusion_matrix": [
+        [
+          1514,
+          0
+        ],
+        [
+          20,
+          1390
+        ]
+      ],
+      "n_parameters": 52354,
+      "kind": "lstm",
+      "window_s": 0.4,
+      "win_samples": 24,
+      "overlap": 0.75,
+      "n_windows": 2924,
+      "seconds": 51.892548399977386
+    }
+  ],
+  "subject_independent": null
+}
