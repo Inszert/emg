@@ -771,6 +771,185 @@ def leave_one_subject_out(model, X, y, groups_person, labels):
     }
 
 
+def build_decision_panel(spec, quick, X, y, groups, labels, best, meta):
+    """
+    Every candidate's fitted model plus its out-of-fold decision trail.
+
+    This is what the DECISION TRAIL view in MODEL STATS runs on. It is a
+    SIDE file: `gesture_model.joblib` goes on keeping exactly one estimator,
+    because that is what ships to the robot, and nothing in the live
+    prediction path ever loads this one.
+
+    Two different things come out of here and they must not be confused:
+
+      * `members` -- each candidate fitted on the WHOLE dataset. These are
+        what run on a live window, so the view can show what each algorithm
+        would have said about the gesture you just made. Fitted on
+        everything means their agreement on live data is NOT a performance
+        estimate, and the panel is labelled accordingly.
+      * `cv` and `trail` -- out-of-fold probabilities from the same grouped
+        cross-validation the sweep uses. These are the honest numbers. They
+        are kept per window, so the view can be scrubbed through the real
+        dataset when nothing is streaming.
+
+    Every candidate is scored on the WINNER's setup rather than on its own
+    best one. That is the whole point: one feature vector, seven opinions,
+    directly comparable. It also means these numbers are usually lower than
+    `best_per_model` in the sweep report, where each model got to pick its
+    own preprocessing.
+    """
+    models = build_models_from_spec(spec, quick, for_scoring=False)
+    vote_name = next((n for n in models if n.startswith("Vote-")), None)
+    members = [n for n in models if n != vote_name]
+    if not members:
+        return None
+
+    counts = Counter(y.tolist())
+    n_groups = len(set(groups.tolist()))
+    n_splits = int(min(CV_SPLITS, min(counts.values()), n_groups))
+    if n_splits < 2:
+        return None
+
+    cv = StratifiedGroupKFold(n_splits=n_splits, shuffle=True,
+                              random_state=RANDOM_STATE)
+    folds = list(cv.split(X, y, groups))
+    order = members + ([vote_name] if vote_name else [])
+    n, k = len(y), len(labels)
+
+    proba = {name: np.full((n, k), np.nan, dtype=np.float32) for name in order}
+    fold_of = np.full(n, -1, dtype=np.int16)
+
+    for index, (train_idx, test_idx) in enumerate(folds):
+        fold_of[test_idx] = index
+        for name in order:
+            fitted = clone(models[name])
+            fitted.fit(X[train_idx], y[train_idx])
+            proba[name][test_idx] = fitted.predict_proba(X[test_idx])
+        print(f"    trail fold {index + 1}/{len(folds)} done")
+
+    for name in order:
+        if np.isnan(proba[name]).any():                    # pragma: no cover
+            print(f"    {name} left gaps in the trail; panel not written")
+            return None
+
+    #  Soft voting is the unweighted mean of the members' probabilities.
+    #  Checked rather than asserted in prose, and the result is stored so the
+    #  view can show the arithmetic instead of claiming it.
+    fusion_err = None
+    if vote_name:
+        mean_members = np.mean([proba[m] for m in members], axis=0)
+        fusion_err = float(np.max(np.abs(mean_members - proba[vote_name])))
+        print(f"    soft vote vs mean of members: max|diff| = {fusion_err:.2e}")
+
+    uid_index, uid_order = {}, []
+    for gid in groups.tolist():
+        if gid not in uid_index:
+            uid_index[gid] = len(uid_order)
+            uid_order.append(gid)
+    rec_of = np.array([uid_index[g] for g in groups.tolist()], dtype=np.int32)
+
+    cv_stats, recordings = {}, []
+    for name in order:
+        pred = np.argmax(proba[name], axis=1)
+        cm = np.zeros((k, k), dtype=int)
+        for truth, guess in zip(y.tolist(), pred.tolist()):
+            cm[truth, guess] += 1
+        votes, truth_of = defaultdict(list), {}
+        for pos, gid in enumerate(groups.tolist()):
+            votes[gid].append(int(pred[pos]))
+            truth_of[gid] = int(y[pos])
+        correct = sum(Counter(v).most_common(1)[0][0] == truth_of[g]
+                      for g, v in votes.items())
+        cv_stats[name] = {
+            "window_accuracy": float(np.mean(pred == y)),
+            "recording_accuracy": float(correct / len(votes)),
+            "mean_confidence": float(np.mean(np.max(proba[name], axis=1))),
+            "confusion_matrix": cm.tolist(),
+            "n_windows_wrong": int(np.sum(pred != y)),
+        }
+
+    for gid in uid_order:
+        rows = np.flatnonzero(groups == gid)
+        truth = int(y[rows[0]])
+        entry = {"uid": gid, "label": labels[truth], "truth": truth,
+                 "n_windows": int(len(rows)), "fold": int(fold_of[rows[0]]),
+                 "models": {}}
+        for name in order:
+            pred = np.argmax(proba[name][rows], axis=1)
+            tally = Counter(pred.tolist())
+            winner = tally.most_common(1)[0][0]
+            entry["models"][name] = {
+                "vote": int(winner),
+                "n_for_truth": int(tally.get(truth, 0)),
+                "correct": bool(winner == truth),
+            }
+        recordings.append(entry)
+
+    #  The per-channel level, when the winning feature set carries it, so the
+    #  idle view can show the input a recorded window presented. Taken by
+    #  NAME rather than by position, because the column order differs between
+    #  feature sets.
+    names = feature_names_for(best["feature_set"], best["freq_features"])
+    wanted = [f"CH{c}_mean" for c in range(1, len(T.CHANNEL_NAMES) + 1)]
+    chan = None
+    if all(w in names for w in wanted):
+        cols = [names.index(w) for w in wanted]
+        chan = np.asarray(X[:, cols], dtype=np.float32)
+
+    print("    fitting each candidate on the whole dataset for live use...")
+    fitted_members = {}
+    for name in order:
+        fitted = clone(models[name])
+        fitted.fit(X, y)
+        fitted_members[name] = fitted
+
+    return {
+        "kind": "decision_panel",
+        "created_iso": T.iso_time(time.time()),
+        "labels": labels,
+        "member_order": members,
+        "vote_name": vote_name,
+        "vote_members": members if vote_name else [],
+        "members": fitted_members,
+        "fitted_on": "the whole dataset (not a held-out estimate)",
+        "winner": best["model"],
+        "setup": {
+            "window_s": best["window_s"], "overlap": best["overlap"],
+            "representation": best["representation"],
+            "feature_set": best["feature_set"],
+            "freq_features": best["freq_features"],
+            "exclude": best["exclude"],
+            "window_samples": meta["window_samples"],
+            "model_fs": MODEL_FS,
+            "n_features": int(X.shape[1]),
+            "feature_names": names,
+        },
+        "fusion": {
+            "rule": "unweighted mean of member predict_proba, then argmax",
+            "max_abs_diff_vs_mean": fusion_err,
+            "verified": bool(fusion_err is not None and fusion_err < 1e-6),
+        },
+        "protocol": {
+            "cv": "StratifiedGroupKFold grouped by recording uid",
+            "n_splits": n_splits, "random_state": RANDOM_STATE,
+            "note": ("every probability in `trail` is out-of-fold: the "
+                     "window's recording was not in the training set of the "
+                     "fold that scored it"),
+        },
+        "cv": cv_stats,
+        "recordings": recordings,
+        "trail": {
+            "proba": {name: proba[name] for name in order},
+            "truth": np.asarray(y, dtype=np.int16),
+            "fold": fold_of,
+            "rec": rec_of,
+            "chan": chan,
+        },
+        "n_windows": int(n),
+        "n_recordings": len(uid_order),
+    }
+
+
 def print_confusion(cm, labels):
     width = max(len(l) for l in labels) + 1
     print(" " * (width + 2) + " ".join(f"{l[:6]:>6}" for l in labels)
@@ -816,6 +995,11 @@ def main(argv=None):
                              "Without it the built-in roster is used.")
     parser.add_argument("--top", type=int, default=12,
                         help="how many sweep rows to print")
+    parser.add_argument("--no-panel", action="store_true",
+                        help="skip gesture_panel.joblib, the side file that "
+                             "lets MODEL STATS show every candidate's live "
+                             "decision. The app runs fine without it; only "
+                             "the DECISION TRAIL view goes away.")
     args = parser.parse_args(argv)
 
     print("=" * 78)
@@ -1300,6 +1484,34 @@ def main(argv=None):
     os.replace(staging, model_path)           # the one the app loads
     print(f"  saved: {os.path.relpath(model_path, T.PROJECT_DIR)}")
     print(f"  archive: {os.path.relpath(archive, T.PROJECT_DIR)}")
+
+    # ---- the decision panel -------------------------------------------------
+    #  Written AFTER the model, and never allowed to take the run down with
+    #  it: this file is a diagnostic view, the model is the deliverable.
+    if not args.no_panel:
+        print("\nBuilding the decision panel (every candidate on the "
+              "winner's setup)...")
+        try:
+            panel = build_decision_panel(spec, args.quick, X, y, groups,
+                                         labels, best, meta)
+        except Exception as exc:                           # pragma: no cover
+            panel = None
+            print(f"  decision panel failed ({exc}); the model is unaffected.")
+        if panel is None:
+            print("  no decision panel written.")
+        else:
+            panel_path = os.path.join(os.path.dirname(model_path),
+                                      T.PANEL_FILENAME)
+            staging = panel_path + ".partial"
+            joblib.dump(panel, staging)
+            os.replace(staging, panel_path)
+            size_mb = os.path.getsize(panel_path) / 1e6
+            print(f"  decision panel: "
+                  f"{os.path.relpath(panel_path, T.PROJECT_DIR)} "
+                  f"({size_mb:.1f} MB, {len(panel['member_order'])} members"
+                  f"{' + ' + panel['vote_name'] if panel['vote_name'] else ''})")
+            print("  MODEL STATS -> DECISION TRAIL now shows every "
+                  "candidate's live vote.")
 
     emit_progress(grand_total, grand_total, "done", status="completed",
                   model=best["model"], device="cpu",

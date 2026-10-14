@@ -40,6 +40,7 @@ python tests\test_gui.py                 # 91 checks, no armband needed
 python tests\test_review.py              # 50 checks, no armband needed
 python tests\test_label_on_graph.py         # 48 checks, no armband needed
 python tests\test_predict.py             # 109 checks, no armband needed
+python tests\test_trail.py               # 103 checks, the DECISION TRAIL
 python tests\test_no_torch.py            # 11 checks, proves no PyTorch is needed
 python tests\test_live.py                # 35 checks, NEEDS the armband
 python tests\test_live_gui.py            # 25 checks, NEEDS the armband
@@ -76,9 +77,10 @@ the port, close `test_myo.py` (and Myo Connect, if installed) first.
 | `docs/DATASET.md` | Exact on-disk format: filenames, CSV columns, NPZ keys, metadata. |
 | `docs/ARCHITECTURE.md` | Threads, buffers, state machine, rendering. |
 | **`train_model.py`** | Trains the gesture model: sweeps models and settings, validates honestly, saves `models/gesture_model.joblib`. **This is the one the app loads.** Runs on the CPU. |
+| **`explain_votes.py`** | Builds the DECISION TRAIL file for the model you already have, without re-running a three-hour sweep. Use it if MODEL STATS says there is no decision panel. |
 | `train_torch.py` | **Retired experiment.** The GPU neural-net trainer. Not part of the workflow -- it lost to a plain LDA. Kept for the record; the app never reads its output and never needed PyTorch. |
 | `docs/ML_PIPELINE.md` | How to turn the data into a validated model, which features matter and why, and the route to a wearer-independent model. |
-| `tests/` | Twelve scripts that verify the tool. Run them after changing config — see `tests/README.md`. |
+| `tests/` | Fourteen scripts that verify the tool. Run them after changing config — see `tests/README.md`. |
 
 ## Files that make the armband work — do not touch
 
@@ -105,6 +107,7 @@ the port, close `test_myo.py` (and Myo Connect, if installed) first.
 | `datasets/…/_deleted/` | Recordings removed with DELETE LAST. **Still there** — nothing is erased. |
 | `exports/` | Combined ML bundles from EXPORT DATASET. |
 | `models/` | `gesture_model.joblib` (what the app loads), timestamped archives, and `reports/` with every sweep's scores. Created by `train_model.py`. |
+| `models/gesture_panel.joblib` | Every candidate the sweep trained, for MODEL STATS → DECISION TRAIL. About 4 MB. The app predicts fine without it and never loads it to predict — delete it freely, or rebuild it with `python explain_votes.py`. |
 
 ---
 
@@ -402,7 +405,68 @@ pick its own folds is leave-one-subject-out, in MODEL STATS.
 
 ## MODEL STATS — what the model actually is
 
-Beyond the accuracy and its protocol, the dialog now shows:
+The dialog is **not modal**: leave it open and keep using the window behind
+it. That is deliberate, because the top section follows the armband live.
+
+### DECISION TRAIL — how each model decided, and how they become one
+
+This is the picture of the whole decision, and it moves while you use the
+armband:
+
+```
+  INPUT           LDA-shrinkage *  ████████░░  FIST  0.998  ✓ ╲
+  CH1 ███ 412     LDA-svd          ████████░░  FIST  0.996  ✓  ╲
+  CH2 ██  287     SVM-rbf-C10      ██████░░░░  FIST  0.842  ✓   ╲        SOFT VOTE
+  CH3 ████ 503    RandomForest-400 █████░░░░░  FIST  0.630  ✓    ●──  mean of 7 = 0.743
+  CH4 ██  251     ExtraTrees-400   ██████░░░░  FIST  0.805  ✓   ╱
+  CH5 ███ 388     HistGradBoost    ███████░░░  FIST  0.923  ✓  ╱         FIST
+  CH6 ████ 467    LogReg           ░░░░░░████  REST  0.991  ✗ ╱          0.743  6 of 7 agree
+  CH7 ███ 350
+  CH8 ███ 402                                                   DEPLOYED  LDA-shrinkage -> FIST
+```
+
+Left is the window every model is looking at — the eight channel levels.
+Each row is one classifier from your MODEL SPEC: its probability split, the
+gesture it picked, how sure it is, and whether that matches. The curves carry
+each verdict into the vote, thicker and brighter the more confident it is, so
+a split vote looks like two colours arriving at the same point. The box on
+the right averages the seven probabilities and takes the larger side.
+
+Two buttons choose where the numbers come from, and the view always says
+which:
+
+- **LIVE** — follows PREDICT. Every window the classifier handles is re-run
+  through all the candidates, on the *same* data the deployed model just
+  used. Press PREDICT in the LIVE CLASSIFIER panel and watch the rows move
+  as you contract. These candidates were fitted on your whole dataset, so
+  **what they agree about here is not an accuracy figure** — it shows you how
+  the vote forms. The caption says so every time.
+- **RECORDED** — scrub the decisions captured during training, one window at
+  a time, with a recording picker and a slider. These *are* the honest
+  numbers: each window was judged by a model that had never seen its
+  recording. **NEXT DISAGREEMENT** jumps straight to the windows where the
+  candidates did not agree, which on a clean dataset are the only interesting
+  ones (28 windows out of 3162 on the current data).
+
+The row marked `*` and the `DEPLOYED` line are the important detail: the app
+loads **one** model, the sweep's winner. The vote is drawn so you can see how
+the candidates combine, but it is not what predicts and not what goes on the
+robot. Switching to it would be a decision, not an upgrade.
+
+Under the drawing, **EVERY CANDIDATE, SAME SETUP** scores all of them on the
+winner's preprocessing. Those numbers are lower than the ones in the sweep
+report, where each model was allowed to pick its own window length and
+feature set — that is the point, because only one setup at a time makes the
+seven comparable.
+
+If the section says there is no decision panel, run a retrain (or
+`python explain_votes.py` to build one for the model you already have). The
+first window after opening the dialog takes a moment while the candidates
+warm up; after that it keeps pace with the classifier.
+
+### The rest of the dialog
+
+Beyond the accuracy and its protocol, it also shows:
 
 **WHAT THIS MODEL IS** — every stage of the fitted estimator, in order, read
 off the object on disk rather than off the spec that was meant to produce it.

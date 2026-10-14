@@ -91,6 +91,7 @@ still run.
 |---|---|
 | **`emg_dataset_tool.py`** | The whole application. Single file by design, internally split into numbered sections so it can be broken into modules later. |
 | **`train_model.py`** | Two-stage model sweep + honest validation + saves `models/gesture_model.joblib`. Imports the data layer from `emg_dataset_tool`. Builds its candidates from `models/model_spec.json` when the GUI passes `--spec`. |
+| **`explain_votes.py`** | Rebuilds `models/gesture_panel.joblib` for the model that is *already* saved, without re-running the sweep. For a model trained before the panel existed, or a panel that was deleted. `--json` also writes `models/reports/decisions.json`. See §8e. |
 | `train_torch.py` | **RETIRED.** The CUDA neural-net experiment (1D-CNN / LSTM / CNN-LSTM). Kept for the record, not part of the workflow: it lost to a plain LDA. Nothing in the app reads its output. See §8b. |
 | `myo_raw.py` | Myo BLE protocol wrapper. **The working communication layer.** |
 | `common.py` | `pack`/`unpack` helpers used by `myo_raw.py`. |
@@ -101,10 +102,10 @@ still run.
 | `docs/ARCHITECTURE.md` | Threads, buffers, state machine, data flow. |
 | `docs/ML_PIPELINE.md` | From recordings to a validated model. |
 | `requirements.txt` | Dependencies. |
-| `tests/` | Thirteen runnable check scripts (1340 checks total, three need the armband). See `tests/README.md`. |
+| `tests/` | Fourteen runnable check scripts (1443 checks total, three need the armband). See `tests/README.md`. |
 | `datasets/` | Recorded data (created on first run). |
 | `exports/` | Combined ML bundles from the EXPORT button. |
-| `models/` | `gesture_model.joblib` (loaded by the app), timestamped archives, and `reports/` with every sweep's full results. |
+| `models/` | `gesture_model.joblib` (loaded by the app), `gesture_panel.joblib` (the DECISION TRAIL side file, §8e), timestamped archives, and `reports/` with every sweep's full results. |
 
 ### Section map of `emg_dataset_tool.py`
 
@@ -528,6 +529,86 @@ silently dropped the SVM from the vote and changed what was being measured.
 The ensemble is therefore built from its own always-probability copies.
 `train_model.py` asserts nothing about this; `tests/test_model_spec.py` does.
 
+## 8e. The decision panel — MODEL STATS → DECISION TRAIL
+
+Answers "how did each model decide, how do they become one, and what is the
+final answer?" — live, on the armband, and on the recorded dataset.
+
+```
+train_model.py  build_decision_panel()   ->  models/gesture_panel.joblib
+emg_dataset_tool.py  DecisionPanel           loads it, runs the members
+                     TrailStep               one window's worth of opinions
+                     DecisionTrailWidget     draws input -> 7 rows -> fusion
+                     DecisionTrailView       LIVE / RECORDED + the controls
+explain_votes.py                             rebuilds it without a sweep
+```
+
+**It is a SEPARATE FILE, and that is the whole design.**
+`gesture_model.joblib` keeps holding exactly one estimator, because that is
+what ships to the SBC on the robot. `LivePredictor` never opens the panel.
+Delete `gesture_panel.joblib` and the only thing that changes is that the
+view says it is missing and tells you how to rebuild it. `--no-panel` skips
+writing it.
+
+**One feature path, not two.** The live trail runs on
+`LivePredictor.last_features` — the exact row the deployed model was just
+given. Recomputing features inside the panel would create a second path that
+could drift from `model_feature_vector()`, which is the one contract binding
+training to inference. `tests/test_trail.py` checks the vector is identical
+and unmodified.
+
+**Two sources of numbers, never mixed:**
+
+| | What it is | Honest? |
+|---|---|---|
+| **LIVE** | the stored members, fitted on the **whole dataset**, run on the window you just made | **No** — it demonstrates how the vote forms. The view says so in the caption, every time. |
+| **RECORDED** | out-of-fold probabilities captured during training, scrubbable per window | **Yes** — the window's recording was held out of the fold that scored it. |
+
+**Every candidate is scored on the WINNER's setup**, not on its own best one.
+That is what makes seven rows comparable: one feature vector, seven opinions.
+It also means these numbers are *lower* than `best_per_model` in the sweep
+report, where each model picked its own preprocessing — on this dataset SVM
+reads 99.15 % here against 99.8 % there. The dialog says this in words next
+to the table rather than leaving someone to discover it.
+
+**The fusion rule is measured, not claimed.** Soft voting is the unweighted
+mean of the members' `predict_proba`. `build_decision_panel()` computes the
+mean itself, compares it against the stored `VotingClassifier` over the whole
+dataset, and records the result (`fusion.max_abs_diff_vs_mean`, measured
+1.2e-07 — float32 rounding). The live path therefore does **not** call the
+ensemble: doing so re-runs all seven members for a number already in hand,
+and that doubling is what made the view miss windows. When the check does
+*not* pass the view shows the ensemble's recorded output instead of trusting
+the mean.
+
+**The diagram must not imply the ensemble ships.** It does not: the sweep
+saved the single winner. Every frame marks the deployed row with `*` and the
+fusion box carries a `DEPLOYED <name> -> <label>` line. Rule 11 in §9 covers
+reporting; this is the same idea applied to a picture.
+
+**Performance, measured on this machine** (and the reason for two
+non-obvious lines of code):
+
+| | Cost | Why |
+|---|---|---|
+| members at `n_jobs=-1` | **2700 ms** per window | joblib stands up a worker pool per call, for one row through 400 trees |
+| members at `n_jobs=1` | **50-78 ms** per window | `DecisionPanel._serialise_members()` forces this on load |
+| first call ever | **~2500 ms** | HistGradientBoosting builds its prediction kernel on demand (2416 ms first, 2.5 ms second) |
+| after `warm_up()` | — | run once on a worker thread (`PanelWarmUp`) when the dialog opens, so no live window eats it |
+
+`n_jobs` changes only how a fitted forest is evaluated, never what it
+answers. The panel is loaded **lazily**, on the first MODEL STATS open, so
+startup does not unpickle two 400-tree forests for a view nobody asked for.
+
+**MODEL STATS is not modal any more.** The trail follows the live classifier,
+and a modal dialog would mean you could only watch it if PREDICT happened to
+be running already — you could not reach the button to start it.
+
+**A mismatched panel is refused, not fed.** `matches()` compares labels,
+feature set, representation, frequency features and window samples; on any
+difference the view explains which field disagrees and stops. Feeding a panel
+vectors it was never fitted on would produce confident nonsense.
+
 ## 9. Safety / data-preservation rules
 
 These are invariants. Breaking one is a bug, not a trade-off.
@@ -567,6 +648,9 @@ python test_myo.py                            # original reference monitor
 
 python train_model.py --spec models\model_spec.json   # THE trainer (CPU)
 python train_model.py --quick --spec models\model_spec.json   # reduced grid
+python train_model.py --no-panel                      # skip the DECISION TRAIL file
+python explain_votes.py                               # rebuild it for the saved model
+python explain_votes.py --json                        # ...and a JSON copy of the trail
 
 python tests\test_datalayer.py                # 150 checks, no hardware
 python tests\test_gui.py                      # 91 checks, no hardware
@@ -576,6 +660,7 @@ python tests\test_markers.py                  # 88 checks, no hardware
 python tests\test_free_take.py                # 195 checks, no hardware
 python tests\test_model_spec.py               # 346 checks, no hardware
 python tests\test_predict.py                  # 109 checks, no hardware
+python tests\test_trail.py                    # 103 checks, the DECISION TRAIL
 python tests\test_no_torch.py                 # 11 checks, proves the app needs no torch
 python tests\test_torch.py                    # 163 checks, the RETIRED deep trainer
 python tests\test_live.py                     # 35 checks, NEEDS the armband
@@ -624,6 +709,13 @@ The data layer degrades gracefully: without pandas you lose
   `NOMINAL_SAMPLE_RATE` is only a hint — the measured rate is what gets stored.
 - **The armband sleeps** when idle. `STALL_TIMEOUT_S` catches that and triggers
   a reconnect; the first reconnect after a sleep can take a few seconds.
+- **The DECISION TRAIL costs 50-78 ms of GUI thread per live window**
+  (§8e), against a 150 ms prediction interval. The plot can look slightly
+  less smooth while MODEL STATS is open; no samples are lost, because
+  capture happens on the acquisition thread. Close the dialog, or set
+  `ENABLE_DECISION_PANEL = False`, on a slow machine.
+- **`gesture_panel.joblib` is ~4 MB** and grows with the forests in the
+  spec. It is a desktop diagnostic — do not copy it to the robot.
 - **`MAX_RECORDINGS = 0`** means unlimited, not zero.
 - **The `dropped` counter is approximate.** The dongle delivers 2–4 buffered
   packets at once, so the inter-sample interval is bursty and the heuristic

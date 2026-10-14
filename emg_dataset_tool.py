@@ -633,6 +633,21 @@ TRAIN_EXIT_NEED_MORE_DATA = 2
 # Name of the spec file, written next to the model.
 MODEL_SPEC_NAME = "model_spec.json"
 
+# Name of the decision panel, written next to the model by train_model.py.
+# It holds every swept candidate fitted on the whole dataset, plus their
+# out-of-fold decision trail, and drives MODEL STATS -> DECISION TRAIL.
+#
+# It is deliberately a SEPARATE file from the model: gesture_model.joblib
+# stays one estimator because that is what ships to the SBC on the robot,
+# and the live prediction path never touches this file. Delete it and the
+# only thing that changes is that the DECISION TRAIL view says so.
+PANEL_FILENAME = "gesture_panel.joblib"
+
+# Load the panel's members and run them beside the deployed model while
+# predicting. Costs one predict_proba per candidate per window -- fine on a
+# desktop, which is where this view is used. Set False on a small board.
+ENABLE_DECISION_PANEL = True
+
 # Also build a voting ensemble out of the enabled models.
 MODEL_VOTING_ENABLED = True
 
@@ -2440,6 +2455,15 @@ def model_spec_path(model_path: str = None) -> str:
         target = os.path.join(PROJECT_DIR, target)
     return os.path.join(os.path.dirname(os.path.abspath(target)),
                         MODEL_SPEC_NAME)
+
+
+def panel_path(model_path: str = None) -> str:
+    """`models/gesture_panel.joblib` -- next to the model it explains."""
+    target = model_path or MODEL_PATH
+    if not os.path.isabs(target):
+        target = os.path.join(PROJECT_DIR, target)
+    return os.path.join(os.path.dirname(os.path.abspath(target)),
+                        PANEL_FILENAME)
 
 
 def save_model_spec(path: str, spec: dict) -> str:
@@ -6748,6 +6772,642 @@ class QualityDialog(QtWidgets.QDialog):
         return self._repeat
 
 
+#  Per-class colours for the trail. Deliberately not CHANNEL_COLORS: those
+#  mean "electrode 3", and reusing them for "the class FIST" would make two
+#  unrelated things look related on the same screen.
+CLASS_COLORS = ["#fb923c", "#38bdf8", "#a78bfa", "#34d399",
+                "#f472b6", "#facc15", "#60a5fa", "#fb7185"]
+
+
+def class_color(index: int) -> str:
+    return CLASS_COLORS[index % len(CLASS_COLORS)]
+
+
+class DecisionTrailWidget(QtWidgets.QWidget):
+    """
+    Every candidate's decision on one window, and how they fuse into one.
+
+    Draws four columns -- the input, the candidates, the wires, the verdict --
+    and nothing it was not given. With no step set it paints the reason why
+    instead of an empty frame or a plausible-looking placeholder.
+
+    It is a painter, not a source: `set_step()` is the only way anything gets
+    on screen, and the caller is the one that decides whether the numbers are
+    live or recorded. That keeps the "no fake predictions" rule checkable in
+    one place.
+    """
+
+    ROW_H = 34
+    PAD = 12
+    IN_W = 148
+    WIRE_W = 64
+    OUT_W = 196
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.step: Optional[TrailStep] = None
+        self.channels: Optional[np.ndarray] = None
+        self.channel_peak = 1.0
+        self.caption = ""
+        self.empty_reason = "no decision panel loaded"
+        self.cv: dict = {}
+        self.setMinimumHeight(300)
+        self.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
+                           QtWidgets.QSizePolicy.MinimumExpanding)
+
+    def set_empty(self, reason: str) -> None:
+        self.step = None
+        self.empty_reason = reason
+        self.update()
+
+    def set_step(self, step: Optional[TrailStep], channels=None,
+                 caption: str = "", cv: dict = None) -> None:
+        self.step = step
+        self.channels = None if channels is None else np.asarray(channels,
+                                                                 dtype=float)
+        if self.channels is not None and self.channels.size:
+            self.channel_peak = max(1.0, float(np.max(self.channels)))
+        self.caption = caption
+        if cv is not None:
+            self.cv = cv
+        self.update()
+
+    def sizeHint(self):
+        rows = len(self.step.names) if self.step else 7
+        return QtCore.QSize(720, 86 + rows * self.ROW_H + 60)
+
+    # -- painting -------------------------------------------------------------
+
+    def paintEvent(self, event):
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
+        painter.fillRect(self.rect(), QtGui.QColor(COL_BG))
+
+        if self.step is None or not self.step.names:
+            self._paint_empty(painter)
+            painter.end()
+            return
+
+        width, height = self.width(), self.height()
+        #  Shed columns rather than squeezing them when the dialog is narrow:
+        #  a 40 px wide probability bar communicates nothing.
+        show_input = width >= 640 and self.channels is not None
+        show_wires = width >= 520
+        left = self.PAD + (self.IN_W + self.PAD if show_input else 0)
+        right_w = min(self.OUT_W, max(150, int(width * 0.3)))
+        wire_w = self.WIRE_W if show_wires else 0
+        models_w = width - left - wire_w - right_w - self.PAD * 2
+        if models_w < 120:
+            models_w = max(100, width - left - right_w - self.PAD * 2)
+            wire_w, show_wires = 0, False
+
+        top = self.PAD + 22
+        rows = len(self.step.names)
+
+        self._paint_header(painter, width)
+        if show_input:
+            self._paint_input(painter, self.PAD, top, self.IN_W,
+                              rows * self.ROW_H)
+        centres = self._paint_models(painter, left, top, models_w)
+        out_x = left + models_w + wire_w + self.PAD * 2
+        fuse_top = top + max(0, (rows * self.ROW_H) // 2 - 58)
+        if show_wires:
+            self._paint_wires(painter, left + models_w + self.PAD, centres,
+                              wire_w, out_x, fuse_top + 46)
+        self._paint_fusion(painter, out_x, fuse_top, right_w)
+
+        if self.caption:
+            painter.setPen(QtGui.QColor(COL_TEXT_DIM))
+            font = painter.font()
+            font.setPointSize(8)
+            font.setBold(False)
+            painter.setFont(font)
+            painter.drawText(
+                QtCore.QRect(self.PAD, top + rows * self.ROW_H + 6,
+                             max(60, width - self.PAD * 2), 34),
+                QtCore.Qt.TextWordWrap | QtCore.Qt.AlignTop, self.caption)
+        painter.end()
+
+    def _paint_empty(self, painter):
+        painter.setPen(QtGui.QColor(COL_TEXT_DIM))
+        font = painter.font()
+        font.setPointSize(10)
+        painter.setFont(font)
+        painter.drawText(self.rect().adjusted(self.PAD, self.PAD,
+                                              -self.PAD, -self.PAD),
+                         QtCore.Qt.AlignCenter | QtCore.Qt.TextWordWrap,
+                         self.empty_reason)
+
+    def _paint_header(self, painter, width):
+        step = self.step
+        font = painter.font()
+        font.setPointSize(8)
+        font.setBold(True)
+        painter.setFont(font)
+        tag = "LIVE WINDOW" if step.source == "live" else "RECORDED WINDOW"
+        colour = COL_GOOD if step.source == "live" else COL_ACCENT
+        painter.setPen(QtGui.QColor(colour))
+        painter.drawText(self.PAD, self.PAD + 10, tag)
+        if step.note:
+            painter.setPen(QtGui.QColor(COL_TEXT_DIM))
+            font.setBold(False)
+            painter.setFont(font)
+            metrics = painter.fontMetrics()
+            room = max(40, width - self.PAD * 2 - metrics.horizontalAdvance(tag) - 14)
+            painter.drawText(
+                self.PAD + metrics.horizontalAdvance(tag) + 14, self.PAD + 10,
+                metrics.elidedText(step.note, QtCore.Qt.ElideRight, room))
+
+    def _paint_input(self, painter, x, y, w, h):
+        painter.setPen(QtGui.QPen(QtGui.QColor(COL_BORDER), 1))
+        painter.setBrush(QtGui.QColor(COL_PANEL))
+        painter.drawRoundedRect(QtCore.QRectF(x, y, w, h), RAD_SM, RAD_SM)
+
+        font = painter.font()
+        font.setPointSize(8)
+        font.setBold(True)
+        painter.setFont(font)
+        painter.setPen(QtGui.QColor(COL_TEXT_DIM))
+        painter.drawText(int(x + 8), int(y + 15), "INPUT  CHANNEL LEVEL")
+
+        values = self.channels
+        n = int(values.size)
+        if not n:
+            return
+        bar_h = max(5, int((h - 32) / n) - 3)
+        for i in range(n):
+            row_y = y + 24 + i * (bar_h + 3)
+            painter.setPen(QtGui.QColor(COL_TEXT_DIM))
+            font.setBold(False)
+            font.setPointSize(7)
+            painter.setFont(font)
+            painter.drawText(int(x + 8), int(row_y + bar_h - 1),
+                             CHANNEL_NAMES[i] if i < len(CHANNEL_NAMES)
+                             else f"CH{i + 1}")
+            track = QtCore.QRectF(x + 34, row_y, w - 76, bar_h)
+            painter.setPen(QtCore.Qt.NoPen)
+            painter.setBrush(QtGui.QColor(COL_PANEL_2))
+            painter.drawRect(track)
+            frac = max(0.0, min(1.0, float(values[i]) / self.channel_peak))
+            if frac > 0:
+                painter.setBrush(QtGui.QColor(CHANNEL_COLORS[
+                    i % len(CHANNEL_COLORS)]))
+                painter.drawRect(QtCore.QRectF(track.x(), track.y(),
+                                               track.width() * frac, bar_h))
+            painter.setPen(QtGui.QColor(COL_TEXT))
+            painter.drawText(
+                QtCore.QRectF(x + w - 40, row_y - 1, 34, bar_h + 2),
+                QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter,
+                f"{float(values[i]):.0f}")
+
+    def _paint_models(self, painter, x, y, w):
+        step = self.step
+        centres = []
+        target = step.decision(step.fused_from_mean)
+        font = painter.font()
+
+        for i, name in enumerate(step.names):
+            probabilities = step.per_model[i]
+            pick = step.decision(probabilities)
+            confidence = float(probabilities[pick])
+            row_y = y + i * self.ROW_H
+            centres.append((row_y + self.ROW_H / 2 - 4, pick, confidence))
+
+            #  A row that disagrees with the vote is the only thing worth
+            #  highlighting here, so it is the only thing highlighted.
+            painter.setPen(QtCore.Qt.NoPen)
+            painter.setBrush(QtGui.QColor(COL_PANEL if pick == target
+                                          else COL_PANEL_2))
+            painter.drawRoundedRect(
+                QtCore.QRectF(x, row_y, w, self.ROW_H - 4), 3, 3)
+            painter.setBrush(QtGui.QColor(class_color(pick)))
+            painter.drawRect(QtCore.QRectF(x, row_y, 3, self.ROW_H - 4))
+
+            font.setPointSize(9)
+            font.setBold(name == step.deployed_name)
+            painter.setFont(font)
+            painter.setPen(QtGui.QColor(COL_TEXT))
+            metrics = painter.fontMetrics()
+            name_w = max(60, int(w * 0.34))
+            shown = name + ("  *" if name == step.deployed_name else "")
+            painter.drawText(
+                QtCore.QRectF(x + 9, row_y, name_w, self.ROW_H - 4),
+                QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter,
+                metrics.elidedText(shown, QtCore.Qt.ElideRight, name_w))
+
+            #  The probability split: one segment per class, to scale.
+            bar_x = x + 9 + name_w + 6
+            bar_w = max(40.0, w - (name_w + 150))
+            bar = QtCore.QRectF(bar_x, row_y + self.ROW_H / 2 - 5, bar_w, 8)
+            painter.setPen(QtCore.Qt.NoPen)
+            painter.setBrush(QtGui.QColor(COL_BG))
+            painter.drawRect(bar)
+            offset = 0.0
+            for k, p in enumerate(probabilities):
+                seg = max(0.0, float(p)) * bar_w
+                if seg <= 0.2:
+                    offset += seg
+                    continue
+                painter.setBrush(QtGui.QColor(class_color(k)))
+                painter.drawRect(QtCore.QRectF(bar.x() + offset, bar.y(),
+                                               seg, bar.height()))
+                offset += seg
+
+            font.setPointSize(8)
+            font.setBold(False)
+            painter.setFont(font)
+            painter.setPen(QtGui.QColor(class_color(pick)))
+            painter.drawText(
+                QtCore.QRectF(bar_x + bar_w + 6, row_y, 78, self.ROW_H - 4),
+                QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter,
+                f"{step.labels[pick] if pick < len(step.labels) else pick}")
+            painter.setPen(QtGui.QColor(COL_TEXT_DIM))
+            painter.drawText(
+                QtCore.QRectF(x + w - 62, row_y, 56, self.ROW_H - 4),
+                QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter,
+                f"{confidence:.3f}")
+        return centres
+
+    def _paint_wires(self, painter, x, centres, w, out_x, out_y):
+        """
+        One curve per candidate into the vote.
+
+        Width and opacity carry that candidate's confidence, and the colour
+        carries its decision -- so a split vote is visible as two colours
+        arriving at the same point, which is the thing worth seeing.
+        """
+        end_x = out_x - 2
+        for y, pick, confidence in centres:
+            path = QtGui.QPainterPath(QtCore.QPointF(x, y))
+            mid = x + (end_x - x) * 0.55
+            path.cubicTo(QtCore.QPointF(mid, y),
+                         QtCore.QPointF(mid, out_y),
+                         QtCore.QPointF(end_x, out_y))
+            colour = QtGui.QColor(class_color(pick))
+            colour.setAlpha(int(70 + 160 * max(0.0, min(1.0, confidence))))
+            painter.setPen(QtGui.QPen(colour, 0.9 + 2.0 * confidence))
+            painter.setBrush(QtCore.Qt.NoBrush)
+            painter.drawPath(path)
+        painter.setPen(QtCore.Qt.NoPen)
+        painter.setBrush(QtGui.QColor(COL_TEXT))
+        painter.drawEllipse(QtCore.QPointF(end_x, out_y), 3.0, 3.0)
+
+    def _paint_fusion(self, painter, x, y, w):
+        step = self.step
+        fused = step.fused if step.fused is not None else step.fused_from_mean
+        pick = step.decision(fused)
+        confidence = float(fused[pick])
+        height = 118
+
+        painter.setPen(QtGui.QPen(QtGui.QColor(COL_TEXT), 1))
+        painter.setBrush(QtGui.QColor(COL_PANEL))
+        painter.drawRoundedRect(QtCore.QRectF(x, y, w, height),
+                                RAD_SM, RAD_SM)
+
+        font = painter.font()
+        font.setPointSize(8)
+        font.setBold(True)
+        painter.setFont(font)
+        painter.setPen(QtGui.QColor(COL_TEXT_DIM))
+        painter.drawText(int(x + 10), int(y + 15), "SOFT VOTE")
+
+        font.setBold(False)
+        font.setPointSize(7)
+        painter.setFont(font)
+        mean_pick = step.decision(step.fused_from_mean)
+        painter.drawText(
+            QtCore.QRectF(x + 10, y + 19, w - 20, 26),
+            QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop | QtCore.Qt.TextWordWrap,
+            f"mean of {len(step.names)} = "
+            f"{step.fused_from_mean[mean_pick]:.4f}"
+            + ("" if step.fused is None else
+               f"   ensemble {fused[pick]:.4f}"))
+
+        font.setPointSize(17)
+        font.setBold(True)
+        painter.setFont(font)
+        painter.setPen(QtGui.QColor(class_color(pick)))
+        painter.drawText(
+            QtCore.QRectF(x + 10, y + 42, w - 20, 30),
+            QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter,
+            step.labels[pick] if pick < len(step.labels) else str(pick))
+
+        font.setPointSize(8)
+        font.setBold(False)
+        painter.setFont(font)
+        painter.setPen(QtGui.QColor(COL_TEXT_DIM))
+        painter.drawText(
+            QtCore.QRectF(x + 10, y + 70, w - 20, 16),
+            QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter,
+            f"{confidence:.3f}   {step.agreement} of {len(step.names)} agree")
+
+        #  What actually runs on the robot, stated every time: a diagram of
+        #  seven models fusing into one would otherwise imply the ensemble
+        #  ships, and it does not.
+        deployed_text = f"DEPLOYED  {step.deployed_name}"
+        if step.deployed is not None:
+            d_pick = step.decision(step.deployed)
+            deployed_text += (f"  ->  "
+                              f"{step.labels[d_pick] if d_pick < len(step.labels) else d_pick}"
+                              f"  {step.deployed[d_pick]:.3f}")
+        painter.setPen(QtGui.QColor(COL_WARN))
+        font.setPointSize(7)
+        font.setBold(True)
+        painter.setFont(font)
+        painter.drawText(
+            QtCore.QRectF(x + 10, y + 88, w - 20, 26),
+            QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop | QtCore.Qt.TextWordWrap,
+            deployed_text)
+
+
+class PanelWarmUp(QtCore.QRunnable):
+    """
+    Runs `DecisionPanel.warm_up()` on a worker thread.
+
+    One call per app run, and it only touches fitted estimators read-only,
+    so there is nothing to synchronise. The view polls `panel.warming` on
+    the timer it already has rather than waiting on a signal -- one less
+    cross-thread connection for a job whose only output is a flag.
+    """
+
+    def __init__(self, panel: "DecisionPanel"):
+        super().__init__()
+        self.panel = panel
+        self.setAutoDelete(True)
+
+    def run(self):                                         # pragma: no cover
+        try:
+            self.panel.warm_up()
+        except Exception:
+            self.panel.warming = False
+
+
+class DecisionTrailView(QtWidgets.QWidget):
+    """
+    The DECISION TRAIL section of MODEL STATS: controls plus the drawing.
+
+    Two sources, and which one is on screen is never ambiguous:
+
+      * LIVE follows the classifier. While PREDICT is running every new
+        window re-runs all the candidates on the very feature vector the
+        deployed model just used. With nothing streaming it holds the last
+        window and says so.
+      * RECORDED scrubs the out-of-fold trail stored at training time, which
+        is where the honest numbers are.
+
+    With no panel file the whole section reduces to one sentence explaining
+    how to get one. Nothing here can show a number the panel did not supply.
+    """
+
+    def __init__(self, panel: "DecisionPanel", predictor: "LivePredictor",
+                 parent=None):
+        super().__init__(parent)
+        self.panel = panel
+        self.predictor = predictor
+        self.row = 0
+        self.live = True
+        self._rows: List[int] = []
+        self._splits: List[int] = []
+        self._live_seen = 0
+
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(SP_SM)
+
+        self.controls = QtWidgets.QWidget()
+        bar = QtWidgets.QHBoxLayout(self.controls)
+        bar.setContentsMargins(0, 0, 0, 0)
+        bar.setSpacing(SP_SM)
+
+        self.live_button = QtWidgets.QPushButton("LIVE")
+        self.live_button.setCheckable(True)
+        self.live_button.setChecked(True)
+        self.live_button.setToolTip(
+            "Follow the classifier: every predicted window is re-run through "
+            "all the candidates.")
+        self.live_button.clicked.connect(lambda: self._set_live(True))
+        self.recorded_button = QtWidgets.QPushButton("RECORDED")
+        self.recorded_button.setCheckable(True)
+        self.recorded_button.setToolTip(
+            "Scrub the out-of-fold decisions captured during training.")
+        self.recorded_button.clicked.connect(lambda: self._set_live(False))
+        bar.addWidget(self.live_button)
+        bar.addWidget(self.recorded_button)
+
+        self.rec_select = QtWidgets.QComboBox()
+        self.rec_select.setMinimumWidth(190)
+        self.rec_select.currentIndexChanged.connect(self._pick_recording)
+        bar.addWidget(self.rec_select, 1)
+
+        self.slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+        self.slider.setMinimum(0)
+        self.slider.valueChanged.connect(self._pick_window)
+        bar.addWidget(self.slider, 2)
+
+        self.position = make_label("--", 9, False, COL_TEXT_DIM)
+        bar.addWidget(self.position)
+
+        self.split_button = QtWidgets.QPushButton("NEXT DISAGREEMENT")
+        self.split_button.setToolTip(
+            "Jump to the next recorded window where the candidates did not "
+            "all pick the same gesture.")
+        self.split_button.clicked.connect(self._next_split)
+        bar.addWidget(self.split_button)
+        layout.addWidget(self.controls)
+
+        self.trail = DecisionTrailWidget()
+        layout.addWidget(self.trail, 1)
+
+        self.footer = make_label("", 9, False, COL_TEXT_DIM)
+        self.footer.setWordWrap(True)
+        layout.addWidget(self.footer)
+
+        self._build()
+
+    # -- setup ----------------------------------------------------------------
+
+    def _build(self) -> None:
+        panel = self.panel
+        if not panel.ready:
+            self.controls.setVisible(False)
+            self.trail.set_empty(
+                "No decision panel.\n\n" + panel.status +
+                "\n\nRetrain (RETRAIN, or python train_model.py) and this "
+                "view will show every candidate's vote on each window.")
+            self.footer.setText("")
+            return
+
+        stale = panel.stale_reason(self.predictor)
+        if stale:
+            self.controls.setVisible(False)
+            self.trail.set_empty(
+                "The decision panel does not match the loaded model.\n\n"
+                + stale)
+            self.footer.setText("")
+            return
+
+        #  Pay the candidates' first-call cost on a worker thread now, so the
+        #  first live window does not stall the GUI for ~2.5 s.
+        if not panel.warm and not panel.warming:
+            QtCore.QThreadPool.globalInstance().start(PanelWarmUp(panel))
+
+        self._splits = panel.split_windows()
+        self.rec_select.blockSignals(True)
+        self.rec_select.clear()
+        for index, entry in enumerate(panel.recordings):
+            wrong = [n for n in panel.names
+                     if not entry["models"].get(n, {}).get("correct", True)]
+            text = (f"{entry['label']}  {entry['uid']}  "
+                    f"{entry['n_windows']}w  fold {entry['fold'] + 1}")
+            if wrong:
+                text += f"  [{len(wrong)} wrong]"
+            self.rec_select.addItem(text, index)
+        self.rec_select.blockSignals(False)
+        self.split_button.setEnabled(bool(self._splits))
+
+        counts = ", ".join(
+            f"{name} {sum(1 for r in panel.recordings if r['label'] == name)}"
+            for name in panel.labels)
+        verified = panel.fusion.get("verified")
+        difference = panel.fusion.get("max_abs_diff_vs_mean")
+        self.footer.setText(
+            f"Panel built {panel.created_iso[:16].replace('T', ' ')} from "
+            f"{panel.n_windows} windows of {panel.n_recordings} recordings "
+            f"({counts}).  Fusion: {panel.fusion.get('rule', '?')}"
+            + (f"; checked against the stored ensemble, max difference "
+               f"{difference:.1e}." if isinstance(difference, float) else ".")
+            + ("" if verified else
+               "  The check did not pass -- read the ensemble's own output, "
+               "not the mean.")
+            + f"  Cross-validation: {panel.protocol.get('cv', '?')}, "
+              f"{panel.protocol.get('n_splits', '?')} folds."
+        )
+        self._set_live(True)
+
+    def _set_live(self, live: bool) -> None:
+        self.live = bool(live)
+        self.live_button.setChecked(self.live)
+        self.recorded_button.setChecked(not self.live)
+        for widget in (self.rec_select, self.slider, self.split_button):
+            widget.setEnabled(not self.live)
+        self.split_button.setEnabled(not self.live and bool(self._splits))
+        if self.live:
+            self.refresh_live(force=True)
+        else:
+            if self.rec_select.count() and not self._rows:
+                self._pick_recording(self.rec_select.currentIndex())
+            self._show_recorded()
+
+    # -- recorded -------------------------------------------------------------
+
+    def _pick_recording(self, index: int) -> None:
+        if index < 0 or index >= len(self.panel.recordings):
+            return
+        rows = self.panel.windows_of(index)
+        self._rows = rows
+        self.slider.blockSignals(True)
+        self.slider.setMaximum(max(0, len(rows) - 1))
+        self.slider.setValue(0)
+        self.slider.blockSignals(False)
+        self.row = rows[0] if rows else 0
+        if not self.live:
+            self._show_recorded()
+
+    def _pick_window(self, value: int) -> None:
+        rows = self._rows
+        if 0 <= value < len(rows):
+            self.row = rows[value]
+            if not self.live:
+                self._show_recorded()
+
+    def _next_split(self) -> None:
+        if not self._splits:
+            return
+        later = [r for r in self._splits if r > self.row]
+        target = later[0] if later else self._splits[0]
+        index = self.panel.recording_index_of(target)
+        if index >= 0:
+            if index != self.rec_select.currentIndex():
+                self.rec_select.setCurrentIndex(index)
+            if target in self._rows:
+                self.slider.setValue(self._rows.index(target))
+        self.row = target
+        self._show_recorded()
+
+    def _show_recorded(self) -> None:
+        step = self.panel.recorded_step(self.row)
+        if step is None:
+            self.trail.set_empty(
+                "This panel carries no per-window trail; only the live view "
+                "and the scores are available.")
+            return
+        rows = self._rows
+        position = rows.index(self.row) + 1 if self.row in rows else 1
+        self.position.setText(f"{position} / {max(1, len(rows))}")
+        truth = self.panel.recorded_truth(self.row)
+        fused = step.fused if step.fused is not None else step.fused_from_mean
+        correct = step.decision(fused) == truth
+        self.trail.set_step(
+            step, channels=self.panel.recorded_channels(self.row),
+            caption=("The vote was " + ("right" if correct else "WRONG")
+                     + " on this window.  These are out-of-fold numbers: the "
+                     "recording was held out of the fold that produced them, "
+                     "so they are the honest ones."),
+            cv=self.panel.cv)
+
+    # -- live -----------------------------------------------------------------
+
+    def refresh_live(self, force: bool = False) -> None:
+        """Re-run the candidates on the newest predicted window."""
+        if not self.live or not self.panel.ready:
+            return
+        if self.panel.stale_reason(self.predictor):
+            return
+        if self.panel.warming:
+            self.trail.set_empty(
+                "Preparing the candidates...\n\nEach one's first prediction "
+                "builds its kernel; this happens once. Live windows appear as "
+                "soon as it finishes.")
+            self.position.setText("...")
+            return
+
+        features = self.predictor.last_features
+        if features is None:
+            self.trail.set_empty(
+                "Waiting for a live window.\n\nPress PREDICT in the LIVE "
+                "CLASSIFIER panel, or switch to RECORDED to scrub the "
+                "windows captured during training.")
+            self.position.setText("--")
+            return
+
+        last = self.predictor.last
+        stamp = getattr(last, "unix_time", 0.0) if last else 0.0
+        if not force and stamp == self._live_seen:
+            return
+        self._live_seen = stamp
+
+        step = self.panel.step_for_features(features, self.predictor)
+        if step is None:
+            self.trail.set_empty("The decision panel could not run on this "
+                                 "window: " + self.panel.status)
+            return
+        window = self.predictor.last_window
+        channels = None
+        if window is not None and np.asarray(window).ndim == 2:
+            channels = np.mean(np.asarray(window, dtype=float), axis=0)
+        age = time.time() - stamp if stamp else None
+        self.position.setText("live" if (age is not None and age < 2.0)
+                              else "held")
+        self.trail.set_step(
+            step, channels=channels,
+            caption=("Every candidate ran on the same feature vector the "
+                     "deployed model just used. They were fitted on the whole "
+                     "dataset, so agreement here shows how the vote forms -- "
+                     "it is not an accuracy estimate. For that, use RECORDED "
+                     "or the scores below."),
+            cv=self.panel.cv)
+
+
 class ModelStatsDialog(QtWidgets.QDialog):
     """
     What the trained model actually is and how well it really does.
@@ -6758,10 +7418,21 @@ class ModelStatsDialog(QtWidgets.QDialog):
     without its protocol is not a result.
     """
 
-    def __init__(self, predictor: "LivePredictor", parent=None):
+    def __init__(self, predictor: "LivePredictor", parent=None,
+                 panel: "DecisionPanel" = None):
         super().__init__(parent)
         self.setWindowTitle("Model statistics")
-        fit_to_screen(self, 760, 760, min_width=480, min_height=360)
+        fit_to_screen(self, 940, 820, min_width=480, min_height=360)
+        self.predictor = predictor
+        #  Self-sufficient when nobody hands one in: the dialog is opened
+        #  from the tests and from --summary paths too, and a missing panel
+        #  is a normal state with its own message, not an error.
+        if panel is None:
+            panel = DecisionPanel(model_path=predictor.path)
+            panel.load()
+        self.panel = panel
+        self.trail_view = None
+        self.trail_timer = None
 
         stats = dict(predictor.stats or {})
         layout = QtWidgets.QVBoxLayout(self)
@@ -6823,6 +7494,41 @@ class ModelStatsDialog(QtWidgets.QDialog):
         body.addWidget(make_label(
             f"Chance level for {len(predictor.labels)} gestures is "
             f"{chance * 100:.1f} %.", 11, False, COL_TEXT_DIM))
+
+        # ---- decision trail --------------------------------------------------
+        #  How every candidate judged this window and how the seven become
+        #  one. Placed above the rest because it is the only part of this
+        #  dialog that moves while you use the armband.
+        body.addWidget(make_label("DECISION TRAIL", 11, True, COL_TEXT_DIM))
+        note = make_label(
+            "Every classifier in the spec, on one window, fusing into a "
+            "single soft vote. The row marked * is the one that actually "
+            "predicts; the vote is shown for comparison and is not what the "
+            "app loads.", 10, False, COL_TEXT_DIM)
+        note.setWordWrap(True)
+        body.addWidget(note)
+
+        self.trail_view = DecisionTrailView(self.panel, predictor, self)
+        trail_frame = QtWidgets.QFrame()
+        trail_frame.setStyleSheet(
+            f"QFrame {{ background: {COL_PANEL}; border: 1px solid "
+            f"{COL_BORDER}; border-radius: {RAD_SM}px; }}")
+        trail_box = QtWidgets.QVBoxLayout(trail_frame)
+        trail_box.setContentsMargins(SP_SM, SP_SM, SP_SM, SP_SM)
+        trail_box.addWidget(self.trail_view)
+        body.addWidget(trail_frame)
+
+        if self.panel is not None and self.panel.ready \
+                and not self.panel.stale_reason(predictor):
+            self._add_candidate_table(body, predictor)
+
+        #  Repaint on the classifier's own cadence rather than faster: a
+        #  prediction arrives a few times a second and there is nothing new
+        #  to draw in between.
+        self.trail_timer = QtCore.QTimer(self)
+        self.trail_timer.setInterval(120)
+        self.trail_timer.timeout.connect(self._tick_trail)
+        self.trail_timer.start()
 
         # ---- what the model actually is --------------------------------------
         # Read off the loaded estimator rather than off the spec: this is the
@@ -7009,6 +7715,87 @@ class ModelStatsDialog(QtWidgets.QDialog):
         buttons.addWidget(reload_button)
         buttons.addWidget(close)
         layout.addLayout(buttons)
+
+    def _tick_trail(self) -> None:
+        if self.trail_view is not None and self.isVisible():
+            self.trail_view.refresh_live()
+
+    def _add_candidate_table(self, body, predictor) -> None:
+        """
+        Every candidate's out-of-fold score on the winner's setup.
+
+        Not the same thing as `best_per_model` in the sweep report: there,
+        each model got to pick its own preprocessing. Here they all run on
+        one setup, which is what makes the trail above a fair comparison and
+        usually makes these numbers lower. Said in the dialog rather than
+        left for someone to discover.
+        """
+        panel = self.panel
+        body.addWidget(make_label(
+            "EVERY CANDIDATE, SAME SETUP (out-of-fold)", 11, True,
+            COL_TEXT_DIM))
+        explain = make_label(
+            f"All of them on the winning setup -- "
+            f"{panel.setup.get('window_s', '?')} s windows, overlap "
+            f"{panel.setup.get('overlap', '?')}, "
+            f"{panel.setup.get('representation', '?')}/"
+            f"{panel.setup.get('feature_set', '?')}, "
+            f"{panel.setup.get('n_features', '?')} features. The sweep report "
+            f"lets each model choose its own preprocessing instead, so those "
+            f"numbers are higher and are not comparable with these.",
+            10, False, COL_TEXT_DIM)
+        explain.setWordWrap(True)
+        body.addWidget(explain)
+
+        order = list(panel.names) + ([panel.vote_name] if panel.vote_name
+                                     and panel.vote_name in panel.cv else [])
+        table = QtWidgets.QTableWidget(len(order), 5)
+        table.setHorizontalHeaderLabels(
+            ["candidate", "per window", "per recording", "mean conf.",
+             "windows wrong"])
+        table.verticalHeader().setVisible(False)
+        table.setEditTriggers(QtWidgets.QTableWidget.NoEditTriggers)
+        table.horizontalHeader().setSectionResizeMode(
+            0, QtWidgets.QHeaderView.Stretch)
+        for row, name in enumerate(order):
+            entry = panel.cv.get(name, {})
+            window = entry.get("window_accuracy")
+            recording = entry.get("recording_accuracy")
+            shown = name
+            if name == panel.winner:
+                shown += "   * deployed"
+            elif name == panel.vote_name:
+                shown += "   (ensemble)"
+            cells = [
+                shown,
+                "--" if window is None else f"{window * 100:.2f} %",
+                "--" if recording is None else f"{recording * 100:.2f} %",
+                "--" if entry.get("mean_confidence") is None
+                else f"{entry['mean_confidence']:.3f}",
+                str(entry.get("n_windows_wrong", "--")),
+            ]
+            for column, text in enumerate(cells):
+                item = QtWidgets.QTableWidgetItem(text)
+                if column in (1, 2):
+                    item.setTextAlignment(QtCore.Qt.AlignRight
+                                          | QtCore.Qt.AlignVCenter)
+                    value = window if column == 1 else recording
+                    if value is not None:
+                        item.setForeground(QtGui.QColor(
+                            COL_GOOD if value >= 0.85 else
+                            COL_WARN if value >= 0.6 else COL_BAD))
+                if name == panel.winner:
+                    font = item.font()
+                    font.setBold(True)
+                    item.setFont(font)
+                table.setItem(row, column, item)
+        table.setMinimumHeight(min(300, 34 + 28 * len(order)))
+        body.addWidget(table)
+
+    def closeEvent(self, event):
+        if self.trail_timer is not None:
+            self.trail_timer.stop()
+        super().closeEvent(event)
 
     def _reload(self, predictor) -> None:
         ok = predictor.load()
@@ -8575,6 +9362,424 @@ class DatasetExportWorker(QtCore.QThread):
 
 
 @dataclass
+class TrailStep:
+    """
+    What every candidate said about ONE feature vector, and how it fused.
+
+    `per_model` is aligned with `names`; each entry is that candidate's full
+    probability vector over `labels`. `fused` is the soft vote actually
+    produced by the stored ensemble, and `fused_from_mean` is the same thing
+    recomputed as the plain mean of the members -- the view shows both so the
+    fusion rule is demonstrated rather than asserted.
+    """
+    names: List[str]
+    per_model: List[List[float]]
+    labels: List[str]
+    fused: Optional[List[float]]          # the ensemble's own output
+    fused_from_mean: List[float]          # mean of the members, recomputed
+    deployed_name: str                    # the model that actually predicts
+    deployed: Optional[List[float]]       # its probabilities, or None
+    source: str                           # "live" or "recorded"
+    note: str = ""
+
+    def decision(self, probabilities) -> int:
+        return int(np.argmax(np.asarray(probabilities, dtype=float)))
+
+    def label_of(self, probabilities) -> str:
+        index = self.decision(probabilities)
+        return (self.labels[index] if 0 <= index < len(self.labels)
+                else str(index))
+
+    @property
+    def agreement(self) -> int:
+        """How many candidates picked the same class as the soft vote."""
+        if not self.per_model:
+            return 0
+        target = self.decision(self.fused_from_mean)
+        return sum(1 for p in self.per_model if self.decision(p) == target)
+
+
+class DecisionPanel:
+    """
+    The side file that lets MODEL STATS show every candidate's decision.
+
+    Loaded lazily and entirely optional. With no panel file the view says so
+    and shows nothing else -- it never falls back to a guess, and it never
+    stands in for the deployed model, which keeps predicting from
+    `gesture_model.joblib` exactly as before.
+
+    Two sources of truth, kept apart on purpose:
+
+      * `step_for_features()` runs the stored members on a LIVE feature
+        vector. Those members were fitted on the whole dataset, so what they
+        agree about live is a demonstration, not a score. Every caller gets
+        that in `note`.
+      * `recorded_step()` reads the out-of-fold trail captured during
+        training. Those ARE honest numbers, and they come with the fold the
+        window was held out in.
+
+    The live path takes the feature vector LivePredictor already computed, so
+    there is exactly one feature function in play. Recomputing features here
+    would create a second path that could silently drift -- the same reason
+    `model_feature_vector()` is shared with the trainer.
+    """
+
+    def __init__(self, path: str = None, model_path: str = None):
+        self.path = path or panel_path(model_path)
+        self.loaded = False
+        self.status = "not loaded"
+        self.names: List[str] = []
+        self.vote_name: Optional[str] = None
+        self.labels: List[str] = []
+        self.members: dict = {}
+        self.cv: dict = {}
+        self.setup: dict = {}
+        self.fusion: dict = {}
+        self.protocol: dict = {}
+        self.recordings: List[dict] = []
+        self.created_iso = ""
+        self.winner = ""
+        self.n_windows = 0
+        self.n_recordings = 0
+        # First-call warm-up state. See warm_up().
+        self.warming = False
+        self.warm = False
+        self.warm_ms = 0.0
+        self._trail: dict = {}
+        self._mtime = 0.0
+
+    # -- loading --------------------------------------------------------------
+
+    def load(self) -> bool:
+        """Read the panel. False (with a reason in `status`) is normal."""
+        self.loaded = False
+        if not ENABLE_DECISION_PANEL:
+            self.status = "disabled in the configuration"
+            return False
+        if not os.path.exists(self.path):
+            self.status = ("no decision panel yet -- retrain to build one "
+                           "(train_model.py writes it next to the model)")
+            return False
+        try:
+            import joblib
+        except ImportError:
+            self.status = "joblib is not installed"
+            return False
+        try:
+            payload = joblib.load(self.path)
+        except Exception as exc:
+            self.status = f"could not load the decision panel: {exc}"
+            return False
+        if not isinstance(payload, dict) or payload.get("kind") != "decision_panel":
+            self.status = "that file is not a decision panel"
+            return False
+
+        self.names = list(payload.get("member_order") or [])
+        self.vote_name = payload.get("vote_name")
+        self.labels = list(payload.get("labels") or [])
+        self.members = dict(payload.get("members") or {})
+        self.cv = dict(payload.get("cv") or {})
+        self.setup = dict(payload.get("setup") or {})
+        self.fusion = dict(payload.get("fusion") or {})
+        self.protocol = dict(payload.get("protocol") or {})
+        self.recordings = list(payload.get("recordings") or [])
+        self.created_iso = payload.get("created_iso", "")
+        self.winner = payload.get("winner", "")
+        self.n_windows = int(payload.get("n_windows", 0) or 0)
+        self.n_recordings = int(payload.get("n_recordings",
+                                            len(self.recordings)) or 0)
+        self._trail = dict(payload.get("trail") or {})
+        self._mtime = os.path.getmtime(self.path)
+
+        if not self.names or not self.members:
+            self.status = "the decision panel is empty"
+            return False
+        self._serialise_members()
+        self.loaded = True
+        self.status = "ready"
+        return True
+
+    def _serialise_members(self) -> None:
+        """
+        Force the members to predict on one thread.
+
+        Measured on this machine: running the seven candidates over a single
+        live window took 2.7 s with the forests left at `n_jobs=-1`, and
+        0.03 s with them at 1. The work is one row through 400 trees -- a few
+        hundred microseconds -- so the entire 2.7 s was joblib standing up a
+        worker pool, twice, for every window. At 7 predictions a second the
+        view could not keep up and the GUI thread was the one paying.
+
+        `n_jobs` affects only how a fitted forest is evaluated, never what it
+        answers, so this changes no number on screen. It is applied on load
+        rather than at training time because the saved estimator is also the
+        one the sweep used, where many rows at once do want the cores.
+        """
+        def walk(estimator, depth=0):
+            """Every estimator inside a pipeline or an ensemble."""
+            if estimator is None or depth > 4:
+                return
+            if getattr(estimator, "n_jobs", None) not in (None, 1):
+                try:
+                    estimator.n_jobs = 1
+                except Exception:                          # pragma: no cover
+                    pass
+            for step in (getattr(estimator, "named_steps", None) or {}).values():
+                walk(step, depth + 1)
+            #  VotingClassifier: `estimators_` is the fitted list, and it is
+            #  the one that runs; `estimators` holds (name, estimator) pairs.
+            for member in getattr(estimator, "estimators_", None) or []:
+                walk(member, depth + 1)
+            for entry in getattr(estimator, "estimators", None) or []:
+                walk(entry[1] if isinstance(entry, tuple) else entry,
+                     depth + 1)
+
+        for model in self.members.values():
+            walk(model)
+
+    @property
+    def ready(self) -> bool:
+        return self.loaded and bool(self.members)
+
+    def warm_up(self) -> float:
+        """
+        Pay every candidate's first-call cost once, up front.
+
+        Measured here: the second and later windows cost about 45 ms for all
+        seven, but the FIRST costs ~2.5 s, essentially all of it inside
+        HistGradientBoosting's initial `predict_proba`, which builds its
+        prediction kernel on demand (19 ms RandomForest, 21 ms ExtraTrees,
+        under 1 ms for the rest -- and 2416 ms for HistGradBoost's first
+        call against 2.5 ms for its second).
+
+        Left unpaid, that lands on whichever live window arrives first and
+        freezes the GUI thread for two and a half seconds. The dialog
+        therefore runs this on a worker thread before showing anything live.
+
+        A row of zeros is used deliberately: the answer is thrown away, so
+        it only has to be the right SHAPE. Nothing it returns is ever shown.
+        """
+        if not self.ready or self.warm:
+            return 0.0
+        self.warming = True
+        started = time.perf_counter()
+        row = np.zeros((1, int(self.setup.get("n_features", 0) or 0)),
+                       dtype=np.float32)
+        try:
+            if row.shape[1]:
+                for model in self.members.values():
+                    try:
+                        model.predict_proba(row)
+                    except Exception:                      # pragma: no cover
+                        pass
+        finally:
+            self.warm_ms = (time.perf_counter() - started) * 1000.0
+            self.warm = True
+            self.warming = False
+        return self.warm_ms
+
+    def matches(self, predictor: "LivePredictor") -> bool:
+        """
+        Is this panel about the model that is loaded?
+
+        A panel built for a different window length or feature set would be
+        fed vectors it was never fitted on. Rather than predict nonsense, the
+        view refuses and says the panel is stale.
+        """
+        if not self.ready or not predictor.ready:
+            return False
+        setup = self.setup
+        return (list(self.labels) == list(predictor.labels)
+                and setup.get("feature_set") == predictor.feature_set
+                and setup.get("representation") == predictor.representation
+                and bool(setup.get("freq_features")) == bool(predictor.freq_features)
+                and int(setup.get("window_samples", -1)) == int(predictor.window_samples))
+
+    def stale_reason(self, predictor: "LivePredictor") -> str:
+        """Why `matches()` said no, in words the dialog can show."""
+        if not self.ready:
+            return self.status
+        if not predictor.ready:
+            return "no model is loaded"
+        setup = self.setup
+        for field, mine, theirs in (
+                ("labels", list(self.labels), list(predictor.labels)),
+                ("feature set", setup.get("feature_set"), predictor.feature_set),
+                ("representation", setup.get("representation"),
+                 predictor.representation),
+                ("frequency features", bool(setup.get("freq_features")),
+                 bool(predictor.freq_features)),
+                ("window samples", int(setup.get("window_samples", -1)),
+                 int(predictor.window_samples))):
+            if mine != theirs:
+                return (f"the panel was built for {field} {mine!r}, the loaded "
+                        f"model uses {theirs!r} -- retrain to rebuild it")
+        return ""
+
+    # -- live -----------------------------------------------------------------
+
+    def step_for_features(self, features: np.ndarray,
+                          predictor: "LivePredictor" = None) -> Optional[TrailStep]:
+        """
+        Run every candidate on one feature vector that was already computed.
+
+        `features` is the (1, n) row LivePredictor built for this window, so
+        both see bit-identical input. Returns None when the panel cannot
+        answer; it never substitutes an estimate.
+        """
+        if not self.ready:
+            return None
+        row = np.asarray(features, dtype=np.float32)
+        if row.ndim == 1:
+            row = row[None, :]
+        expected = int(self.setup.get("n_features", row.shape[1]))
+        if row.shape[1] != expected:
+            self.status = (f"this panel wants {expected} features, got "
+                           f"{row.shape[1]}")
+            return None
+
+        per_model, names = [], []
+        for name in self.names:
+            model = self.members.get(name)
+            if model is None:
+                continue
+            try:
+                probabilities = np.asarray(
+                    model.predict_proba(row), dtype=float)[0]
+            except Exception as exc:
+                self.status = f"{name} failed on a live window: {exc}"
+                return None
+            names.append(name)
+            per_model.append([float(p) for p in probabilities])
+        if not per_model:
+            return None
+
+        mean = np.mean(np.asarray(per_model, dtype=float), axis=0)
+        #  The stored ensemble is NOT called here. Its soft vote is the mean
+        #  of these same members, which build_decision_panel() checks over
+        #  the whole dataset and records in `fusion` -- so calling it would
+        #  re-run all seven members a second time for a number already in
+        #  hand. That doubling is what made the live view miss windows.
+        #  `fusion.verified` is the evidence; when it is False the view shows
+        #  the ensemble's recorded output instead of trusting the mean.
+        fused = None
+
+        deployed_name = self.winner or (predictor.stats.get("model_name", "")
+                                        if predictor else "")
+        deployed = None
+        if deployed_name in names:
+            deployed = per_model[names.index(deployed_name)]
+
+        return TrailStep(
+            names=names, per_model=per_model, labels=list(self.labels),
+            fused=fused, fused_from_mean=[float(v) for v in mean],
+            deployed_name=deployed_name or "?", deployed=deployed,
+            source="live",
+            note=("these candidates were fitted on the whole dataset, so "
+                  "their agreement here demonstrates the vote -- it is not "
+                  "an accuracy estimate"),
+        )
+
+    # -- recorded -------------------------------------------------------------
+
+    @property
+    def has_trail(self) -> bool:
+        return bool(self._trail.get("proba") is not None
+                    and self._trail.get("truth") is not None)
+
+    def trail_length(self) -> int:
+        if not self.has_trail:
+            return 0
+        return int(np.asarray(self._trail["truth"]).shape[0])
+
+    def windows_of(self, recording_index: int) -> List[int]:
+        """Row numbers of one recording's windows, in order."""
+        if not self.has_trail or self._trail.get("rec") is None:
+            return []
+        rec = np.asarray(self._trail["rec"])
+        return [int(i) for i in np.flatnonzero(rec == int(recording_index))]
+
+    def recorded_step(self, row: int) -> Optional[TrailStep]:
+        """One window of the out-of-fold trail captured during training."""
+        if not self.has_trail:
+            return None
+        total = self.trail_length()
+        if not 0 <= row < total:
+            return None
+        proba = self._trail["proba"]
+        names, per_model = [], []
+        for name in self.names:
+            block = proba.get(name)
+            if block is None:
+                continue
+            names.append(name)
+            per_model.append([float(p) for p in np.asarray(block)[row]])
+        if not per_model:
+            return None
+
+        fused = None
+        if self.vote_name and proba.get(self.vote_name) is not None:
+            fused = [float(p) for p in np.asarray(proba[self.vote_name])[row]]
+        mean = np.mean(np.asarray(per_model, dtype=float), axis=0)
+        truth_index = int(np.asarray(self._trail["truth"])[row])
+        fold = int(np.asarray(self._trail["fold"])[row]) if \
+            self._trail.get("fold") is not None else -1
+        deployed = (per_model[names.index(self.winner)]
+                    if self.winner in names else None)
+
+        return TrailStep(
+            names=names, per_model=per_model, labels=list(self.labels),
+            fused=fused, fused_from_mean=[float(v) for v in mean],
+            deployed_name=self.winner or "?", deployed=deployed,
+            source="recorded",
+            note=(f"recorded label {self.labels[truth_index]}"
+                  if 0 <= truth_index < len(self.labels) else "")
+                 + (f", held out in fold {fold + 1}" if fold >= 0 else ""),
+        )
+
+    def recording_index_of(self, row: int) -> int:
+        """Which recording a trail row belongs to, or -1."""
+        rec = self._trail.get("rec")
+        if rec is None:
+            return -1
+        rec = np.asarray(rec)
+        return int(rec[row]) if 0 <= row < rec.shape[0] else -1
+
+    def recorded_truth(self, row: int) -> int:
+        if not self.has_trail:
+            return -1
+        truth = np.asarray(self._trail["truth"])
+        return int(truth[row]) if 0 <= row < truth.shape[0] else -1
+
+    def recorded_channels(self, row: int) -> Optional[np.ndarray]:
+        """The per-channel level of a recorded window, when it was stored."""
+        chan = self._trail.get("chan")
+        if chan is None:
+            return None
+        chan = np.asarray(chan)
+        if not 0 <= row < chan.shape[0]:
+            return None
+        return chan[row]
+
+    def split_windows(self) -> List[int]:
+        """
+        Rows where the candidates did NOT all agree.
+
+        The only interesting windows on a dataset this separable, and what
+        the view's "next disagreement" button steps through.
+        """
+        if not self.has_trail:
+            return []
+        proba = self._trail["proba"]
+        blocks = [np.asarray(proba[n]) for n in self.names if n in proba]
+        if len(blocks) < 2:
+            return []
+        picks = np.stack([np.argmax(b, axis=1) for b in blocks], axis=1)
+        varies = (picks != picks[:, :1]).any(axis=1)
+        return [int(i) for i in np.flatnonzero(varies)]
+
+
+@dataclass
 class Prediction:
     """One classifier output. Every field comes from the model, nothing is invented."""
     label: str                      # smoothed label (what to display)
@@ -8637,6 +9842,11 @@ class LivePredictor:
         self.history = deque(maxlen=max(1, PREDICTION_SMOOTHING))
         self.prob_history = deque(maxlen=max(1, PREDICTION_SMOOTHING))
         self.last: Optional[Prediction] = None
+        # The exact row the last prediction was made from, kept so the
+        # decision panel can run the other candidates on the SAME input
+        # instead of building a second feature path that could drift.
+        self.last_features: Optional[np.ndarray] = None
+        self.last_window: Optional[np.ndarray] = None
 
     # -- loading --------------------------------------------------------------
 
@@ -8709,6 +9919,8 @@ class LivePredictor:
         self.history.clear()
         self.prob_history.clear()
         self.last = None
+        self.last_features = None
+        self.last_window = None
 
     def describe(self) -> str:
         if not self.ready:
@@ -8757,6 +9969,8 @@ class LivePredictor:
             block, self.representation, self.feature_set,
             self.freq_features, self.fs,
         )[None, :]
+        self.last_features = features
+        self.last_window = block
 
         try:
             if hasattr(self.model, "predict_proba"):
@@ -8891,6 +10105,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.predictor = LivePredictor()
         self.predictor.load()
+        # The side file behind MODEL STATS -> DECISION TRAIL. Optional by
+        # design: a failure to load it must not touch the classifier, so it
+        # is a separate object with its own status string.
+        #  Loaded lazily, when MODEL STATS is first opened: it unpickles every
+        #  candidate (two 400-tree forests among them) and nothing outside
+        #  that dialog reads it, so there is no reason to spend the time at
+        #  startup.
+        self.decision_panel = DecisionPanel(model_path=MODEL_PATH)
+        self.stats_dialog = None
 
         self._build_ui()
         self._load_session_markers()
@@ -11214,7 +12437,29 @@ class MainWindow(QtWidgets.QMainWindow):
             "" if certain else "low confidence")
 
     def show_model_stats(self) -> None:
-        ModelStatsDialog(self.predictor, self).exec()
+        """
+        Open MODEL STATS, without blocking the window behind it.
+
+        Deliberately NOT modal. The DECISION TRAIL view follows the live
+        classifier, and a modal dialog would mean you could watch it only
+        when PREDICT happened to be running already -- you could not reach
+        the button to start it. Reusing one instance keeps a second copy from
+        polling the panel on its own timer.
+        """
+        if self.stats_dialog is not None and self.stats_dialog.isVisible():
+            self.stats_dialog.raise_()
+            self.stats_dialog.activateWindow()
+            return
+        self.decision_panel.load()
+        dialog = ModelStatsDialog(self.predictor, self,
+                                  panel=self.decision_panel)
+        dialog.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
+        dialog.finished.connect(self._on_stats_closed)
+        self.stats_dialog = dialog
+        dialog.show()
+
+    def _on_stats_closed(self, _result=None) -> None:
+        self.stats_dialog = None
         self._rebuild_prob_bars()
         self._refresh_prediction_panel()
 
@@ -12477,6 +13722,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
         before = self.predictor.stats.get("recording_vote_accuracy")
         ok = self.predictor.load()
+        # The trainer writes a fresh panel beside the model. Reload it only if
+        # it was already in memory; otherwise leave it for the first MODEL
+        # STATS open, exactly as at startup.
+        if self.decision_panel.loaded:
+            self.decision_panel.warm = False
+            self.decision_panel.load()
         self._rebuild_prob_bars()
         self._refresh_prediction_panel()
 

@@ -335,6 +335,56 @@ would have silently dropped the SVM from the vote. The ensemble is therefore
 built from its own always-probability copies, and
 `tests/test_model_spec.py` pins that.
 
+## 5a-quinquies. Seeing every candidate decide — the decision panel
+
+The sweep scores many candidates and saves one. The panel is how you look at
+the rest of them afterwards, per window, instead of only at a table of means.
+
+`train_model.build_decision_panel()` writes `models/gesture_panel.joblib`
+after the model is saved (skip it with `--no-panel`;
+`python explain_votes.py` rebuilds it for a model that already exists). It
+holds two different things, and the distinction is the whole point:
+
+```python
+panel["members"]          # each candidate fitted on the WHOLE dataset
+panel["trail"]["proba"]   # out-of-fold probabilities, per window, per candidate
+panel["cv"]               # out-of-fold scores, all on the WINNER's setup
+panel["fusion"]           # the vote rule, and the measured check of it
+```
+
+**`members` is for demonstration, `trail` is for evidence.** The members run
+on live windows in MODEL STATS, so you can make a gesture and watch seven
+classifiers disagree about it. They were fitted on everything, so their
+agreement is not a performance estimate and the GUI says so on every frame.
+The `trail` is the honest half: each probability comes from a fold that never
+saw the window's recording.
+
+**All candidates are scored on the winner's setup**, not on their own best.
+A sweep row lets each model pick its own window length, overlap and feature
+set, which is right for choosing a winner and wrong for comparing opinions
+about one window. On the current dataset the same model reads 99.15 % here
+and 99.8 % in `best_per_model`; neither is wrong, they answer different
+questions.
+
+**The fusion rule is verified, not asserted.** Soft voting is the unweighted
+mean of the members' `predict_proba`. The builder computes that mean itself
+and compares it with the fitted `VotingClassifier` across the whole dataset:
+
+```
+soft vote vs mean of members: max|diff| = 1.19e-07     (float32 rounding)
+```
+
+Because that holds, the live view computes the mean from the members it has
+already run instead of calling the ensemble, which would re-run all seven a
+second time. When the check fails, the view falls back to the ensemble's own
+recorded output rather than trusting the mean.
+
+**It is a side file, never the model.** `gesture_model.joblib` keeps holding
+exactly one estimator — that is what goes to the SBC — and `LivePredictor`
+never opens the panel. The live trail is fed
+`LivePredictor.last_features`, the same row the deployed model was given, so
+no second feature path exists to drift from `model_feature_vector()`.
+
 ## The retired deep path, for the record
 
 A second trainer, not a replacement for `train_model.py`. Same data layer,
