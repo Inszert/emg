@@ -13478,9 +13478,14 @@ class MainWindow(QtWidgets.QMainWindow):
                 # Named from the spec rather than hard-coded: the GUI always
                 # passes --spec, so "21 models" stopped being true the moment
                 # MODEL SPEC could switch them off.
-                f"Full:  the complete sweep over "
-                f"{len(enabled_models(self.model_spec))} enabled model(s) and "
-                "every setting -- this can take a while.\n\n"
+                # "every setting" was true of the old exhaustive sweep,
+                # which measured 3 h 16 m. It now SCREENS every setting
+                # cheaply and fully probes only a shortlist -- measured at
+                # 0.02 points of accuracy. Saying "every setting" would
+                # overstate it; saying "a while" would overstate the wait.
+                f"Full:  screens every setting, then fully probes the best "
+                f"few on all {len(enabled_models(self.model_spec))} enabled "
+                "model(s) -- roughly 15 minutes.\n\n"
                 "The current model is archived, not overwritten.\n\n"
                 # Said here, before a long sweep, rather than leaving the GPU
                 # badge above to imply something it does not mean.

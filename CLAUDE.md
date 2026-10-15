@@ -90,7 +90,8 @@ still run.
 | File | Role |
 |---|---|
 | **`emg_dataset_tool.py`** | The whole application. Single file by design, internally split into numbered sections so it can be broken into modules later. |
-| **`train_model.py`** | Two-stage model sweep + honest validation + saves `models/gesture_model.joblib`. Imports the data layer from `emg_dataset_tool`. Builds its candidates from `models/model_spec.json` when the GUI passes `--spec`. |
+| **`train_model.py`** | **Three-stage** model sweep (screen → shortlist probe → full) + honest validation + saves `models/gesture_model.joblib`. Imports the data layer from `emg_dataset_tool`. Builds its candidates from `models/model_spec.json` when the GUI passes `--spec`. See §8g for the cost controls. |
+| **`how_to_fix_long_training.md`** | **Why the sweep took 3h 16m and what was done about it.** The four issues, the measured regret of shortlisting, and what dedup costs in accuracy. Read it before touching `DEDUPE_WINDOWS` or `A2_SHORTLIST`. See §8g. |
 | **`explain_votes.py`** | Rebuilds `models/gesture_panel.joblib` for the model that is *already* saved, without re-running the sweep. For a model trained before the panel existed, or a panel that was deleted. `--json` also writes `models/reports/decisions.json`. See §8e. |
 | `train_torch.py` | **RETIRED.** The CUDA neural-net experiment (1D-CNN / LSTM / CNN-LSTM). Kept for the record, not part of the workflow: it lost to a plain LDA. Nothing in the app reads its output. See §8b. |
 | `myo_raw.py` | Myo BLE protocol wrapper. **The working communication layer.** |
@@ -99,10 +100,11 @@ still run.
 | `test_myo.py` | Original matplotlib live monitor. Kept as the reference for "the connection definitely works like this". |
 | `GUIDE.md` | **User-facing manual**: what every file and setting does, and how to set the tool up for different jobs. |
 | `docs/DATASET.md` | On-disk format, filenames, CSV/NPZ schema. |
+| **`docs/EDA.md`** | **What is actually in `datasets/` — measured.** Inventory, provenance, the class↔take confound, duplicate clips, drift, and numbered recommendations. Read it before quoting any accuracy number. See §8f. |
 | `docs/ARCHITECTURE.md` | Threads, buffers, state machine, data flow. |
 | `docs/ML_PIPELINE.md` | From recordings to a validated model. |
 | `requirements.txt` | Dependencies. |
-| `tests/` | Fourteen runnable check scripts (1443 checks total, three need the armband). See `tests/README.md`. |
+| `tests/` | Fifteen runnable check scripts (1491 checks total, three need the armband). See `tests/README.md`. |
 | `datasets/` | Recorded data (created on first run). |
 | `exports/` | Combined ML bundles from the EXPORT button. |
 | `models/` | `gesture_model.joblib` (loaded by the app), `gesture_panel.joblib` (the DECISION TRAIL side file, §8e), timestamped archives, and `reports/` with every sweep's full results. |
@@ -331,12 +333,19 @@ Then the app's LIVE CLASSIFIER panel works: one-shot or continuous mode, the
 prediction drawn over the graph, per-class probability bars, and a MODEL STATS
 dialog showing the cross-validated numbers with their protocol.
 
-**Current state of the model (2026-10-06):** 72 recordings, one subject
-(`Dano`), one session. Best so far ≈ 43 % per window / 47 % per gesture
-against a 16.7 % chance level. The dataset is the bottleneck, not the model:
-15 of 72 recordings are flagged `no_activity` (5 of 12 FIST), and FIST's mean
-envelope varies 26-fold across its own repetitions. More and stronger
-repetitions are worth far more than further model tuning.
+**Current state of the model (2026-10-15):** the payload on disk is from
+2026-10-14 and knows **two** labels, `FIST` and `REST`, trained on 119
+recordings. It scores `window_accuracy = 1.0`, and its `data` block is
+**empty**, so `model_data_status()` reports `unknown` rather than `stale`.
+The dataset has since grown to 308 recordings over six labels, so the saved
+model cannot name four of them. Retrain before using the LIVE CLASSIFIER, and
+read §8f first — the 1.0 is not what it looks like.
+
+*(Superseded, kept for the trend: on 2026-10-06 the dataset was 72 recordings
+and the best score ≈ 43 % per window against a 16.7 % chance level, with 15
+of 72 recordings flagged `no_activity`. The free-take route fixed the
+weak-contraction problem — `no_activity` is now 8 flags in 308 — and created
+a different one, below.)*
 
 ## 8b. The CUDA path (`train_torch.py`) — RETIRED 2026-10-14
 
@@ -609,6 +618,205 @@ feature set, representation, frequency features and window samples; on any
 difference the view explains which field disagrees and stops. Feeding a panel
 vectors it was never fitted on would produce confident nonsense.
 
+## 8f. What the dataset actually is — EDA, 2026-10-15
+
+Full analysis with every number in **`docs/EDA.md`**. The short version,
+because it changes how any result from this project must be read:
+
+**308 recordings, 1 subject, 2 sessions, 6 labels, 15.1 minutes of signal.**
+`FIST` 56, `REST` 63, `OPEN` 55, `THUMB_UP` 39, `WAVE_LEFT` 42,
+`WAVE_RIGHT` 53. Measured rate 49.4–50.2 Hz, `filtered` mode throughout. The
+stream itself is clean: stable rate, no clipping (global max 1348 of a 2047
+ceiling), no zeros.
+
+**Nothing came from the cued sequence.** 280 of 308 clips were cut from free
+takes, 27 from `label_on_graph`, 1 untagged. `SequenceController` produced
+none of it, which is why `label_start_index == 0 && label_end_index ==
+n_samples` for all 308 — there is no PRE/POST_GESTURE_MS context in this
+dataset and `use_label_window` is a no-op on it.
+
+**Each active class is exactly ONE take.** FIST = one 58 s take, OPEN = one
+53 s take, THUMB_UP = 52 s, WAVE_LEFT = 54 s, WAVE_RIGHT = 53 s; all four
+session_02 gestures were recorded back-to-back between 11:01 and 11:07 on one
+day without re-donning the armband. REST is the only class with more than one
+source (two takes plus the live-graph spans). So **label is perfectly
+confounded with electrode state and wall-clock block.**
+
+Three consequences, all measured:
+
+1. **Grouped CV by parent take is impossible**, not merely optimistic: a
+   leave-one-take-out split puts a whole class in the test fold with none of
+   it in training. Combined with one subject (so `leave_one_person_out()` has
+   nothing to split), **this dataset currently admits no honest
+   generalisation estimate at all.**
+2. **The ~99 % scores do not need the gesture.** Reproducing the trainer's
+   protocol gives LDA 0.996. Handing the same classifier *only the 8
+   per-channel mean levels* — no shape, no spectrum, no timing — gives RF
+   0.993. One number, the overall mean level, gives 0.757 against a 0.187
+   baseline. The model is reading which 50-second block it is looking at.
+3. **74 of the 308 recordings are byte-identical duplicates** of another
+   recording (THUMB_UP: 39 clips from 13 distinct signals), and the rest tile
+   their take with ~50 % overlap. Grouping by recording uid does not separate
+   them, because every clip legitimately has its own uid. After dropping
+   duplicates and overlaps, 105 distinct observations remain.
+   `train_model.py`'s `source_timeline()` / `dedupe_windows()` remove this
+   leak at window level; they do not touch 1 or 2.
+
+**Also worth knowing:** sustained 52 s holds drive heavy fatigue drift (FIST
+loses 59 % of its amplitude across its take, Pearson r = −0.83; WAVE_RIGHT
+r = −0.90), and because every take is ~100 % contraction there are **no
+onsets, offsets or gesture-to-gesture transitions anywhere in the dataset** —
+which is most of what a live classifier sees.
+
+**This already breaks live use, visibly.** A held thumbs-up is recognised for
+a few seconds and then flips to `REST` with the hand still in the pose.
+Measured per-window mean amplitude: `REST` reaches 43 at its 95th percentile
+and **nothing labelled `THUMB_UP` exists below 171**, so the band 43–171
+carries no label at all and `REST` is its nearest neighbour. Same void for
+`OPEN` (43–128) and both waves (43–254); `FIST` has the mirror problem, its
+p5 of 52 sitting on REST's p95. The cause is that a 52 s hold can only be
+recorded as an *effortful* contraction, while a real gesture is made and then
+relaxed into — and the relaxed hold lands in the void. It is not fixable by
+scaling: a THUMB_UP window still reads THUMB_UP at 20 % gain, because `share`
+carries the spatial profile with amplitude divided out. `docs/EDA.md` R4 has
+the full table and the recording fix. On the good side, the six
+classes have genuinely distinct spatial signatures (WAVE_LEFT peaks on
+CH6/7/8, WAVE_RIGHT on CH2/3/1 — near mirror images), label fidelity is
+clean (no active clip is more than 50 % quiet), and REST now reports no
+activity 57 times in 63, which is the right answer.
+
+**Rules this adds for anyone working here:**
+
+- **Never quote an accuracy from this dataset without the confound.** Same
+  discipline as §8b's majority-class baseline rule: the sentence "each class
+  is one take, so this is not a generalisation estimate" belongs next to the
+  number.
+- **Do not interpret a high score as progress on gesture recognition.**
+  Verify against the DC-only control in `docs/EDA.md` §3 first: if 8 channel
+  means still score as well as the full vector, nothing has been learned
+  about gestures.
+- **Group by `meta["parent_take_uid"]`, not by uid**, when adding any new
+  validation path.
+- The fix is in the recording, not the model: several separate takes per
+  gesture, armband removed and refitted between them, gestures interleaved.
+  `docs/EDA.md` §8 has this as R1–R10, in priority order.
+
+## 8g. Why the sweep is fast now — cost controls, 2026-10-15
+
+Full write-up in **`how_to_fix_long_training.md`**. The sweep went from a
+**measured 3 h 16 m** (11 747 s, 119 recordings) to **~14 min** on 308
+recordings. Four changes, all with measured costs:
+
+| Change | Effect | Accuracy cost |
+|---|---|---|
+| `DEDUPE_WINDOWS` — drop windows that re-cover covered signal | 5 598 → 2 425 windows | **negative**: it removes a leak |
+| identical `EXCLUDE_SETS` folded together | 360 → 120 distinct setups | none; it was the same computation three times |
+| stage A1 screens on `SCREEN_FRACTION` of windows with `SCREEN_PROBES` | cheap probes only, ~0.7 s/setup | none reported; A1 scores are never quoted |
+| `A2_SHORTLIST = 32` instead of all 360 | 14× fewer expensive probes | **0.02 points**, measured |
+
+**The dedup is correctness, not a speed-up.** 280 of 308 recordings are clips
+cut from a few free takes, tiling them with ~50 % overlap, and 74 are
+byte-identical to another clip (§8f). Grouping CV by recording uid does *not*
+separate them, because every clip legitimately owns its uid — so without dedup
+the same samples sat in train and test. Removing it moved the score 99.7 % →
+99.0 %, which is the leak closing. `dedupe_windows()` works at **window**
+level, not clip level: it maps each window's centre onto the timeline it was
+cut from (`parent_take_uid` + `take_start_index`) and keeps the first window
+per step-sized bucket, which is exactly windowing each source timeline once.
+Clip-level dropping was tried and is measurably worse (108 recordings kept,
+98.0 %).
+
+**Why a 32-setup shortlist is safe**, checked against the last full-grid sweep
+where all 360 setups were scored by all three probes: the best per-window
+accuracy reachable inside a 40-setup shortlist was 99.63 % against 99.65 % for
+the whole grid, and the per-recording vote was identical. Dozens of setups tie
+at the top. The shortlist is 24-best **+ 8 seeded-random** because the cheap
+probes' own top-20 was 0.28 points short on the vote while a purely random 40
+was not short at all — the screen ranks well but not perfectly, so the
+shortlist deliberately does not trust it completely.
+
+**A1 rows are not comparable with A2/B rows** and are kept out of `results`
+for that reason: they are measured on half the windows. They go to the report
+under `screen`, and `cost_controls` records exactly how the sweep was cut
+down, so a fast run can never be mistaken for an exhaustive one.
+
+**The trainer now runs the §8f control on every run.** It prints the
+majority-class baseline and re-scores the winner using only the 8 per-channel
+mean levels, then says how much the other features added. On the current
+dataset: baseline 28.4 %, DC-only 97.2 %, full vector 99.3 % — so the shape,
+spectrum and timing are worth about two points and the model is mostly reading
+which 50-second block it is looking at. Under 5 points of gain the run prints
+a warning naming the confound. Both numbers go into the sweep report
+(`confound`) and the saved payload (`stats.dc_only_control`), so §8f's "never
+quote an accuracy without the confound" rule is enforced by the tool rather
+than by memory.
+
+## 8h. Multi-subject readiness — what switches on by itself
+
+Built 2026-10-15, before the data exists, and tested on a synthetic
+three-subject dataset. **More wearers change what "honest" means, and the
+pipeline now follows that change on its own.**
+
+`SELECTION_GROUPING = "auto"` in `train_model.py`:
+
+| Subjects on disk | Folds grouped by | Why |
+|---|---|---|
+| 1 | recording uid | a subject-independent split is impossible |
+| 2 or more | **subject** | the held-out person's data is never in training |
+
+**Why this had to change, and it is not a detail.** The sweep picks the
+winner from cross-validated scores. With several wearers but folds grouped by
+*recording*, every subject sits in both train and test — so a setup that leans
+on one person's absolute amplitudes scores well and gets **selected**, then
+fails on the next wearer. That is the opposite of what collecting more people
+is for. `leave_one_subject_out()` already reported the honest number, but it
+ran *after* the winner had been chosen, so it could only document a bad choice,
+not prevent it.
+
+The split key and the vote key are deliberately separate in `evaluate()`:
+`split_groups` decides the folds, `groups` stays the recording id because the
+per-recording vote must still be counted per recording. Passing one for the
+other would either leak a subject or destroy the vote.
+
+**Both protocols are always reported.** The winner block prints the chosen
+one and then the *other* as a contrast, and warns when they disagree by more
+than 5 points. On the synthetic three-subject set: subject-independent 94.4 %
+against within-subject 74.1 %, flagged as a 20.4-point disagreement. The gap
+*is* the subject-specificity; showing one number alone would let a
+within-subject score be read as a cross-wearer one. `validation.grouping`,
+`validation.grouping_contrast` and the payload's `selection_grouping` carry
+the same pair.
+
+**The DC-only control (§8f) becomes a useful signal rather than a verdict.**
+Measured: on the current one-subject dataset it reads **97.2 %** against the
+full vector's 99.3 % — the red flag, because absolute levels identify the
+take. On the synthetic three-subject set the same control reads **18.5 %**
+against a 25 % baseline, because levels do not transfer between wearers. So
+the control flips from "nothing was learned" to "all clear" exactly when it
+should, and that is how to read it going forward: **cross-subject, a high
+DC-only score means the subjects differ in gain, not that the gestures were
+recognised.**
+
+**What is still NOT automatic:**
+
+- **Take-grouped CV.** Once a gesture has two or more takes, leave-one-take-out
+  becomes possible (verified synthetically: with 3 takes per class "every class
+  survives every split"). The trainer does not do it yet, because on today's
+  data a leave-one-take-out split removes a whole class from training (§8f
+  consequence 1). Add it when the takes exist, not before.
+- **Amplitude-invariant preprocessing.** `REPRESENTATIONS` already contains
+  `normalized`, which divides out absolute amplitude — the part that differs
+  most between people. On one subject it scored 48.7 % and `raw` won. With
+  subject-grouped selection the sweep should start preferring it on its own;
+  if it does not, that is a finding worth chasing rather than a knob to force.
+- **Electrode rotation between wearers.** Nothing here handles the armband
+  being donned at a different angle, which permutes the channels. The `share`
+  feature carries the spatial profile with amplitude divided out, but no
+  rotation alignment exists. Expect this to be the next real problem.
+- **Per-subject sample balance.** With unequal recordings per person the
+  subject-grouped folds are unequal too. `StratifiedGroupKFold` balances the
+  labels, not the people.
+
 ## 9. Safety / data-preservation rules
 
 These are invariants. Breaking one is a bug, not a trade-off.
@@ -661,6 +869,7 @@ python tests\test_free_take.py                # 195 checks, no hardware
 python tests\test_model_spec.py               # 346 checks, no hardware
 python tests\test_predict.py                  # 109 checks, no hardware
 python tests\test_trail.py                    # 103 checks, the DECISION TRAIL
+python tests\test_sweep_cost.py               # 48 checks, the sweep cost controls (§8g)
 python tests\test_no_torch.py                 # 11 checks, proves the app needs no torch
 python tests\test_torch.py                    # 163 checks, the RETIRED deep trainer
 python tests\test_live.py                     # 35 checks, NEEDS the armband
@@ -716,6 +925,11 @@ The data layer degrades gracefully: without pandas you lose
   `ENABLE_DECISION_PANEL = False`, on a slow machine.
 - **`gesture_panel.joblib` is ~4 MB** and grows with the forests in the
   spec. It is a desktop diagnostic — do not copy it to the robot.
+- **The dataset cannot currently be validated honestly** — every active class
+  is a single free take, so a take-grouped split has no training data for the
+  class it is testing, and one subject means `leave_one_person_out()` cannot
+  split either. 74 of 308 recordings are also byte-identical duplicates that
+  uid-grouped CV does not separate. §8f and `docs/EDA.md`.
 - **`MAX_RECORDINGS = 0`** means unlimited, not zero.
 - **The `dropped` counter is approximate.** The dongle delivers 2–4 buffered
   packets at once, so the inter-sample interval is bursty and the heuristic

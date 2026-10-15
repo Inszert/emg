@@ -193,9 +193,12 @@ def main(argv=None):
     exclude = TM.EXCLUDE_SETS.get(best["exclude"], ())
     recs, dropped = TM.load_recordings(root, exclude_codes=exclude)
     print(f"  recordings   : {len(recs)} kept, {len(dropped)} dropped")
+    # Same dedup setting the trainer used, so the panel is fitted on the data
+    # the saved model was scored on rather than on a leakier superset.
     built = TM.build_dataset(recs, best["window_s"], best["overlap"],
                              best["representation"], best["freq_features"],
-                             best["feature_set"])
+                             best["feature_set"],
+                             dedupe=TM.DEDUPE_WINDOWS)
     if built is None:
         raise SystemExit("that setup produced no windows; nothing to do.")
     X, y, groups, labels, meta = built

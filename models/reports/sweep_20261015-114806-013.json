@@ -1,0 +1,3422 @@
+{
+  "created_iso": "2026-10-15T11:48:06.013",
+  "dataset_root": "C:\\Users\\danie\\OneDrive\\Po\u010d\u00edta\u010d\\EMG\\datasets",
+  "model_spec": {
+    "version": 1,
+    "voting": {
+      "enabled": true,
+      "mode": "soft",
+      "always": false
+    },
+    "auto": {
+      "enabled": false,
+      "max_per_model": 8
+    },
+    "models": [
+      {
+        "name": "LDA-shrinkage",
+        "kind": "lda",
+        "enabled": true,
+        "scaler": "standard",
+        "params": {
+          "solver": "lsqr",
+          "shrinkage": "auto"
+        },
+        "auto": true
+      },
+      {
+        "name": "LDA-svd",
+        "kind": "lda",
+        "enabled": true,
+        "scaler": "standard",
+        "params": {
+          "solver": "svd",
+          "shrinkage": "none"
+        },
+        "auto": true
+      },
+      {
+        "name": "SVM-rbf-C10",
+        "kind": "svm_rbf",
+        "enabled": true,
+        "scaler": "standard",
+        "params": {
+          "C": 10.0,
+          "gamma": "scale",
+          "kernel": "rbf",
+          "class_weight": "none"
+        },
+        "auto": true
+      },
+      {
+        "name": "RandomForest-400",
+        "kind": "random_forest",
+        "enabled": true,
+        "scaler": "none",
+        "params": {
+          "n_estimators": 400,
+          "max_depth": 0,
+          "min_samples_leaf": 1,
+          "max_features": "sqrt",
+          "class_weight": "none"
+        },
+        "auto": true
+      },
+      {
+        "name": "ExtraTrees-400",
+        "kind": "extra_trees",
+        "enabled": true,
+        "scaler": "none",
+        "params": {
+          "n_estimators": 400,
+          "max_depth": 0,
+          "min_samples_leaf": 1,
+          "class_weight": "none"
+        },
+        "auto": true
+      },
+      {
+        "name": "HistGradBoost",
+        "kind": "hist_gradient_boost",
+        "enabled": true,
+        "scaler": "none",
+        "params": {
+          "learning_rate": 0.1,
+          "max_iter": 200,
+          "max_leaf_nodes": 31,
+          "l2_regularization": 0.0,
+          "early_stopping": "auto",
+          "validation_fraction": 0.1,
+          "n_iter_no_change": 10,
+          "class_weight": "none"
+        },
+        "auto": true
+      },
+      {
+        "name": "LogReg",
+        "kind": "logreg",
+        "enabled": true,
+        "scaler": "standard",
+        "params": {
+          "C": 1.0,
+          "penalty": "l2",
+          "l1_ratio": 0.5,
+          "solver": "auto",
+          "max_iter": 2000,
+          "class_weight": "none"
+        },
+        "auto": true
+      },
+      {
+        "name": "SVM-rbf-C1",
+        "kind": "svm_rbf",
+        "enabled": false,
+        "scaler": "standard",
+        "params": {
+          "C": 1.0,
+          "gamma": "scale",
+          "kernel": "rbf",
+          "class_weight": "none"
+        },
+        "auto": true
+      },
+      {
+        "name": "SVM-rbf-C100",
+        "kind": "svm_rbf",
+        "enabled": false,
+        "scaler": "standard",
+        "params": {
+          "C": 100.0,
+          "gamma": "scale",
+          "kernel": "rbf",
+          "class_weight": "none"
+        },
+        "auto": true
+      },
+      {
+        "name": "SVM-rbf-robustscale",
+        "kind": "svm_rbf",
+        "enabled": false,
+        "scaler": "robust",
+        "params": {
+          "C": 10.0,
+          "gamma": "scale",
+          "kernel": "rbf",
+          "class_weight": "none"
+        },
+        "auto": true
+      },
+      {
+        "name": "kNN-5",
+        "kind": "knn",
+        "enabled": false,
+        "scaler": "standard",
+        "params": {
+          "n_neighbors": 5,
+          "weights": "distance"
+        },
+        "auto": true
+      },
+      {
+        "name": "kNN-15",
+        "kind": "knn",
+        "enabled": false,
+        "scaler": "standard",
+        "params": {
+          "n_neighbors": 15,
+          "weights": "distance"
+        },
+        "auto": true
+      },
+      {
+        "name": "MLP-128",
+        "kind": "mlp",
+        "enabled": false,
+        "scaler": "standard",
+        "params": {
+          "hidden_layer_sizes": [
+            128
+          ],
+          "alpha": 0.0001,
+          "solver": "adam",
+          "batch_size": 0,
+          "learning_rate_init": 0.001,
+          "max_iter": 1200,
+          "early_stopping": "yes",
+          "validation_fraction": 0.1,
+          "n_iter_no_change": 10
+        },
+        "auto": true
+      },
+      {
+        "name": "MLP-256-128",
+        "kind": "mlp",
+        "enabled": false,
+        "scaler": "standard",
+        "params": {
+          "hidden_layer_sizes": [
+            256,
+            128
+          ],
+          "alpha": 0.0001,
+          "solver": "adam",
+          "batch_size": 0,
+          "learning_rate_init": 0.001,
+          "max_iter": 1200,
+          "early_stopping": "yes",
+          "validation_fraction": 0.1,
+          "n_iter_no_change": 10
+        },
+        "auto": true
+      },
+      {
+        "name": "RandomForest-800-deep",
+        "kind": "random_forest",
+        "enabled": false,
+        "scaler": "none",
+        "params": {
+          "n_estimators": 800,
+          "max_depth": 0,
+          "min_samples_leaf": 1,
+          "max_features": "sqrt",
+          "class_weight": "none"
+        },
+        "auto": true
+      }
+    ]
+  },
+  "model_spec_source": "models/model_spec.json",
+  "n_recordings_total": 308,
+  "subjects": [
+    "Dano"
+  ],
+  "n_sessions": 2,
+  "labels": [
+    "FIST",
+    "OPEN",
+    "REST",
+    "THUMB_UP",
+    "WAVE_LEFT",
+    "WAVE_RIGHT"
+  ],
+  "model_fs": 60.0,
+  "measured_rate_range": [
+    49.41902100874891,
+    50.231894420517705
+  ],
+  "validation": {
+    "protocol": "StratifiedGroupKFold grouped by recording uid",
+    "n_splits": 6,
+    "note": "Windows overlap, so grouping by recording is required; a random window split would leak and inflate scores.",
+    "subject_independent": null,
+    "subject_independent_note": "Only one subject in the dataset: no cross-subject claim can be made. Collect more people for that."
+  },
+  "best": {
+    "stage": "B",
+    "model": "LDA-svd",
+    "exclude": "clean",
+    "window_s": 0.2,
+    "overlap": 0.5,
+    "representation": "raw",
+    "freq_features": true,
+    "feature_set": "level",
+    "n_windows": 3692,
+    "n_features": 50,
+    "n_recordings": 308,
+    "n_splits": 6,
+    "window_accuracy": 0.9929118891771794,
+    "window_accuracy_std": 0.01031356391952095,
+    "window_macro_f1": 0.9911823611600266,
+    "recording_vote_accuracy": 0.9902439024390244,
+    "n_recordings_voted": 205,
+    "fold_accuracies": [
+      1.0,
+      0.9969512195121951,
+      0.9715698393077874,
+      1.0,
+      0.988950276243094,
+      1.0
+    ],
+    "confusion_matrix": [
+      [
+        576,
+        0,
+        0,
+        2,
+        0,
+        0
+      ],
+      [
+        0,
+        526,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        20,
+        0,
+        1024,
+        0,
+        3,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        501,
+        0,
+        0
+      ],
+      [
+        0,
+        2,
+        4,
+        0,
+        521,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        513
+      ]
+    ]
+  },
+  "best_per_model": {
+    "LDA-svd": {
+      "stage": "B",
+      "model": "LDA-svd",
+      "exclude": "clean",
+      "window_s": 0.2,
+      "overlap": 0.5,
+      "representation": "raw",
+      "freq_features": true,
+      "feature_set": "level",
+      "n_windows": 3692,
+      "n_features": 50,
+      "n_recordings": 308,
+      "n_splits": 6,
+      "window_accuracy": 0.9929118891771794,
+      "window_accuracy_std": 0.01031356391952095,
+      "window_macro_f1": 0.9911823611600266,
+      "recording_vote_accuracy": 0.9902439024390244,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        1.0,
+        0.9969512195121951,
+        0.9715698393077874,
+        1.0,
+        0.988950276243094,
+        1.0
+      ],
+      "confusion_matrix": [
+        [
+          576,
+          0,
+          0,
+          2,
+          0,
+          0
+        ],
+        [
+          0,
+          526,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          20,
+          0,
+          1024,
+          0,
+          3,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          501,
+          0,
+          0
+        ],
+        [
+          0,
+          2,
+          4,
+          0,
+          521,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          513
+        ]
+      ]
+    },
+    "LDA-shrinkage": {
+      "stage": "A",
+      "model": "LDA-shrinkage",
+      "exclude": "clean",
+      "window_s": 0.2,
+      "overlap": 0.5,
+      "representation": "raw",
+      "freq_features": true,
+      "feature_set": "level",
+      "n_windows": 3692,
+      "n_features": 50,
+      "n_recordings": 308,
+      "n_splits": 6,
+      "window_accuracy": 0.9928406049629844,
+      "window_accuracy_std": 0.00875680405256909,
+      "window_macro_f1": 0.9905122351773086,
+      "recording_vote_accuracy": 0.9902439024390244,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        1.0,
+        0.9984756097560976,
+        0.9752781211372065,
+        1.0,
+        0.988950276243094,
+        0.9943396226415094
+      ],
+      "confusion_matrix": [
+        [
+          577,
+          0,
+          0,
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          526,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          20,
+          0,
+          1027,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          3,
+          0,
+          498,
+          0,
+          0
+        ],
+        [
+          0,
+          6,
+          0,
+          0,
+          521,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          513
+        ]
+      ]
+    },
+    "Vote-soft-4": {
+      "stage": "B",
+      "model": "Vote-soft-4",
+      "exclude": "clean",
+      "window_s": 0.2,
+      "overlap": 0.5,
+      "representation": "raw",
+      "freq_features": true,
+      "feature_set": "level",
+      "n_windows": 3692,
+      "n_features": 50,
+      "n_recordings": 308,
+      "n_splits": 6,
+      "window_accuracy": 0.9928406049629844,
+      "window_accuracy_std": 0.00875680405256909,
+      "window_macro_f1": 0.9906789800361716,
+      "recording_vote_accuracy": 0.9902439024390244,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        1.0,
+        0.9984756097560976,
+        0.9752781211372065,
+        1.0,
+        0.988950276243094,
+        0.9943396226415094
+      ],
+      "confusion_matrix": [
+        [
+          577,
+          0,
+          0,
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          526,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          20,
+          0,
+          1027,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          3,
+          0,
+          498,
+          0,
+          0
+        ],
+        [
+          0,
+          2,
+          4,
+          0,
+          521,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          513
+        ]
+      ]
+    },
+    "SVM-rbf-C10": {
+      "stage": "A",
+      "model": "SVM-rbf-C10",
+      "exclude": "clean",
+      "window_s": 0.3,
+      "overlap": 0.5,
+      "representation": "raw",
+      "freq_features": true,
+      "feature_set": "level",
+      "n_windows": 2425,
+      "n_features": 50,
+      "n_recordings": 308,
+      "n_splits": 6,
+      "window_accuracy": 0.9913627753323185,
+      "window_accuracy_std": 0.00910471944828575,
+      "window_macro_f1": 0.991532738888866,
+      "recording_vote_accuracy": 0.9902439024390244,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        1.0,
+        0.9858657243816255,
+        0.9769736842105263,
+        1.0,
+        1.0,
+        0.9853372434017595
+      ],
+      "confusion_matrix": [
+        [
+          383,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          344,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          14,
+          0,
+          675,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          325,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          4,
+          0,
+          341,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          337
+        ]
+      ]
+    },
+    "RandomForest-400": {
+      "stage": "B",
+      "model": "RandomForest-400",
+      "exclude": "clean",
+      "window_s": 0.2,
+      "overlap": 0.5,
+      "representation": "raw",
+      "freq_features": true,
+      "feature_set": "both",
+      "n_windows": 3692,
+      "n_features": 154,
+      "n_recordings": 308,
+      "n_splits": 6,
+      "window_accuracy": 0.9890779039033645,
+      "window_accuracy_std": 0.01168031600806418,
+      "window_macro_f1": 0.9864034742848805,
+      "recording_vote_accuracy": 0.9902439024390244,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        1.0,
+        0.9984756097560976,
+        0.9715698393077874,
+        1.0,
+        0.988950276243094,
+        0.9754716981132076
+      ],
+      "confusion_matrix": [
+        [
+          577,
+          0,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          526,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          21,
+          0,
+          1024,
+          0,
+          2,
+          0
+        ],
+        [
+          2,
+          10,
+          0,
+          489,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          5,
+          0,
+          521,
+          0
+        ],
+        [
+          0,
+          1,
+          0,
+          0,
+          0,
+          512
+        ]
+      ]
+    }
+  },
+  "sweep": [
+    {
+      "stage": "B",
+      "model": "LDA-svd",
+      "exclude": "clean",
+      "window_s": 0.2,
+      "overlap": 0.5,
+      "representation": "raw",
+      "freq_features": true,
+      "feature_set": "level",
+      "n_windows": 3692,
+      "n_features": 50,
+      "n_recordings": 308,
+      "n_splits": 6,
+      "window_accuracy": 0.9929118891771794,
+      "window_accuracy_std": 0.01031356391952095,
+      "window_macro_f1": 0.9911823611600266,
+      "recording_vote_accuracy": 0.9902439024390244,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        1.0,
+        0.9969512195121951,
+        0.9715698393077874,
+        1.0,
+        0.988950276243094,
+        1.0
+      ],
+      "confusion_matrix": [
+        [
+          576,
+          0,
+          0,
+          2,
+          0,
+          0
+        ],
+        [
+          0,
+          526,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          20,
+          0,
+          1024,
+          0,
+          3,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          501,
+          0,
+          0
+        ],
+        [
+          0,
+          2,
+          4,
+          0,
+          521,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          513
+        ]
+      ]
+    },
+    {
+      "stage": "B",
+      "model": "LDA-svd",
+      "exclude": "clean",
+      "window_s": 0.2,
+      "overlap": 0.5,
+      "representation": "raw",
+      "freq_features": true,
+      "feature_set": "both",
+      "n_windows": 3692,
+      "n_features": 154,
+      "n_recordings": 308,
+      "n_splits": 6,
+      "window_accuracy": 0.9929118891771794,
+      "window_accuracy_std": 0.01031356391952095,
+      "window_macro_f1": 0.9912292180869303,
+      "recording_vote_accuracy": 0.9902439024390244,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        1.0,
+        0.9969512195121951,
+        0.9715698393077874,
+        1.0,
+        0.988950276243094,
+        1.0
+      ],
+      "confusion_matrix": [
+        [
+          576,
+          0,
+          0,
+          2,
+          0,
+          0
+        ],
+        [
+          0,
+          526,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          20,
+          0,
+          1024,
+          0,
+          3,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          501,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          5,
+          0,
+          521,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          513
+        ]
+      ]
+    },
+    {
+      "stage": "A",
+      "model": "LDA-shrinkage",
+      "exclude": "clean",
+      "window_s": 0.2,
+      "overlap": 0.5,
+      "representation": "raw",
+      "freq_features": true,
+      "feature_set": "level",
+      "n_windows": 3692,
+      "n_features": 50,
+      "n_recordings": 308,
+      "n_splits": 6,
+      "window_accuracy": 0.9928406049629844,
+      "window_accuracy_std": 0.00875680405256909,
+      "window_macro_f1": 0.9905122351773086,
+      "recording_vote_accuracy": 0.9902439024390244,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        1.0,
+        0.9984756097560976,
+        0.9752781211372065,
+        1.0,
+        0.988950276243094,
+        0.9943396226415094
+      ],
+      "confusion_matrix": [
+        [
+          577,
+          0,
+          0,
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          526,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          20,
+          0,
+          1027,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          3,
+          0,
+          498,
+          0,
+          0
+        ],
+        [
+          0,
+          6,
+          0,
+          0,
+          521,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          513
+        ]
+      ]
+    },
+    {
+      "stage": "B",
+      "model": "Vote-soft-4",
+      "exclude": "clean",
+      "window_s": 0.2,
+      "overlap": 0.5,
+      "representation": "raw",
+      "freq_features": true,
+      "feature_set": "level",
+      "n_windows": 3692,
+      "n_features": 50,
+      "n_recordings": 308,
+      "n_splits": 6,
+      "window_accuracy": 0.9928406049629844,
+      "window_accuracy_std": 0.00875680405256909,
+      "window_macro_f1": 0.9906789800361716,
+      "recording_vote_accuracy": 0.9902439024390244,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        1.0,
+        0.9984756097560976,
+        0.9752781211372065,
+        1.0,
+        0.988950276243094,
+        0.9943396226415094
+      ],
+      "confusion_matrix": [
+        [
+          577,
+          0,
+          0,
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          526,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          20,
+          0,
+          1027,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          3,
+          0,
+          498,
+          0,
+          0
+        ],
+        [
+          0,
+          2,
+          4,
+          0,
+          521,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          513
+        ]
+      ]
+    },
+    {
+      "stage": "B",
+      "model": "Vote-soft-4",
+      "exclude": "clean",
+      "window_s": 0.2,
+      "overlap": 0.5,
+      "representation": "raw",
+      "freq_features": true,
+      "feature_set": "both",
+      "n_windows": 3692,
+      "n_features": 154,
+      "n_recordings": 308,
+      "n_splits": 6,
+      "window_accuracy": 0.9927802045948301,
+      "window_accuracy_std": 0.008920713607632474,
+      "window_macro_f1": 0.9904360153559898,
+      "recording_vote_accuracy": 0.9902439024390244,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        1.0,
+        1.0,
+        0.9752781211372065,
+        1.0,
+        0.988950276243094,
+        0.9924528301886792
+      ],
+      "confusion_matrix": [
+        [
+          578,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          526,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          20,
+          0,
+          1027,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          4,
+          0,
+          497,
+          0,
+          0
+        ],
+        [
+          0,
+          3,
+          3,
+          0,
+          521,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          513
+        ]
+      ]
+    },
+    {
+      "stage": "A",
+      "model": "LDA-shrinkage",
+      "exclude": "clean",
+      "window_s": 0.2,
+      "overlap": 0.5,
+      "representation": "raw",
+      "freq_features": true,
+      "feature_set": "both",
+      "n_windows": 3692,
+      "n_features": 154,
+      "n_recordings": 308,
+      "n_splits": 6,
+      "window_accuracy": 0.9921512737772199,
+      "window_accuracy_std": 0.009053656324488324,
+      "window_macro_f1": 0.9895376247425683,
+      "recording_vote_accuracy": 0.9902439024390244,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        1.0,
+        1.0,
+        0.9752781211372065,
+        1.0,
+        0.988950276243094,
+        0.9886792452830189
+      ],
+      "confusion_matrix": [
+        [
+          578,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          526,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          20,
+          0,
+          1027,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          6,
+          0,
+          495,
+          0,
+          0
+        ],
+        [
+          0,
+          6,
+          0,
+          0,
+          521,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          513
+        ]
+      ]
+    },
+    {
+      "stage": "A",
+      "model": "SVM-rbf-C10",
+      "exclude": "clean",
+      "window_s": 0.3,
+      "overlap": 0.5,
+      "representation": "raw",
+      "freq_features": true,
+      "feature_set": "level",
+      "n_windows": 2425,
+      "n_features": 50,
+      "n_recordings": 308,
+      "n_splits": 6,
+      "window_accuracy": 0.9913627753323185,
+      "window_accuracy_std": 0.00910471944828575,
+      "window_macro_f1": 0.991532738888866,
+      "recording_vote_accuracy": 0.9902439024390244,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        1.0,
+        0.9858657243816255,
+        0.9769736842105263,
+        1.0,
+        1.0,
+        0.9853372434017595
+      ],
+      "confusion_matrix": [
+        [
+          383,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          344,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          14,
+          0,
+          675,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          325,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          4,
+          0,
+          341,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          337
+        ]
+      ]
+    },
+    {
+      "stage": "A",
+      "model": "LDA-shrinkage",
+      "exclude": "clean",
+      "window_s": 0.3,
+      "overlap": 0.5,
+      "representation": "raw",
+      "freq_features": true,
+      "feature_set": "both",
+      "n_windows": 2425,
+      "n_features": 154,
+      "n_recordings": 308,
+      "n_splits": 6,
+      "window_accuracy": 0.9902474795802184,
+      "window_accuracy_std": 0.012836145987618505,
+      "window_macro_f1": 0.9907186088266086,
+      "recording_vote_accuracy": 0.9902439024390244,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        1.0,
+        0.9893992932862191,
+        0.9638157894736842,
+        1.0,
+        1.0,
+        0.9882697947214076
+      ],
+      "confusion_matrix": [
+        [
+          383,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          345,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          13,
+          0,
+          676,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          4,
+          0,
+          321,
+          0,
+          0
+        ],
+        [
+          0,
+          4,
+          0,
+          0,
+          342,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          337
+        ]
+      ]
+    },
+    {
+      "stage": "A",
+      "model": "SVM-rbf-C10",
+      "exclude": "clean",
+      "window_s": 0.2,
+      "overlap": 0.5,
+      "representation": "raw",
+      "freq_features": true,
+      "feature_set": "level",
+      "n_windows": 3692,
+      "n_features": 50,
+      "n_recordings": 308,
+      "n_splits": 6,
+      "window_accuracy": 0.9899187992939525,
+      "window_accuracy_std": 0.010424119434767823,
+      "window_macro_f1": 0.9875633693373468,
+      "recording_vote_accuracy": 0.9902439024390244,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        1.0,
+        0.9908536585365854,
+        0.969097651421508,
+        1.0,
+        0.9871086556169429,
+        0.9924528301886792
+      ],
+      "confusion_matrix": [
+        [
+          572,
+          0,
+          6,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          524,
+          0,
+          0,
+          0,
+          2
+        ],
+        [
+          23,
+          0,
+          1024,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          4,
+          0,
+          497,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          6,
+          0,
+          520,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          513
+        ]
+      ]
+    },
+    {
+      "stage": "A",
+      "model": "LDA-shrinkage",
+      "exclude": "clean",
+      "window_s": 0.3,
+      "overlap": 0.5,
+      "representation": "raw",
+      "freq_features": true,
+      "feature_set": "level",
+      "n_windows": 2425,
+      "n_features": 50,
+      "n_recordings": 308,
+      "n_splits": 6,
+      "window_accuracy": 0.9891509883521484,
+      "window_accuracy_std": 0.015124230280295149,
+      "window_macro_f1": 0.9899369132154013,
+      "recording_vote_accuracy": 0.9902439024390244,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        1.0,
+        0.9893992932862191,
+        0.9572368421052632,
+        1.0,
+        1.0,
+        0.9882697947214076
+      ],
+      "confusion_matrix": [
+        [
+          383,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          345,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          13,
+          0,
+          676,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          6,
+          0,
+          319,
+          0,
+          0
+        ],
+        [
+          0,
+          4,
+          0,
+          0,
+          342,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          337
+        ]
+      ]
+    },
+    {
+      "stage": "B",
+      "model": "RandomForest-400",
+      "exclude": "clean",
+      "window_s": 0.2,
+      "overlap": 0.5,
+      "representation": "raw",
+      "freq_features": true,
+      "feature_set": "both",
+      "n_windows": 3692,
+      "n_features": 154,
+      "n_recordings": 308,
+      "n_splits": 6,
+      "window_accuracy": 0.9890779039033645,
+      "window_accuracy_std": 0.01168031600806418,
+      "window_macro_f1": 0.9864034742848805,
+      "recording_vote_accuracy": 0.9902439024390244,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        1.0,
+        0.9984756097560976,
+        0.9715698393077874,
+        1.0,
+        0.988950276243094,
+        0.9754716981132076
+      ],
+      "confusion_matrix": [
+        [
+          577,
+          0,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          526,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          21,
+          0,
+          1024,
+          0,
+          2,
+          0
+        ],
+        [
+          2,
+          10,
+          0,
+          489,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          5,
+          0,
+          521,
+          0
+        ],
+        [
+          0,
+          1,
+          0,
+          0,
+          0,
+          512
+        ]
+      ]
+    },
+    {
+      "stage": "B",
+      "model": "RandomForest-400",
+      "exclude": "clean",
+      "window_s": 0.2,
+      "overlap": 0.5,
+      "representation": "raw",
+      "freq_features": true,
+      "feature_set": "level",
+      "n_windows": 3692,
+      "n_features": 50,
+      "n_recordings": 308,
+      "n_splits": 6,
+      "window_accuracy": 0.9887757894792536,
+      "window_accuracy_std": 0.011017166412495581,
+      "window_macro_f1": 0.9865571488962934,
+      "recording_vote_accuracy": 0.9902439024390244,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        1.0,
+        0.9954268292682927,
+        0.9728059332509271,
+        1.0,
+        0.988950276243094,
+        0.9754716981132076
+      ],
+      "confusion_matrix": [
+        [
+          575,
+          0,
+          2,
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          526,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          21,
+          0,
+          1025,
+          0,
+          1,
+          0
+        ],
+        [
+          7,
+          5,
+          0,
+          489,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          5,
+          0,
+          521,
+          0
+        ],
+        [
+          0,
+          1,
+          0,
+          0,
+          0,
+          512
+        ]
+      ]
+    },
+    {
+      "stage": "A",
+      "model": "SVM-rbf-C10",
+      "exclude": "clean",
+      "window_s": 0.3,
+      "overlap": 0.5,
+      "representation": "raw",
+      "freq_features": true,
+      "feature_set": "both",
+      "n_windows": 2425,
+      "n_features": 154,
+      "n_recordings": 308,
+      "n_splits": 6,
+      "window_accuracy": 0.9881479642925121,
+      "window_accuracy_std": 0.012912321314306467,
+      "window_macro_f1": 0.9882704637078698,
+      "recording_vote_accuracy": 0.9902439024390244,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        1.0,
+        0.9823321554770318,
+        0.9638157894736842,
+        0.9974025974025974,
+        1.0,
+        0.9853372434017595
+      ],
+      "confusion_matrix": [
+        [
+          383,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          343,
+          0,
+          0,
+          0,
+          2
+        ],
+        [
+          15,
+          0,
+          673,
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          4,
+          0,
+          321,
+          0,
+          0
+        ],
+        [
+          2,
+          1,
+          2,
+          0,
+          341,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          337
+        ]
+      ]
+    },
+    {
+      "stage": "A",
+      "model": "SVM-rbf-C10",
+      "exclude": "clean",
+      "window_s": 0.2,
+      "overlap": 0.5,
+      "representation": "raw",
+      "freq_features": true,
+      "feature_set": "both",
+      "n_windows": 3692,
+      "n_features": 154,
+      "n_recordings": 308,
+      "n_splits": 6,
+      "window_accuracy": 0.9879543205580216,
+      "window_accuracy_std": 0.010820579836691352,
+      "window_macro_f1": 0.9843198386598749,
+      "recording_vote_accuracy": 0.9902439024390244,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        1.0,
+        0.9878048780487805,
+        0.9678615574783683,
+        1.0,
+        0.9852670349907919,
+        0.9867924528301887
+      ],
+      "confusion_matrix": [
+        [
+          570,
+          0,
+          1,
+          0,
+          0,
+          7
+        ],
+        [
+          0,
+          523,
+          0,
+          0,
+          0,
+          3
+        ],
+        [
+          23,
+          0,
+          1024,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          7,
+          0,
+          494,
+          0,
+          0
+        ],
+        [
+          3,
+          3,
+          2,
+          0,
+          519,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          513
+        ]
+      ]
+    },
+    {
+      "stage": "A",
+      "model": "SVM-rbf-C10",
+      "exclude": "clean",
+      "window_s": 0.3,
+      "overlap": 0.5,
+      "representation": "normalized",
+      "freq_features": true,
+      "feature_set": "both",
+      "n_windows": 2425,
+      "n_features": 154,
+      "n_recordings": 308,
+      "n_splits": 6,
+      "window_accuracy": 0.4050677326814102,
+      "window_accuracy_std": 0.030133024160648274,
+      "window_macro_f1": 0.35097391303216957,
+      "recording_vote_accuracy": 0.5902439024390244,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        0.4258373205741627,
+        0.45936395759717313,
+        0.3815789473684211,
+        0.3974025974025974,
+        0.36739659367396593,
+        0.39882697947214074
+      ],
+      "confusion_matrix": [
+        [
+          115,
+          54,
+          71,
+          47,
+          54,
+          42
+        ],
+        [
+          63,
+          79,
+          43,
+          72,
+          53,
+          35
+        ],
+        [
+          66,
+          28,
+          511,
+          23,
+          35,
+          26
+        ],
+        [
+          57,
+          75,
+          31,
+          82,
+          50,
+          30
+        ],
+        [
+          75,
+          57,
+          46,
+          64,
+          85,
+          19
+        ],
+        [
+          61,
+          46,
+          40,
+          28,
+          40,
+          122
+        ]
+      ]
+    },
+    {
+      "stage": "A",
+      "model": "SVM-rbf-C10",
+      "exclude": "clean",
+      "window_s": 0.2,
+      "overlap": 0.5,
+      "representation": "normalized",
+      "freq_features": true,
+      "feature_set": "both",
+      "n_windows": 3692,
+      "n_features": 154,
+      "n_recordings": 308,
+      "n_splits": 6,
+      "window_accuracy": 0.37477626430912747,
+      "window_accuracy_std": 0.0649277974638256,
+      "window_macro_f1": 0.30932123643081827,
+      "recording_vote_accuracy": 0.5414634146341464,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        0.3748006379585327,
+        0.3429878048780488,
+        0.4227441285537701,
+        0.27703984819734345,
+        0.34806629834254144,
+        0.4830188679245283
+      ],
+      "confusion_matrix": [
+        [
+          142,
+          87,
+          125,
+          73,
+          90,
+          61
+        ],
+        [
+          89,
+          135,
+          70,
+          97,
+          73,
+          62
+        ],
+        [
+          108,
+          43,
+          742,
+          44,
+          55,
+          55
+        ],
+        [
+          87,
+          107,
+          75,
+          98,
+          79,
+          55
+        ],
+        [
+          131,
+          86,
+          70,
+          77,
+          109,
+          54
+        ],
+        [
+          77,
+          62,
+          92,
+          62,
+          53,
+          167
+        ]
+      ]
+    },
+    {
+      "stage": "A",
+      "model": "LDA-shrinkage",
+      "exclude": "clean",
+      "window_s": 0.3,
+      "overlap": 0.5,
+      "representation": "normalized",
+      "freq_features": true,
+      "feature_set": "both",
+      "n_windows": 2425,
+      "n_features": 154,
+      "n_recordings": 308,
+      "n_splits": 6,
+      "window_accuracy": 0.3887386342256771,
+      "window_accuracy_std": 0.025682370600662467,
+      "window_macro_f1": 0.31598042146177213,
+      "recording_vote_accuracy": 0.4682926829268293,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        0.4090909090909091,
+        0.41872791519434627,
+        0.3815789473684211,
+        0.3948051948051948,
+        0.3381995133819951,
+        0.39002932551319647
+      ],
+      "confusion_matrix": [
+        [
+          87,
+          42,
+          98,
+          44,
+          51,
+          61
+        ],
+        [
+          55,
+          54,
+          54,
+          88,
+          46,
+          48
+        ],
+        [
+          43,
+          18,
+          543,
+          25,
+          24,
+          36
+        ],
+        [
+          42,
+          77,
+          25,
+          86,
+          61,
+          34
+        ],
+        [
+          69,
+          55,
+          57,
+          70,
+          58,
+          37
+        ],
+        [
+          37,
+          38,
+          72,
+          28,
+          42,
+          120
+        ]
+      ]
+    },
+    {
+      "stage": "A",
+      "model": "LDA-shrinkage",
+      "exclude": "clean",
+      "window_s": 0.2,
+      "overlap": 0.5,
+      "representation": "normalized",
+      "freq_features": true,
+      "feature_set": "both",
+      "n_windows": 3692,
+      "n_features": 154,
+      "n_recordings": 308,
+      "n_splits": 6,
+      "window_accuracy": 0.33137925477426416,
+      "window_accuracy_std": 0.06417396736717544,
+      "window_macro_f1": 0.2564434257721741,
+      "recording_vote_accuracy": 0.3463414634146341,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        0.33811802232854865,
+        0.31097560975609756,
+        0.39060568603213847,
+        0.2239089184060721,
+        0.3020257826887661,
+        0.4226415094339623
+      ],
+      "confusion_matrix": [
+        [
+          107,
+          62,
+          177,
+          71,
+          79,
+          82
+        ],
+        [
+          79,
+          88,
+          90,
+          106,
+          77,
+          86
+        ],
+        [
+          93,
+          36,
+          748,
+          43,
+          45,
+          82
+        ],
+        [
+          58,
+          106,
+          82,
+          102,
+          89,
+          64
+        ],
+        [
+          112,
+          74,
+          119,
+          77,
+          82,
+          63
+        ],
+        [
+          53,
+          66,
+          162,
+          63,
+          58,
+          111
+        ]
+      ]
+    }
+  ],
+  "screen": [
+    {
+      "stage": "A1",
+      "model": "LDA-shrinkage",
+      "exclude": "clean",
+      "window_s": 0.2,
+      "overlap": 0.5,
+      "representation": "raw",
+      "feature_set": "level",
+      "freq_features": true,
+      "n_windows": 1895,
+      "n_features": 50,
+      "n_recordings": 308,
+      "screen_fraction": 0.5,
+      "windows_before_dedup": 8646,
+      "windows_after_dedup": 3692,
+      "n_splits": 6,
+      "window_accuracy": 0.9901001491583209,
+      "window_accuracy_std": 0.017229036362534738,
+      "window_macro_f1": 0.9895347154293536,
+      "recording_vote_accuracy": 0.9902439024390244,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        0.9876923076923076,
+        1.0,
+        1.0,
+        0.9529085872576177,
+        1.0,
+        1.0
+      ],
+      "confusion_matrix": [
+        [
+          297,
+          0,
+          0,
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          274,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          11,
+          0,
+          520,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          6,
+          0,
+          248,
+          0,
+          0
+        ],
+        [
+          0,
+          3,
+          0,
+          0,
+          266,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          269
+        ]
+      ]
+    },
+    {
+      "stage": "A1",
+      "model": "SVM-rbf-C10",
+      "exclude": "clean",
+      "window_s": 0.2,
+      "overlap": 0.5,
+      "representation": "raw",
+      "feature_set": "level",
+      "freq_features": true,
+      "n_windows": 1895,
+      "n_features": 50,
+      "n_recordings": 308,
+      "screen_fraction": 0.5,
+      "windows_before_dedup": 8646,
+      "windows_after_dedup": 3692,
+      "n_splits": 6,
+      "window_accuracy": 0.9895361886497621,
+      "window_accuracy_std": 0.01657438071027278,
+      "window_macro_f1": 0.9902898768320831,
+      "recording_vote_accuracy": 0.9902439024390244,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        0.9815384615384616,
+        1.0,
+        1.0,
+        0.9556786703601108,
+        1.0,
+        1.0
+      ],
+      "confusion_matrix": [
+        [
+          295,
+          0,
+          3,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          273,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          12,
+          0,
+          517,
+          0,
+          2,
+          0
+        ],
+        [
+          0,
+          1,
+          0,
+          253,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          3,
+          0,
+          266,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          269
+        ]
+      ]
+    },
+    {
+      "stage": "A1",
+      "model": "LDA-shrinkage",
+      "exclude": "clean",
+      "window_s": 0.2,
+      "overlap": 0.5,
+      "representation": "raw",
+      "feature_set": "both",
+      "freq_features": true,
+      "n_windows": 1895,
+      "n_features": 154,
+      "n_recordings": 308,
+      "screen_fraction": 0.5,
+      "windows_before_dedup": 8646,
+      "windows_after_dedup": 3692,
+      "n_splits": 6,
+      "window_accuracy": 0.9906129696711413,
+      "window_accuracy_std": 0.017195494682695493,
+      "window_macro_f1": 0.990058865650807,
+      "recording_vote_accuracy": 0.9902439024390244,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        0.9907692307692307,
+        1.0,
+        1.0,
+        0.9529085872576177,
+        1.0,
+        1.0
+      ],
+      "confusion_matrix": [
+        [
+          298,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          274,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          11,
+          0,
+          520,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          6,
+          0,
+          248,
+          0,
+          0
+        ],
+        [
+          0,
+          3,
+          0,
+          0,
+          266,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          269
+        ]
+      ]
+    },
+    {
+      "stage": "A1",
+      "model": "SVM-rbf-C10",
+      "exclude": "clean",
+      "window_s": 0.2,
+      "overlap": 0.5,
+      "representation": "raw",
+      "feature_set": "both",
+      "freq_features": true,
+      "n_windows": 1895,
+      "n_features": 154,
+      "n_recordings": 308,
+      "screen_fraction": 0.5,
+      "windows_before_dedup": 8646,
+      "windows_after_dedup": 3692,
+      "n_splits": 6,
+      "window_accuracy": 0.9876894665814334,
+      "window_accuracy_std": 0.020415995207826835,
+      "window_macro_f1": 0.987453979835036,
+      "recording_vote_accuracy": 0.9902439024390244,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        0.9815384615384616,
+        1.0,
+        1.0,
+        0.9445983379501385,
+        1.0,
+        1.0
+      ],
+      "confusion_matrix": [
+        [
+          296,
+          0,
+          0,
+          0,
+          0,
+          2
+        ],
+        [
+          0,
+          273,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          12,
+          1,
+          518,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          6,
+          0,
+          248,
+          0,
+          0
+        ],
+        [
+          0,
+          2,
+          1,
+          0,
+          265,
+          1
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          269
+        ]
+      ]
+    },
+    {
+      "stage": "A1",
+      "model": "LDA-shrinkage",
+      "exclude": "clean",
+      "window_s": 0.2,
+      "overlap": 0.5,
+      "representation": "normalized",
+      "feature_set": "level",
+      "freq_features": true,
+      "n_windows": 1895,
+      "n_features": 50,
+      "n_recordings": 308,
+      "screen_fraction": 0.5,
+      "windows_before_dedup": 8646,
+      "windows_after_dedup": 3692,
+      "n_splits": 6,
+      "window_accuracy": 0.2676847062917493,
+      "window_accuracy_std": 0.05626171541643443,
+      "window_macro_f1": 0.0865965611222153,
+      "recording_vote_accuracy": 0.24390243902439024,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        0.22153846153846155,
+        0.3684210526315789,
+        0.21451104100946372,
+        0.31301939058171746,
+        0.26353790613718414,
+        0.22508038585209003
+      ],
+      "confusion_matrix": [
+        [
+          14,
+          2,
+          280,
+          0,
+          0,
+          2
+        ],
+        [
+          19,
+          0,
+          254,
+          0,
+          1,
+          0
+        ],
+        [
+          33,
+          2,
+          493,
+          0,
+          2,
+          1
+        ],
+        [
+          25,
+          0,
+          226,
+          0,
+          1,
+          2
+        ],
+        [
+          16,
+          0,
+          251,
+          0,
+          0,
+          2
+        ],
+        [
+          17,
+          1,
+          250,
+          0,
+          0,
+          1
+        ]
+      ]
+    },
+    {
+      "stage": "A1",
+      "model": "SVM-rbf-C10",
+      "exclude": "clean",
+      "window_s": 0.2,
+      "overlap": 0.5,
+      "representation": "normalized",
+      "feature_set": "level",
+      "freq_features": true,
+      "n_windows": 1895,
+      "n_features": 50,
+      "n_recordings": 308,
+      "screen_fraction": 0.5,
+      "windows_before_dedup": 8646,
+      "windows_after_dedup": 3692,
+      "n_splits": 6,
+      "window_accuracy": 0.2704485465787528,
+      "window_accuracy_std": 0.05841510267022493,
+      "window_macro_f1": 0.10342986066225819,
+      "recording_vote_accuracy": 0.24878048780487805,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        0.21846153846153846,
+        0.3717105263157895,
+        0.21451104100946372,
+        0.3185595567867036,
+        0.2743682310469314,
+        0.22508038585209003
+      ],
+      "confusion_matrix": [
+        [
+          12,
+          12,
+          267,
+          1,
+          0,
+          6
+        ],
+        [
+          13,
+          11,
+          245,
+          1,
+          2,
+          2
+        ],
+        [
+          22,
+          15,
+          484,
+          2,
+          0,
+          8
+        ],
+        [
+          11,
+          2,
+          233,
+          2,
+          0,
+          6
+        ],
+        [
+          10,
+          6,
+          245,
+          2,
+          1,
+          5
+        ],
+        [
+          7,
+          9,
+          250,
+          0,
+          0,
+          3
+        ]
+      ]
+    },
+    {
+      "stage": "A1",
+      "model": "LDA-shrinkage",
+      "exclude": "clean",
+      "window_s": 0.2,
+      "overlap": 0.5,
+      "representation": "normalized",
+      "feature_set": "both",
+      "freq_features": true,
+      "n_windows": 1895,
+      "n_features": 154,
+      "n_recordings": 308,
+      "screen_fraction": 0.5,
+      "windows_before_dedup": 8646,
+      "windows_after_dedup": 3692,
+      "n_splits": 6,
+      "window_accuracy": 0.3419424748076854,
+      "window_accuracy_std": 0.047091543830917654,
+      "window_macro_f1": 0.2750524392075896,
+      "recording_vote_accuracy": 0.3951219512195122,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        0.3446153846153846,
+        0.4243421052631579,
+        0.28391167192429023,
+        0.3379501385041551,
+        0.36823104693140796,
+        0.29260450160771706
+      ],
+      "confusion_matrix": [
+        [
+          70,
+          37,
+          69,
+          37,
+          36,
+          49
+        ],
+        [
+          36,
+          46,
+          39,
+          54,
+          50,
+          49
+        ],
+        [
+          43,
+          24,
+          368,
+          20,
+          24,
+          52
+        ],
+        [
+          35,
+          61,
+          39,
+          47,
+          35,
+          37
+        ],
+        [
+          46,
+          49,
+          57,
+          39,
+          40,
+          38
+        ],
+        [
+          33,
+          31,
+          70,
+          35,
+          25,
+          75
+        ]
+      ]
+    },
+    {
+      "stage": "A1",
+      "model": "SVM-rbf-C10",
+      "exclude": "clean",
+      "window_s": 0.2,
+      "overlap": 0.5,
+      "representation": "normalized",
+      "feature_set": "both",
+      "freq_features": true,
+      "n_windows": 1895,
+      "n_features": 154,
+      "n_recordings": 308,
+      "screen_fraction": 0.5,
+      "windows_before_dedup": 8646,
+      "windows_after_dedup": 3692,
+      "n_splits": 6,
+      "window_accuracy": 0.35202127192358557,
+      "window_accuracy_std": 0.04532451209513258,
+      "window_macro_f1": 0.2893221512912479,
+      "recording_vote_accuracy": 0.44390243902439025,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        0.3569230769230769,
+        0.4375,
+        0.31545741324921134,
+        0.32132963988919666,
+        0.37545126353790614,
+        0.3054662379421222
+      ],
+      "confusion_matrix": [
+        [
+          72,
+          51,
+          69,
+          41,
+          38,
+          27
+        ],
+        [
+          43,
+          51,
+          44,
+          54,
+          46,
+          36
+        ],
+        [
+          57,
+          28,
+          369,
+          22,
+          24,
+          31
+        ],
+        [
+          40,
+          61,
+          35,
+          48,
+          40,
+          30
+        ],
+        [
+          58,
+          51,
+          50,
+          40,
+          46,
+          24
+        ],
+        [
+          40,
+          38,
+          60,
+          28,
+          25,
+          78
+        ]
+      ]
+    },
+    {
+      "stage": "A1",
+      "model": "LDA-shrinkage",
+      "exclude": "clean",
+      "window_s": 0.3,
+      "overlap": 0.5,
+      "representation": "raw",
+      "feature_set": "level",
+      "freq_features": true,
+      "n_windows": 1216,
+      "n_features": 50,
+      "n_recordings": 308,
+      "screen_fraction": 0.5,
+      "windows_before_dedup": 5598,
+      "windows_after_dedup": 2425,
+      "n_splits": 6,
+      "window_accuracy": 0.9912396158993255,
+      "window_accuracy_std": 0.010846252199560516,
+      "window_macro_f1": 0.9912044051415347,
+      "recording_vote_accuracy": 0.9902439024390244,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        1.0,
+        1.0,
+        1.0,
+        0.9698275862068966,
+        0.9871794871794872,
+        0.9904306220095693
+      ],
+      "confusion_matrix": [
+        [
+          194,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          177,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          7,
+          0,
+          340,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          3,
+          0,
+          153,
+          0,
+          0
+        ],
+        [
+          0,
+          2,
+          0,
+          0,
+          167,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          173
+        ]
+      ]
+    },
+    {
+      "stage": "A1",
+      "model": "SVM-rbf-C10",
+      "exclude": "clean",
+      "window_s": 0.3,
+      "overlap": 0.5,
+      "representation": "raw",
+      "feature_set": "level",
+      "freq_features": true,
+      "n_windows": 1216,
+      "n_features": 50,
+      "n_recordings": 308,
+      "screen_fraction": 0.5,
+      "windows_before_dedup": 5598,
+      "windows_after_dedup": 2425,
+      "n_splits": 6,
+      "window_accuracy": 0.9902107784024272,
+      "window_accuracy_std": 0.008222682573317307,
+      "window_macro_f1": 0.9905952456419082,
+      "recording_vote_accuracy": 0.9902439024390244,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        0.9940828402366864,
+        1.0,
+        0.9954337899543378,
+        0.9741379310344828,
+        0.9871794871794872,
+        0.9904306220095693
+      ],
+      "confusion_matrix": [
+        [
+          194,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          176,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          8,
+          0,
+          339,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          2,
+          0,
+          154,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          1,
+          0,
+          167,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          173
+        ]
+      ]
+    },
+    {
+      "stage": "A1",
+      "model": "LDA-shrinkage",
+      "exclude": "clean",
+      "window_s": 0.3,
+      "overlap": 0.5,
+      "representation": "raw",
+      "feature_set": "both",
+      "freq_features": true,
+      "n_windows": 1216,
+      "n_features": 154,
+      "n_recordings": 308,
+      "screen_fraction": 0.5,
+      "windows_before_dedup": 5598,
+      "windows_after_dedup": 2425,
+      "n_splits": 6,
+      "window_accuracy": 0.9912396158993255,
+      "window_accuracy_std": 0.010846252199560516,
+      "window_macro_f1": 0.9904399977364776,
+      "recording_vote_accuracy": 0.9902439024390244,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        1.0,
+        1.0,
+        1.0,
+        0.9698275862068966,
+        0.9871794871794872,
+        0.9904306220095693
+      ],
+      "confusion_matrix": [
+        [
+          194,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          177,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          6,
+          1,
+          340,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          3,
+          0,
+          153,
+          0,
+          0
+        ],
+        [
+          0,
+          2,
+          0,
+          0,
+          167,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          173
+        ]
+      ]
+    },
+    {
+      "stage": "A1",
+      "model": "SVM-rbf-C10",
+      "exclude": "clean",
+      "window_s": 0.3,
+      "overlap": 0.5,
+      "representation": "raw",
+      "feature_set": "both",
+      "freq_features": true,
+      "n_windows": 1216,
+      "n_features": 154,
+      "n_recordings": 308,
+      "screen_fraction": 0.5,
+      "windows_before_dedup": 5598,
+      "windows_after_dedup": 2425,
+      "n_splits": 6,
+      "window_accuracy": 0.9886949394319604,
+      "window_accuracy_std": 0.00974522130136111,
+      "window_macro_f1": 0.9869023979073704,
+      "recording_vote_accuracy": 0.9902439024390244,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        0.9940828402366864,
+        1.0,
+        0.9954337899543378,
+        0.9698275862068966,
+        0.9871794871794872,
+        0.9856459330143541
+      ],
+      "confusion_matrix": [
+        [
+          194,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          176,
+          0,
+          0,
+          0,
+          1
+        ],
+        [
+          7,
+          1,
+          339,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          3,
+          0,
+          153,
+          0,
+          0
+        ],
+        [
+          1,
+          2,
+          0,
+          0,
+          166,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          173
+        ]
+      ]
+    },
+    {
+      "stage": "A1",
+      "model": "LDA-shrinkage",
+      "exclude": "clean",
+      "window_s": 0.3,
+      "overlap": 0.5,
+      "representation": "normalized",
+      "feature_set": "level",
+      "freq_features": true,
+      "n_windows": 1216,
+      "n_features": 50,
+      "n_recordings": 308,
+      "screen_fraction": 0.5,
+      "windows_before_dedup": 5598,
+      "windows_after_dedup": 2425,
+      "n_splits": 6,
+      "window_accuracy": 0.26167366023996613,
+      "window_accuracy_std": 0.05710405335494045,
+      "window_macro_f1": 0.11335386953812228,
+      "recording_vote_accuracy": 0.24878048780487805,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        0.26627218934911245,
+        0.26143790849673204,
+        0.1643835616438356,
+        0.34913793103448276,
+        0.29914529914529914,
+        0.22966507177033493
+      ],
+      "confusion_matrix": [
+        [
+          4,
+          7,
+          157,
+          2,
+          11,
+          13
+        ],
+        [
+          3,
+          9,
+          140,
+          2,
+          7,
+          16
+        ],
+        [
+          12,
+          14,
+          290,
+          4,
+          12,
+          15
+        ],
+        [
+          3,
+          5,
+          133,
+          0,
+          11,
+          4
+        ],
+        [
+          2,
+          8,
+          150,
+          5,
+          2,
+          2
+        ],
+        [
+          2,
+          10,
+          139,
+          2,
+          5,
+          15
+        ]
+      ]
+    },
+    {
+      "stage": "A1",
+      "model": "SVM-rbf-C10",
+      "exclude": "clean",
+      "window_s": 0.3,
+      "overlap": 0.5,
+      "representation": "normalized",
+      "feature_set": "level",
+      "freq_features": true,
+      "n_windows": 1216,
+      "n_features": 50,
+      "n_recordings": 308,
+      "screen_fraction": 0.5,
+      "windows_before_dedup": 5598,
+      "windows_after_dedup": 2425,
+      "n_splits": 6,
+      "window_accuracy": 0.2715403802935694,
+      "window_accuracy_std": 0.05718816815422989,
+      "window_macro_f1": 0.17165936137354967,
+      "recording_vote_accuracy": 0.2780487804878049,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        0.25443786982248523,
+        0.2875816993464052,
+        0.1735159817351598,
+        0.35344827586206895,
+        0.3162393162393162,
+        0.24401913875598086
+      ],
+      "confusion_matrix": [
+        [
+          18,
+          13,
+          132,
+          14,
+          4,
+          13
+        ],
+        [
+          10,
+          19,
+          110,
+          8,
+          9,
+          21
+        ],
+        [
+          32,
+          18,
+          255,
+          10,
+          16,
+          16
+        ],
+        [
+          15,
+          9,
+          107,
+          6,
+          11,
+          8
+        ],
+        [
+          12,
+          10,
+          119,
+          7,
+          14,
+          7
+        ],
+        [
+          14,
+          18,
+          106,
+          9,
+          6,
+          20
+        ]
+      ]
+    },
+    {
+      "stage": "A1",
+      "model": "LDA-shrinkage",
+      "exclude": "clean",
+      "window_s": 0.3,
+      "overlap": 0.5,
+      "representation": "normalized",
+      "feature_set": "both",
+      "freq_features": true,
+      "n_windows": 1216,
+      "n_features": 154,
+      "n_recordings": 308,
+      "screen_fraction": 0.5,
+      "windows_before_dedup": 5598,
+      "windows_after_dedup": 2425,
+      "n_splits": 6,
+      "window_accuracy": 0.3730747617442838,
+      "window_accuracy_std": 0.053674000428230874,
+      "window_macro_f1": 0.29593809537423016,
+      "recording_vote_accuracy": 0.4195121951219512,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        0.41420118343195267,
+        0.3660130718954248,
+        0.3105022831050228,
+        0.45689655172413796,
+        0.38461538461538464,
+        0.3062200956937799
+      ],
+      "confusion_matrix": [
+        [
+          45,
+          29,
+          42,
+          20,
+          26,
+          32
+        ],
+        [
+          24,
+          37,
+          24,
+          33,
+          27,
+          32
+        ],
+        [
+          30,
+          10,
+          264,
+          11,
+          19,
+          13
+        ],
+        [
+          15,
+          44,
+          12,
+          29,
+          40,
+          16
+        ],
+        [
+          41,
+          25,
+          28,
+          31,
+          28,
+          16
+        ],
+        [
+          28,
+          24,
+          34,
+          12,
+          24,
+          51
+        ]
+      ]
+    },
+    {
+      "stage": "A1",
+      "model": "SVM-rbf-C10",
+      "exclude": "clean",
+      "window_s": 0.3,
+      "overlap": 0.5,
+      "representation": "normalized",
+      "feature_set": "both",
+      "freq_features": true,
+      "n_windows": 1216,
+      "n_features": 154,
+      "n_recordings": 308,
+      "screen_fraction": 0.5,
+      "windows_before_dedup": 5598,
+      "windows_after_dedup": 2425,
+      "n_splits": 6,
+      "window_accuracy": 0.3737029910962401,
+      "window_accuracy_std": 0.044924943497757094,
+      "window_macro_f1": 0.30808218686074745,
+      "recording_vote_accuracy": 0.4975609756097561,
+      "n_recordings_voted": 205,
+      "fold_accuracies": [
+        0.4260355029585799,
+        0.3333333333333333,
+        0.319634703196347,
+        0.40948275862068967,
+        0.4188034188034188,
+        0.3349282296650718
+      ],
+      "confusion_matrix": [
+        [
+          60,
+          26,
+          43,
+          15,
+          27,
+          23
+        ],
+        [
+          33,
+          41,
+          26,
+          27,
+          27,
+          23
+        ],
+        [
+          47,
+          21,
+          231,
+          16,
+          17,
+          15
+        ],
+        [
+          28,
+          37,
+          19,
+          32,
+          28,
+          12
+        ],
+        [
+          34,
+          34,
+          23,
+          30,
+          34,
+          14
+        ],
+        [
+          34,
+          24,
+          22,
+          19,
+          16,
+          58
+        ]
+      ]
+    }
+  ],
+  "elapsed_s": 65.93004409999412,
+  "cost_controls": {
+    "dedupe_windows": true,
+    "screen_fraction": 0.5,
+    "screen_probes": [
+      "LDA-shrinkage",
+      "SVM-rbf-C10"
+    ],
+    "shortlist_size": 6,
+    "shortlist_random": 0,
+    "setups_total": 8,
+    "setups_fully_probed": 6,
+    "collapsed_excludes": {},
+    "note": "Stage A1 screened every setup on 50 % of the deduped windows with cheap probes; only the shortlist was probed on full data. A1 rows are in 'screen' and are NOT comparable with 'sweep' rows."
+  },
+  "confound": {
+    "majority_class": 0.28358613217768147,
+    "dc_only_control": {
+      "n_features": 8,
+      "feature_names": [
+        "CH1_mean",
+        "CH2_mean",
+        "CH3_mean",
+        "CH4_mean",
+        "CH5_mean",
+        "CH6_mean",
+        "CH7_mean",
+        "CH8_mean"
+      ],
+      "window_accuracy": 0.9718800802577533,
+      "recording_vote_accuracy": 0.975609756097561
+    },
+    "warning": "Each active gesture in this dataset is a single continuous take, so label is confounded with electrode state and wall-clock block. Compare any score against dc_only_control before reading it as gesture recognition. See docs/EDA.md."
+  }
+}
