@@ -1,0 +1,148 @@
+{
+  "uid": "bc60e761",
+  "stage": "raw",
+  "label": "WAVE_RIGHT",
+  "label_index": 5,
+  "person_id": "Dano",
+  "session_id": "session_02",
+  "repetition": 15,
+  "n_samples": 100,
+  "n_channels": 8,
+  "channel_names": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5",
+    "CH6",
+    "CH7",
+    "CH8"
+  ],
+  "duration_s": 1.989628,
+  "sample_rate_measured": 49.758,
+  "created_unix": 1792055254.8088999,
+  "created_iso": "2026-10-15T11:07:34.808",
+  "start_unix": 1792055221.332449,
+  "end_unix": 1792055223.3220773,
+  "start_iso": "2026-10-15T11:07:01.332",
+  "end_iso": "2026-10-15T11:07:03.322",
+  "label_start_index": 0,
+  "label_end_index": 100,
+  "amplitude_min": [
+    344,
+    702,
+    583,
+    107,
+    59,
+    48,
+    43,
+    60
+  ],
+  "amplitude_max": [
+    622,
+    1249,
+    954,
+    252,
+    145,
+    129,
+    109,
+    187
+  ],
+  "quality_issues": [
+    {
+      "level": "warning",
+      "code": "noisy_baseline",
+      "message": "Resting baseline RMS 61.9 exceeds 60. Check skin contact and move away from mains interference."
+    }
+  ],
+  "quality_worst_level": "warning",
+  "activity_detected": {
+    "found": true,
+    "start": 10,
+    "end": 89,
+    "core_start": 15,
+    "core_end": 82,
+    "threshold_high": 112.28386524336142,
+    "threshold_low": 67.37031914601685,
+    "baseline": 37.42795508112047,
+    "n_candidates": 1,
+    "reason": "ok"
+  },
+  "files": {
+    "raw:csv": "Dano\\session_02\\WAVE_RIGHT\\WAVE_RIGHT_rep015_20261015-110734-808_bc60e761_raw.csv",
+    "raw:npz": "Dano\\session_02\\WAVE_RIGHT\\WAVE_RIGHT_rep015_20261015-110734-808_bc60e761_raw.npz"
+  },
+  "meta": {
+    "emg_mode": "filtered",
+    "handedness": "right",
+    "arm_worn_on": "right",
+    "device": "Myo armband",
+    "notes": "",
+    "capture_style": "cut_from_take",
+    "selected_by_operator": true,
+    "selection_seconds": 1.9896,
+    "parent_take_uid": "8d72f1b3",
+    "parent_take_label": "WAVE_RIGHT",
+    "parent_take_stage": "take",
+    "parent_take_file": "Dano\\session_02\\_takes\\WAVE_RIGHT_take004_20261015-110633-318_8d72f1b3_take.npz",
+    "parent_take_n_samples": 2622,
+    "take_start_index": 1397,
+    "take_end_index": 1497,
+    "take_start_s": 28.0113,
+    "take_end_s": 30.0009
+  },
+  "config": {
+    "app_version": "1.0.0",
+    "emg_mode": "filtered",
+    "nominal_sample_rate": 50.0,
+    "emg_range": [
+      0,
+      2047
+    ],
+    "gestures": [
+      "REST",
+      "FIST",
+      "OPEN",
+      "THUMB_UP",
+      "WAVE_LEFT",
+      "WAVE_RIGHT"
+    ],
+    "repetitions": 30,
+    "gesture_order": "interleaved",
+    "random_seed": 42,
+    "rest_time": 2.0,
+    "prepare_time": 0.8,
+    "countdown_time": 3.0,
+    "record_time": 2.0,
+    "pause_time": 1.0,
+    "pre_gesture_ms": 300,
+    "post_gesture_ms": 300,
+    "window_ms": 200,
+    "window_overlap": 0.5,
+    "auto_trim": true,
+    "default_cut_seconds": 2.0,
+    "model_spec_file": "model_spec.json",
+    "min_selection_seconds": 0.25,
+    "free_take_max_minutes": 15.0,
+    "trim": {
+      "envelope_ms": 50.0,
+      "baseline_ms": 200.0,
+      "threshold_high": 3.0,
+      "threshold_low": 1.8,
+      "abs_floor": 12.0,
+      "min_active_ms": 120.0,
+      "min_inactive_ms": 250.0,
+      "pre_padding_ms": 100.0,
+      "post_padding_ms": 150.0,
+      "min_active_channels": 2
+    },
+    "quality": {
+      "enabled": true,
+      "min_sample_fraction": 0.8,
+      "max_gap_ms": 120.0,
+      "max_saturated_fraction": 0.02,
+      "max_baseline_rms": 60.0,
+      "min_peak_amplitude": 40.0
+    }
+  }
+}
