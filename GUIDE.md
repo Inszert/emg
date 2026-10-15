@@ -789,6 +789,42 @@ you cut from it, so you can reopen it and cut more clips next week. Two of the
 checks in `tests/test_free_take.py` do nothing but compare the take file's
 bytes before and after extracting.
 
+### Throwing a take away
+
+Once you have cut what you want out of a 50 MB take — or recorded one you do
+not want at all — select it in **TAKES ON DISK** and press
+**DELETE TAKE(S)**. Ctrl/Shift+click to pick several.
+
+Nothing is erased. The take's files move into `<session>/_deleted/`, the same
+folder DELETE LAST and REDO use, and a line goes into `manifest.jsonl` saying
+where they went. To get a take back, move its files from `_deleted/` to
+`_takes/` — `_deleted` is an underscore folder, so a take sitting in it is
+invisible to discovery either way and cannot leak into the dataset.
+
+Every format the take was written in goes together: `.csv`, `.npz`,
+`.parquet`, the `_meta.json` sidecar and any `_notes.json`.
+
+**Clips you already cut are not deleted.** They are ordinary recordings in
+their gesture folders and they stay in the dataset exactly as they are. The
+confirmation dialog tells you how many there are before you commit, because
+the one thing you lose is the ability to cut *more* clips from that take:
+
+```
+Move 1 take(s) out of _takes?
+
+    FIST_take003_20261013-225031-124_91a797e8_take   (56 clip(s) cut from it)
+
+The files move into the _deleted folder, not erased, so the signal can
+always be recovered.
+
+56 clip(s) were cut from these takes. Those clips are separate recordings
+and are NOT deleted -- they stay in the dataset. You will not be able to
+cut any more clips from these takes, though.
+```
+
+The button is greyed out while a free take is still recording — the file does
+not exist yet — and when nothing is selected.
+
 | Setting | Default | What it does |
 |---|---|---|
 | `FREE_TAKE_ENABLED` | `True` | Master switch. `False` hides the panel. |
@@ -1024,6 +1060,8 @@ The GUI shows the estimate under *Recording plan*.
 | `NOMINAL_SAMPLE_RATE` | 50 / 200 | A *hint* used to size buffers and sanity-check. The **measured** rate is what gets stored, and it is measured as samples-per-second over the recording's span — the dongle delivers packets in bursts, so per-interval estimates are meaningless. |
 | `EMG_RANGE` | `(0, 2047)` / `(-128, 127)` | Valid amplitude range, used by the quality checks and the plot. The filtered ceiling is **measured, not documented**: a maximum-effort fist on this armband reached 1100–1444, so it is *not* clipped at 1023. Widen it further if you see `out_of_range` on a healthy-looking signal. |
 | `SATURATION_FRACTION` | `0.98` | Fraction of the range above which a sample counts as clipped. |
+| `EMG_BANDPASS_HZ` | `{"filtered": (None, 8.0), "raw": (20.0, 95.0)}` | `(high_pass_Hz, low_pass_Hz)` per mode; `None` disables that half. Used by the `"bandpass"` representation, which the sweep treats as one more candidate. **The `filtered` row has no high-pass on purpose.** The Myo already band-passes and rectifies on-device, so what you get in that mode is an envelope at ~50 Hz — Nyquist is ~25 Hz, which makes the textbook 20–450 Hz band unrepresentable, and a high-pass on an envelope deletes the DC *activation level* that carries most of the signal (measured twice: Fisher 25.5 → 15.1 and accuracy 43.2 % → 33.5 %). So `filtered` gets an 8 Hz smoother only. `raw` is a genuine 200 Hz bipolar stream with nothing applied, where 20–95 Hz is both standard and actually missing. A cutoff at or above Nyquist is **skipped with a message, never clamped** — clamping would apply a different filter and still call it by the name you asked for. See `CLAUDE.md` §8i. |
+| `EMG_BANDPASS_ORDER` | `2` | Order per half. The filter is zero-phase (run forwards then backwards), which doubles the effective order to 4 and — more importantly — introduces no group delay. A causal filter would delay the envelope and shift gesture onsets relative to the label boundaries clips are cut on. |
 
 ## 4.5 Memory
 

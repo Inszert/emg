@@ -17,6 +17,7 @@ CLAUDE.md §8d (why the GPU cannot help).
 | Stage A1, **measured** on all 308 recordings | — | **161 s** (240 screens, 120 setups) |
 | Last recorded full sweep | 11 747 s = **3 h 16 m** (119 recordings) | — |
 | Distinct setups after folding identical filters | 360 | **120** |
+| ...then **160** once `bandpass` was added as a 4th representation (§10) | — | **160** |
 | Setups fully probed | 360 of 360 | 32 of 120 |
 | Windows in the winning setup | 5 598 | 2 425 |
 | Per-window accuracy | 99.7 % | 99.0 % |
@@ -312,6 +313,42 @@ gesture has 2+ takes, not implemented), amplitude-invariant preprocessing
 (`normalized` exists and the sweep should start preferring it by itself), and
 electrode-rotation alignment between wearers (nothing handles it; expect it to
 be the next real problem).
+
+## 10. What the band-pass added back, 2026-10-15
+
+A fourth representation, `bandpass` (CLAUDE.md §8i), joined `raw`,
+`normalized` and `envelope`. Representations multiply the setup grid, so:
+
+| | Before | After |
+|---|---|---|
+| Distinct setups | 120 | **160** |
+| Stage A1 screens | 240 | 320 |
+| Stage A2 probes | 32 setups | 32 setups (unchanged) |
+| Evaluations in the run | ~333 | **445** |
+
+**Stage A2 and B did not grow**, because `A2_SHORTLIST` is an absolute count
+rather than a fraction — the expensive part of the sweep is fixed at 32 setups
+no matter how many are screened. Only the cheap A1 screen scales with the
+grid, which is exactly the property the three-stage split was built for. The
+run cost roughly a third more than the 120-setup version, in the stage that
+costs ~0.7 s per setup.
+
+**Why it was added rather than hard-coded.** Whether an 8 Hz low-pass on the
+envelope helps is a measurable question, and the project's rule is to measure
+it. At one fixed setup (0.40 s / 0.5 overlap / `level`, LDA-shrinkage) on 325
+recordings: `raw` 98.07 % window / 99.10 % vote, `bandpass` 98.15 % /
+**99.55 %**, `envelope` 87.75 % / 95.05 %, `normalized` 22.34 % / 24.32 %. A
+hair ahead of `raw` on the vote — worth having as a candidate, not worth
+asserting as a default. The sweep picks it or it does not.
+
+**If the sweep ever needs to get cheaper again**, dropping a representation is
+the cleanest lever available: it is a straight 40-setup saving per
+representation, with no effect on the shortlist's regret, and
+`REPRESENTATIONS` is one line. `normalized` is the obvious candidate on
+single-subject data, where it scores 22 % — but see §8 before removing it, as
+it is expected to start winning once several wearers exist.
+
+---
 
 ## 9. Verification
 

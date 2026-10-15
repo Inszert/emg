@@ -79,7 +79,7 @@ GESTURES = [
 ]
 
 # How many repetitions of EACH gesture the automatic session should collect.
-REPETITIONS = 30
+REPETITIONS = 6
 
 # Order in which the automatic sequence walks through the plan:
 #   "blocked"      -> all 30 FIST, then all 30 OPEN, ...  (fastest for the subject)
@@ -102,7 +102,7 @@ MAX_RECORDINGS = 0
 REST_TIME = 2.0          # relax / return-to-neutral time before each repetition
 PREPARE_TIME = 0.8       # "GET READY: FIST" announcement before the countdown
 COUNTDOWN_TIME = 3.0     # length of the 3-2-1 countdown (3.0 = three ticks)
-RECORD_TIME = 2.0        # how long the labeled recording lasts
+RECORD_TIME = 4.0        # onset -> settle -> RELAXED HOLD -> release (CLAUDE.md 8f R4)
 PAUSE_TIME = 1.0         # short pause after the recording (save + breathe)
 
 # Extra signal kept AROUND the labeled record window. It is captured into the
@@ -186,6 +186,44 @@ EMG_RANGE = {
     "filtered": (0, 2047),       # on-device filtered EMG is non-negative
     "raw": (-128, 127),          # signed 8-bit ADC counts -- a true hard limit
 }
+
+# ------------------------------------------------------------------------------
+# BAND-PASS FILTER
+# ------------------------------------------------------------------------------
+#
+# Per mode: (high_pass_Hz, low_pass_Hz). None disables that half.
+#
+# READ THIS BEFORE CHANGING THE "filtered" ROW. The textbook EMG band-pass is
+# 20-450 Hz, and NEITHER end of that is applicable to the default stream:
+#
+#   * The Myo already band-passes and rectifies on-device. What arrives in
+#     "filtered" mode is an ENVELOPE, not a bipolar waveform -- the 20-450 Hz
+#     stage has already happened in hardware, upstream of anything here.
+#   * The envelope arrives at ~50 Hz, so Nyquist is ~25 Hz. A 450 Hz low-pass
+#     is not merely unnecessary, it is unrepresentable; a 20 Hz high-pass sits
+#     at 0.8x Nyquist, which is meaningless on an envelope.
+#   * A high-pass on an envelope removes its DC, and DC here IS the activation
+#     level. This project measured that twice and both times it cost accuracy:
+#     median-centring dropped the Fisher ratio 25.5 -> 15.1 and accuracy
+#     43.2 % -> 33.5 %, and baseline subtraction dropped Fisher 24.9 ->
+#     11.5-17.2. See the "Absolute amplitude is kept" decision in CLAUDE.md
+#     section 13.
+#
+# So "filtered" defaults to a LOW-PASS ONLY: an 8 Hz smoother on the envelope,
+# which removes window-to-window jitter without touching the level. The
+# high-pass is left at None on purpose, not by omission.
+#
+# "raw" is the opposite case: a true 200 Hz bipolar ADC stream with nothing
+# applied to it, where a band-pass is both standard and genuinely absent.
+# 20-95 Hz fits inside its 100 Hz Nyquist.
+EMG_BANDPASS_HZ = {
+    "filtered": (None, 8.0),
+    "raw": (20.0, 95.0),
+}
+
+# Filter order per half. 2 is a gentle 12 dB/octave roll-off; the zero-phase
+# forward-backward pass doubles the effective order to 4.
+EMG_BANDPASS_ORDER = 2
 
 # A sample at/above this fraction of the range limit counts as "saturated".
 # This check is meaningful for "raw" (int8 really does clip at +-127) and is
@@ -1135,6 +1173,145 @@ def moving_mean(x: np.ndarray, win: int) -> np.ndarray:
     return (csum[win:win + n] - csum[0:n]) / float(win)
 
 
+def _butter2_coeffs(fc: float, fs: float, kind: str):
+    """
+    One 2-pole Butterworth section as `(b, a)`, via the bilinear transform.
+
+    Written out rather than taken from `scipy.signal`. The HAVE_SCIPY comment
+    above records that `scipy.signal` costs ~7.3 s to import on a cold cache
+    and that nothing here actually imports it; a filter that runs in the live
+    prediction path is not the place to start, and a 2-pole Butterworth is
+    four lines of algebra.
+
+    `fc` is pre-warped with tan() so the digital cutoff lands exactly where it
+    was asked for instead of where the s-plane prototype would have put it.
+    """
+    nyquist = fs / 2.0
+    fc = float(min(max(fc, 1e-6), nyquist * 0.999))
+    k = math.tan(math.pi * fc / fs)          # pre-warped cutoff
+    k2 = k * k
+    root2 = math.sqrt(2.0)
+    norm = 1.0 / (1.0 + root2 * k + k2)
+
+    if kind == "low":
+        b = np.array([k2, 2.0 * k2, k2]) * norm
+    elif kind == "high":
+        b = np.array([1.0, -2.0, 1.0]) * norm
+    else:                                               # pragma: no cover
+        raise ValueError(f"kind must be 'low' or 'high', not {kind!r}")
+
+    a = np.array([1.0,
+                  2.0 * (k2 - 1.0) * norm,
+                  (1.0 - root2 * k + k2) * norm])
+    return b, a
+
+
+def _lfilter(b, a, x: np.ndarray) -> np.ndarray:
+    """Direct-form-II transposed IIR along axis 0. Columns are independent."""
+    x = np.asarray(x, dtype=np.float64)
+    out = np.empty_like(x)
+    z1 = np.zeros(x.shape[1])
+    z2 = np.zeros(x.shape[1])
+    b0, b1, b2 = b
+    a1, a2 = a[1], a[2]
+    for i in range(x.shape[0]):
+        xi = x[i]
+        yi = b0 * xi + z1
+        z1 = b1 * xi - a1 * yi + z2
+        z2 = b2 * xi - a2 * yi
+        out[i] = yi
+    return out
+
+
+def _filtfilt(b, a, x: np.ndarray, pad: int) -> np.ndarray:
+    """
+    Zero-phase filtering: forward, then backward over the reversed signal.
+
+    Phase matters here. A causal filter delays the envelope, and a delayed
+    envelope moves a gesture's onset relative to the label window it was cut
+    with -- so a one-directional filter would shift the very boundaries this
+    dataset is built on. Running it both ways cancels the phase exactly, at
+    the cost of doubling the effective order.
+
+    Reflect-padded for the same reason `moving_rms` is: a zero-padded edge
+    reads as a sudden drop to silence, and the filter rings on it.
+    """
+    n = x.shape[0]
+    pad = int(max(0, min(pad, n - 1)))
+    if pad:
+        head = 2.0 * x[0] - x[pad:0:-1]
+        tail = 2.0 * x[-1] - x[-2:-pad - 2:-1]
+        work = np.vstack([head, x, tail])
+    else:
+        work = x
+    work = _lfilter(b, a, work)
+    work = _lfilter(b, a, work[::-1])[::-1]
+    return work[pad:pad + n] if pad else work
+
+
+def bandpass_filter(x: np.ndarray, fs: float, high_pass: float = None,
+                    low_pass: float = None, order: int = None,
+                    report: dict = None) -> np.ndarray:
+    """
+    Zero-phase Butterworth band-pass. Returns a filtered COPY.
+
+    `high_pass` / `low_pass` are cutoffs in Hz; None skips that half. Defaults
+    come from `EMG_BANDPASS_HZ[EMG_MODE]`, whose comment explains why the
+    "filtered" default is a low-pass only -- in short, the Myo has already
+    band-passed that stream in hardware, and a high-pass on the envelope it
+    returns would delete the activation level that carries most of the signal.
+
+    **A cutoff at or above Nyquist is SKIPPED, not clamped**, and the reason is
+    recorded in `report` when one is passed. Clamping 450 Hz down to 24.9 Hz on
+    a 50 Hz stream would quietly apply a completely different filter from the
+    one that was asked for and still report it as 20-450 Hz. At these sample
+    rates that is not a corner case -- it is what happens the first time
+    someone copies a textbook band from a 1 kHz setup.
+    """
+    x = np.asarray(x, dtype=np.float64)
+    if x.ndim == 1:
+        return bandpass_filter(x[:, None], fs, high_pass, low_pass, order,
+                               report)[:, 0]
+    if report is None:
+        report = {}
+    notes = report.setdefault("notes", [])
+    report.setdefault("applied", [])
+
+    defaults = EMG_BANDPASS_HZ.get(EMG_MODE, (None, None))
+    if high_pass is None and low_pass is None:
+        high_pass, low_pass = defaults
+    order = EMG_BANDPASS_ORDER if order is None else int(order)
+    fs = float(fs or nominal_rate())
+    nyquist = fs / 2.0
+
+    if x.shape[0] < 9 or fs <= 0:
+        notes.append(f"too short to filter ({x.shape[0]} samples)")
+        return x.copy()
+
+    #  3x the slowest cutoff's period, so the reflected edge covers the
+    #  filter's own settling time.
+    slowest = min([c for c in (high_pass, low_pass) if c] or [1.0])
+    pad = int(min(max(9, round(3.0 * fs / slowest)), x.shape[0] - 1))
+
+    out = x
+    for cutoff, kind in ((high_pass, "high"), (low_pass, "low")):
+        if not cutoff:
+            continue
+        if cutoff >= nyquist:
+            notes.append(
+                f"{kind}-pass {cutoff:.1f} Hz SKIPPED: at or above the "
+                f"{nyquist:.1f} Hz Nyquist of this {fs:.1f} Hz stream")
+            continue
+        sections = max(1, order // 2)
+        b, a = _butter2_coeffs(cutoff, fs, kind)
+        for _ in range(sections):
+            out = _filtfilt(b, a, out, pad)
+        report["applied"].append({"kind": kind, "hz": float(cutoff),
+                                  "order": int(sections * 2),
+                                  "zero_phase": True})
+    return np.ascontiguousarray(out)
+
+
 def baseline_level(x: np.ndarray, n_samples: int) -> np.ndarray:
     """
     Per-channel DC/offset estimate from the first n_samples.
@@ -1519,6 +1696,10 @@ def model_feature_vector(window: np.ndarray, representation: str = "raw",
         block = normalize_per_channel(block, "mad")[0]
     elif representation == "envelope":
         block = envelope(block, fs)
+    elif representation == "bandpass":
+        #  One representation, so the trainer and LivePredictor filter
+        #  identically -- the whole reason this function is shared.
+        block = bandpass_filter(block, fs)
 
     if feature_set == "level":
         return extract_level_features(block, fs)
@@ -1894,6 +2075,12 @@ STAGE_TAKE = "take"
 MANIFEST_NAME = "manifest.jsonl"
 SESSION_CONFIG_NAME = "session_config.json"
 GRAPHS_DIRNAME = "_graphs"
+
+# Where anything taken out of the dataset goes. Nothing in this project calls
+# os.remove on recorded signal (safety rule 4) -- DELETE LAST, REDO and
+# DELETE TAKE all move files here instead. Starts with "_" so discovery
+# prunes it, exactly like _takes.
+DELETED_DIRNAME = "_deleted"
 
 
 def recording_config_snapshot() -> dict:
@@ -3369,7 +3556,7 @@ class DatasetWriter:
                     or formats.get("parquet"))
             info = {
                 "stem": stem, "path": path, "formats": formats,
-                "label": "", "created_unix": 0.0, "n_samples": 0,
+                "label": "", "uid": "", "created_unix": 0.0, "n_samples": 0,
                 "duration_s": 0.0, "notes": "",
             }
             sidecar = os.path.join(folder, stem + "_meta.json")
@@ -3379,6 +3566,7 @@ class DatasetWriter:
                         meta = json.load(handle)
                     info.update({
                         "label": meta.get("label", ""),
+                        "uid": meta.get("uid", ""),
                         "created_unix": meta.get("created_unix") or 0.0,
                         "n_samples": meta.get("n_samples", 0),
                         "duration_s": meta.get("duration_s", 0.0),
@@ -3388,12 +3576,120 @@ class DatasetWriter:
                     pass                                     # fall back to the name
             if not info["label"]:
                 info["label"] = stem.split("_take")[0]
+            if not info["uid"]:
+                info["uid"] = take_uid_from_stem(stem)
             if not info["created_unix"]:
                 info["created_unix"] = os.path.getmtime(path)
             takes.append(info)
 
         takes.sort(key=lambda t: t["created_unix"], reverse=True)
         return takes
+
+    def clips_from_take(self, take_uid: str):
+        """
+        Paths of the recordings that were cut out of this take.
+
+        Read from the clips' own metadata (`meta.parent_take_uid`), which is
+        where EXTRACT CLIP writes provenance. Used to warn before a take is
+        deleted: the clips are independent files and survive, but their
+        `parent_take_file` then points into _deleted/.
+        """
+        take_uid = (take_uid or "").lower()
+        if not take_uid or not os.path.isdir(self.session_dir):
+            return []
+
+        found = []
+        for entry in sorted(os.listdir(self.session_dir)):
+            folder = os.path.join(self.session_dir, entry)
+            # Same rule as discovery: underscore folders are not the dataset.
+            if entry.startswith("_") or not os.path.isdir(folder):
+                continue
+            for name in sorted(os.listdir(folder)):
+                if not name.endswith("_meta.json"):
+                    continue
+                try:
+                    with open(os.path.join(folder, name), "r",
+                              encoding="utf-8") as handle:
+                        meta = json.load(handle)
+                except (json.JSONDecodeError, OSError):      # pragma: no cover
+                    continue
+                parent = (meta.get("meta") or {}).get("parent_take_uid") or ""
+                if str(parent).lower() == take_uid:
+                    found.append(os.path.join(folder, name))
+        return found
+
+    def delete_take(self, stem: str) -> dict:
+        """
+        Move one take's files out of _takes/ and into _deleted/.
+
+        Deliberately not os.remove (safety rule 4): a take is minutes of a
+        subject's time and the one thing clips cannot be re-cut from. A
+        mis-click costs a folder move.
+
+        Everything written for the take goes together -- csv, npz, parquet,
+        the metadata sidecar and any notes sidecar -- matched as `<stem>.`
+        or `<stem>_` so a different take whose name merely starts the same
+        cannot be caught. Clips already cut from it are NOT touched: they are
+        ordinary recordings in the gesture folders with their own uids, and
+        deleting the take they came from does not make them wrong.
+
+        Returns {"stem", "uid", "label", "moved": [(from, to), ...]}; `moved`
+        is empty when nothing matched.
+        """
+        folder = os.path.join(self.session_dir, FREE_TAKE_FOLDER)
+        stem = os.path.basename(str(stem))
+        result = {"stem": stem, "uid": take_uid_from_stem(stem),
+                  "label": stem.split("_take")[0], "moved": []}
+        if not stem or not os.path.isdir(folder):
+            return result
+
+        names = [n for n in sorted(os.listdir(folder))
+                 if n.startswith(stem + ".") or n.startswith(stem + "_")]
+        if not names:
+            return result
+
+        # The label and uid from the sidecar beat the ones parsed out of the
+        # filename, for the manifest line below.
+        sidecar = os.path.join(folder, stem + "_meta.json")
+        if os.path.exists(sidecar):
+            try:
+                with open(sidecar, "r", encoding="utf-8") as handle:
+                    meta = json.load(handle)
+                result["label"] = meta.get("label") or result["label"]
+                result["uid"] = meta.get("uid") or result["uid"]
+            except (json.JSONDecodeError, OSError):          # pragma: no cover
+                pass
+
+        target = ensure_dir(os.path.join(self.session_dir, DELETED_DIRNAME))
+        for name in names:
+            source = os.path.join(folder, name)
+            destination = unique_path(os.path.join(target, name))
+            try:
+                os.replace(source, destination)
+            except OSError:                                  # pragma: no cover
+                continue
+            result["moved"].append((
+                os.path.relpath(source, self.root),
+                os.path.relpath(destination, self.root),
+            ))
+
+        if result["moved"]:
+            entry = {
+                "uid": result["uid"],
+                "stage": "deleted",
+                "deleted_stage": STAGE_TAKE,
+                "label": result["label"],
+                "person_id": self.person_id,
+                "session_id": self.session_id,
+                "take_stem": stem,
+                "deleted_iso": iso_time(time.time()),
+                "files": {source: destination
+                          for source, destination in result["moved"]},
+            }
+            with open(self.manifest_path, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps(entry, ensure_ascii=False,
+                                    default=str) + "\n")
+        return result
 
     # -- markers and notes ----------------------------------------------------
 
@@ -3979,6 +4275,23 @@ def split_by_person(groups, test_persons):
 
 RECORDING_NAME_RE = re.compile(
     r"_rep(\d+)_(\d{8}-\d{6}-\d{3})_([0-9a-fA-F]+)_")
+
+# Takes are named <LABEL>_takeNNN_<stamp>_<uid>_take, so RECORDING_NAME_RE
+# (which wants _repNNN_) does not match them.
+TAKE_NAME_RE = re.compile(
+    r"_take(\d+)_(\d{8}-\d{6}-\d{3})_([0-9a-fA-F]+)")
+
+
+def take_uid_from_stem(stem: str) -> str:
+    """
+    A take's uid recovered from its filename, or "" if the name is not one.
+
+    The sidecar's `uid` is authoritative; this is the fallback for a take
+    whose metadata file is missing or unreadable, so that deleting it still
+    records *which* take went.
+    """
+    match = TAKE_NAME_RE.search(os.path.basename(str(stem)))
+    return match.group(3).lower() if match else ""
 
 
 def parse_recording_name(path: str):
@@ -7142,6 +7455,367 @@ class PanelWarmUp(QtCore.QRunnable):
             self.panel.warming = False
 
 
+class FeatureSpaceWidget(QtWidgets.QWidget):
+    """
+    Every training window as one point, in two dimensions, plus the live one.
+
+    The projection is an unsupervised PCA computed by the trainer (see
+    `feature_space_projection`). It is NOT an LDA, and that matters: an LDA
+    picks its axes to separate the labels, so its picture looks clean even
+    when the separation comes from electrode drift rather than from the
+    gesture. What is drawn here is the structure that is really in the
+    features, which on this dataset means the class-take confound is visible
+    rather than hidden.
+
+    Three colourings, because each answers a different question:
+
+      * BY GESTURE  -- do the labels form their own clusters?
+      * BY TAKE     -- or do the clusters actually follow the recording
+                       session? If this looks tidier than BY GESTURE, the
+                       model is reading the block (docs/EDA.md section 2).
+      * BY LEVEL    -- where does amplitude sit? This is the picture of
+                       docs/EDA.md R4: the gap between resting and the
+                       effortful holds that a relaxed gesture falls into.
+
+    A painter, not a source. With no projection it paints the reason.
+    """
+
+    MARGIN_L, MARGIN_R = 46, 12
+    MARGIN_T, MARGIN_B = 10, 34
+
+    def __init__(self, panel: "DecisionPanel", parent=None):
+        super().__init__(parent)
+        self.panel = panel
+        self.mode = "label"
+        self.live_point: Optional[Tuple[float, float]] = None
+        self.live_label: Optional[str] = None
+        self.trail: List[Tuple[float, float]] = []
+        self.setMinimumHeight(300)
+        self.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
+                           QtWidgets.QSizePolicy.Expanding)
+        self._bounds = None
+
+    # -- inputs -----------------------------------------------------------
+    def set_mode(self, mode: str) -> None:
+        self.mode = mode
+        self.update()
+
+    def set_live(self, point, label: str = None) -> None:
+        """
+        Place the live window. `None` clears it rather than leaving the last
+        one on screen pretending to be current.
+        """
+        self.live_point = point
+        self.live_label = label
+        if point is not None:
+            #  A short tail, so a gesture decaying out of its cluster is
+            #  visible as a direction and not just a jumping dot.
+            self.trail.append(point)
+            del self.trail[:-40]
+        self.update()
+
+    def clear_trail(self) -> None:
+        self.trail = []
+        self.update()
+
+    # -- geometry ---------------------------------------------------------
+    def _plot_rect(self) -> QtCore.QRectF:
+        return QtCore.QRectF(
+            self.MARGIN_L, self.MARGIN_T,
+            max(10, self.width() - self.MARGIN_L - self.MARGIN_R),
+            max(10, self.height() - self.MARGIN_T - self.MARGIN_B))
+
+    def _data_bounds(self):
+        """Axis limits from the training cloud, padded, cached per load."""
+        if self._bounds is not None:
+            return self._bounds
+        coords = np.asarray(self.panel.space["coords"], dtype=np.float64)
+        lo = coords.min(axis=0)
+        hi = coords.max(axis=0)
+        span = np.maximum(hi - lo, 1e-6)
+        #  Padded so the live point can sit outside the training cloud and
+        #  still be drawn -- that it CAN is the interesting case.
+        lo = lo - span * 0.12
+        hi = hi + span * 0.12
+        self._bounds = (lo, hi)
+        return self._bounds
+
+    def _to_px(self, rect, lo, hi, x, y):
+        fx = (x - lo[0]) / max(1e-9, hi[0] - lo[0])
+        fy = (y - lo[1]) / max(1e-9, hi[1] - lo[1])
+        return (rect.left() + fx * rect.width(),
+                rect.bottom() - fy * rect.height())
+
+    # -- painting ---------------------------------------------------------
+    def paintEvent(self, event) -> None:
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing, False)
+        painter.fillRect(self.rect(), QtGui.QColor(COL_BG))
+
+        if not self.panel.has_space:
+            self._paint_missing(painter)
+            painter.end()
+            return
+
+        space = self.panel.space
+        rect = self._plot_rect()
+        lo, hi = self._data_bounds()
+
+        painter.setPen(QtGui.QPen(QtGui.QColor(COL_BORDER), 1))
+        painter.setBrush(QtGui.QColor(COL_PANEL))
+        painter.drawRect(rect)
+
+        coords = np.asarray(space["coords"], dtype=np.float64)
+        truth = np.asarray(space["truth"], dtype=int)
+        labels = list(self.panel.labels)
+
+        #  Grouped into one polygon per colour and drawn with drawPoints:
+        #  one call per colour instead of one per point, which is what keeps
+        #  several thousand points off the GUI thread's budget.
+        groups = self._colour_groups(space, truth, labels)
+        for colour, idx in groups:
+            if len(idx) == 0:
+                continue
+            poly = QtGui.QPolygonF()
+            for x, y in coords[idx]:
+                px, py = self._to_px(rect, lo, hi, x, y)
+                poly.append(QtCore.QPointF(px, py))
+            pen = QtGui.QPen(QtGui.QColor(colour), 3)
+            pen.setCapStyle(QtCore.Qt.RoundCap)
+            painter.setPen(pen)
+            painter.drawPoints(poly)
+
+        self._paint_live(painter, rect, lo, hi)
+        self._paint_axes(painter, rect, space)
+        self._paint_legend(painter, rect, groups, space, labels)
+        painter.end()
+
+    def _colour_groups(self, space, truth, labels):
+        """(colour, row indices) per colour, for the current mode."""
+        if self.mode == "take" and space.get("take") is not None:
+            take = np.asarray(space["take"], dtype=int)
+            out = []
+            for t in range(int(take.max()) + 1 if take.size else 0):
+                out.append((class_color(t), np.flatnonzero(take == t)))
+            return out
+        if self.mode == "level" and space.get("level") is not None:
+            level = np.asarray(space["level"], dtype=float)
+            #  Fixed bands rather than quantiles, so the colours mean an
+            #  amplitude and not a rank -- the point is to read the gap.
+            edges = [0, 45, 90, 140, 200, 280, 1e9]
+            ramp = ["#1e3a5f", "#2563eb", "#22c55e", "#f59e0b",
+                    "#f97316", "#ef4444"]
+            out = []
+            for i in range(len(edges) - 1):
+                out.append((ramp[i], np.flatnonzero(
+                    (level >= edges[i]) & (level < edges[i + 1]))))
+            return out
+        return [(LABEL_COLORS.get(labels[k], class_color(k)),
+                 np.flatnonzero(truth == k)) for k in range(len(labels))]
+
+    def _paint_live(self, painter, rect, lo, hi) -> None:
+        if not self.trail:
+            return
+        #  The tail, oldest faintest.
+        for i, (x, y) in enumerate(self.trail[:-1]):
+            px, py = self._to_px(rect, lo, hi, x, y)
+            alpha = int(30 + 120 * (i / max(1, len(self.trail) - 1)))
+            colour = QtGui.QColor(COL_TEXT)
+            colour.setAlpha(alpha)
+            painter.setPen(QtGui.QPen(colour, 2))
+            painter.drawPoint(QtCore.QPointF(px, py))
+        if self.live_point is None:
+            return
+        px, py = self._to_px(rect, lo, hi, *self.live_point)
+        colour = QtGui.QColor(LABEL_COLORS.get(self.live_label or "", COL_TEXT))
+        painter.setBrush(QtCore.Qt.NoBrush)
+        painter.setPen(QtGui.QPen(QtGui.QColor(COL_BG), 4))
+        painter.drawEllipse(QtCore.QPointF(px, py), 7, 7)
+        painter.setPen(QtGui.QPen(colour, 2))
+        painter.drawEllipse(QtCore.QPointF(px, py), 7, 7)
+        painter.drawLine(QtCore.QPointF(px - 11, py), QtCore.QPointF(px - 4, py))
+        painter.drawLine(QtCore.QPointF(px + 4, py), QtCore.QPointF(px + 11, py))
+        painter.drawLine(QtCore.QPointF(px, py - 11), QtCore.QPointF(px, py - 4))
+        painter.drawLine(QtCore.QPointF(px, py + 4), QtCore.QPointF(px, py + 11))
+
+    def _paint_axes(self, painter, rect, space) -> None:
+        font = painter.font()
+        font.setPointSize(8)
+        painter.setFont(font)
+        painter.setPen(QtGui.QColor(COL_TEXT_DIM))
+        explained = space.get("explained") or [0.0, 0.0]
+        painter.drawText(
+            QtCore.QRectF(rect.left(), rect.bottom() + 4, rect.width(), 14),
+            QtCore.Qt.AlignHCenter,
+            f"PC1 -- {explained[0] * 100:.1f} % of the variance")
+        painter.save()
+        painter.translate(12, rect.center().y())
+        painter.rotate(-90)
+        painter.drawText(QtCore.QRectF(-rect.height() / 2, -10,
+                                       rect.height(), 14),
+                         QtCore.Qt.AlignHCenter,
+                         f"PC2 -- {explained[1] * 100:.1f} %")
+        painter.restore()
+
+    def _paint_legend(self, painter, rect, groups, space, labels) -> None:
+        font = painter.font()
+        font.setPointSize(8)
+        painter.setFont(font)
+        if self.mode == "take":
+            names = [f"take {i + 1}" for i in range(len(groups))]
+            names = names[:10]
+        elif self.mode == "level":
+            names = ["<45", "45-90", "90-140", "140-200", "200-280", "280+"]
+        else:
+            names = labels
+        x = rect.left() + 8
+        y = rect.top() + 8
+        for i, name in enumerate(names):
+            if i >= len(groups):
+                break
+            colour, idx = groups[i]
+            painter.setPen(QtCore.Qt.NoPen)
+            painter.setBrush(QtGui.QColor(colour))
+            painter.drawRect(QtCore.QRectF(x, y + 3, 7, 7))
+            painter.setPen(QtGui.QColor(COL_TEXT))
+            text = f"{name}  {len(idx)}"
+            painter.drawText(QtCore.QRectF(x + 11, y, 150, 12),
+                             QtCore.Qt.AlignLeft, text)
+            y += 13
+            if y > rect.bottom() - 16:
+                break
+
+    def _paint_missing(self, painter) -> None:
+        font = painter.font()
+        font.setPointSize(10)
+        painter.setFont(font)
+        painter.setPen(QtGui.QColor(COL_TEXT_DIM))
+        if not self.panel.ready:
+            text = ("No decision panel loaded, so there is no feature space "
+                    "to draw.\nRetrain, or run:  python explain_votes.py")
+        else:
+            text = ("This panel has no feature-space projection.\nIt was "
+                    "built before the view existed -- rerun "
+                    "explain_votes.py to add one.")
+        painter.drawText(self.rect().adjusted(14, 14, -14, -14),
+                         QtCore.Qt.AlignLeft | QtCore.Qt.TextWordWrap, text)
+
+
+class FeatureSpaceView(QtWidgets.QWidget):
+    """The FEATURE SPACE section: the colouring controls plus the scatter."""
+
+    def __init__(self, panel: "DecisionPanel", predictor: "LivePredictor",
+                 parent=None):
+        super().__init__(parent)
+        self.panel = panel
+        self.predictor = predictor
+        self._seen = 0
+
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(SP_SM)
+
+        bar = QtWidgets.QHBoxLayout()
+        bar.setContentsMargins(0, 0, 0, 0)
+        bar.setSpacing(SP_SM)
+        bar.addWidget(make_label("COLOUR BY", 9, False, COL_TEXT_DIM))
+        self.mode_select = QtWidgets.QComboBox()
+        space = panel.space or {}
+        self.mode_select.addItem("gesture", "label")
+        if space.get("take") is not None:
+            self.mode_select.addItem("take it was cut from", "take")
+        if space.get("level") is not None:
+            self.mode_select.addItem("amplitude level", "level")
+        self.mode_select.setToolTip(
+            "gesture: do the labels cluster?\n"
+            "take: or do the clusters follow the recording session instead? "
+            "If this looks tidier than 'gesture', the model is reading the "
+            "block, not the gesture.\n"
+            "amplitude level: where the effort sits, and the gap a relaxed "
+            "hold falls into.")
+        self.mode_select.currentIndexChanged.connect(self._mode_changed)
+        bar.addWidget(self.mode_select)
+
+        self.clear_button = QtWidgets.QPushButton("CLEAR TRAIL")
+        self.clear_button.setToolTip("Forget the live window's recent path.")
+        self.clear_button.clicked.connect(lambda: self.plot.clear_trail())
+        bar.addWidget(self.clear_button)
+        bar.addStretch(1)
+        self.readout = make_label("", 9, False, COL_TEXT_DIM)
+        bar.addWidget(self.readout)
+        layout.addLayout(bar)
+
+        self.plot = FeatureSpaceWidget(panel, self)
+        layout.addWidget(self.plot, 1)
+
+        self.caption = make_label("", 9, False, COL_TEXT_DIM)
+        self.caption.setWordWrap(True)
+        layout.addWidget(self.caption)
+        self._update_caption()
+        self.controls_enabled(panel.has_space)
+
+    def controls_enabled(self, on: bool) -> None:
+        self.mode_select.setEnabled(on)
+        self.clear_button.setEnabled(on)
+
+    def _mode_changed(self) -> None:
+        self.plot.set_mode(self.mode_select.currentData() or "label")
+        self._update_caption()
+
+    def _update_caption(self) -> None:
+        space = self.panel.space or {}
+        if not self.panel.has_space:
+            self.caption.setText("")
+            return
+        head = (f"{space.get('n_points', 0)} of "
+                f"{space.get('n_windows', 0)} training windows, projected "
+                f"from {space.get('n_features', 0)} features by an "
+                f"unsupervised PCA -- the axes were chosen without seeing "
+                f"the labels, so any separation here is really in the data. ")
+        mode = self.mode_select.currentData() or "label"
+        if mode == "take":
+            tail = ("Clusters that follow the take rather than the gesture "
+                    "are the confound in docs/EDA.md section 2: the model "
+                    "can score well by recognising which recording block it "
+                    "is looking at.")
+        elif mode == "level":
+            tail = ("The amplitude bands. A gesture recorded only at full "
+                    "effort leaves a gap above rest that a relaxed hold "
+                    "falls into, which is docs/EDA.md R4.")
+        else:
+            tail = ("The ring is the window the classifier just used -- the "
+                    "same feature vector, placed by the same transform. "
+                    "Watch it leave its cluster when a hold relaxes.")
+        self.caption.setText(head + tail)
+
+    def refresh_live(self) -> None:
+        """Place the newest predicted window. Called on the dialog's timer."""
+        if not self.panel.has_space:
+            return
+        predictor = self.predictor
+        features = predictor.last_features
+        if features is None:
+            self.readout.setText("no live window yet")
+            return
+        #  Keyed on the prediction's own timestamp, exactly as the trail
+        #  does: `id(features)` would be recycled by the allocator and could
+        #  make a new window look like the previous one.
+        last = predictor.last
+        stamp = getattr(last, "unix_time", 0.0) if last else 0.0
+        if stamp and stamp == self._seen:
+            return
+        self._seen = stamp
+        point = self.panel.project(features)
+        if point is None:
+            self.readout.setText("live vector does not fit this projection")
+            return
+        label = getattr(last, "raw_label", None) if last else None
+        self.plot.set_live(point, label)
+        self.readout.setText(
+            f"live: PC1 {point[0]:+.2f}  PC2 {point[1]:+.2f}"
+            + (f"  -> {label}" if label else ""))
+
+
 class DecisionTrailView(QtWidgets.QWidget):
     """
     The DECISION TRAIL section of MODEL STATS: controls plus the drawing.
@@ -7432,6 +8106,7 @@ class ModelStatsDialog(QtWidgets.QDialog):
             panel.load()
         self.panel = panel
         self.trail_view = None
+        self.space_view = None
         self.trail_timer = None
 
         stats = dict(predictor.stats or {})
@@ -7517,6 +8192,22 @@ class ModelStatsDialog(QtWidgets.QDialog):
         trail_box.setContentsMargins(SP_SM, SP_SM, SP_SM, SP_SM)
         trail_box.addWidget(self.trail_view)
         body.addWidget(trail_frame)
+
+        # ---- feature space ---------------------------------------------------
+        #  The same windows the numbers above come from, as a picture. Placed
+        #  under the trail because it answers a different question: not "what
+        #  did the models say about this window" but "where does this window
+        #  sit among everything they were trained on".
+        body.addWidget(make_label("FEATURE SPACE", 11, True, COL_TEXT_DIM))
+        self.space_view = FeatureSpaceView(self.panel, predictor, self)
+        space_frame = QtWidgets.QFrame()
+        space_frame.setStyleSheet(
+            f"QFrame {{ background: {COL_PANEL}; border: 1px solid "
+            f"{COL_BORDER}; border-radius: {RAD_SM}px; }}")
+        space_box = QtWidgets.QVBoxLayout(space_frame)
+        space_box.setContentsMargins(SP_SM, SP_SM, SP_SM, SP_SM)
+        space_box.addWidget(self.space_view)
+        body.addWidget(space_frame)
 
         if self.panel is not None and self.panel.ready \
                 and not self.panel.stale_reason(predictor):
@@ -7717,8 +8408,15 @@ class ModelStatsDialog(QtWidgets.QDialog):
         layout.addLayout(buttons)
 
     def _tick_trail(self) -> None:
-        if self.trail_view is not None and self.isVisible():
+        if not self.isVisible():
+            return
+        if self.trail_view is not None:
             self.trail_view.refresh_live()
+        #  Shares the trail's timer rather than adding a second one: both
+        #  draw the same live window, and it only changes when a prediction
+        #  arrives.
+        if self.space_view is not None:
+            self.space_view.refresh_live()
 
     def _add_candidate_table(self, body, predictor) -> None:
         """
@@ -9437,6 +10135,7 @@ class DecisionPanel:
         self.fusion: dict = {}
         self.protocol: dict = {}
         self.recordings: List[dict] = []
+        self.space: dict = {}
         self.created_iso = ""
         self.winner = ""
         self.n_windows = 0
@@ -9483,6 +10182,7 @@ class DecisionPanel:
         self.fusion = dict(payload.get("fusion") or {})
         self.protocol = dict(payload.get("protocol") or {})
         self.recordings = list(payload.get("recordings") or [])
+        self.space = dict(payload.get("space") or {})
         self.created_iso = payload.get("created_iso", "")
         self.winner = payload.get("winner", "")
         self.n_windows = int(payload.get("n_windows", 0) or 0)
@@ -9577,6 +10277,51 @@ class DecisionPanel:
             self.warm = True
             self.warming = False
         return self.warm_ms
+
+    @property
+    def has_space(self) -> bool:
+        """
+        Is there a usable 2-D projection of the feature space?
+
+        Deliberately `loaded` and not `ready`: `ready` also requires the
+        fitted members, because the DECISION TRAIL has to run them. Drawing
+        the scatter runs no model at all -- it needs the stored transform and
+        nothing else -- so a panel that carries a projection can show it even
+        if its members are unusable.
+        """
+        space = self.space or {}
+        return bool(self.loaded and space.get("kind") == "pca"
+                    and space.get("components") is not None
+                    and space.get("coords") is not None)
+
+    def project(self, features) -> Optional[Tuple[float, float]]:
+        """
+        One live feature vector -> its (x, y) in the stored PCA space.
+
+        The transform is the one fitted at training time, applied here and
+        nowhere else, so a live point and a training point are placed by
+        exactly the same arithmetic. Refitting a projection on live data
+        would move the axes under the scatter and make the two
+        incomparable -- the same reason the trail reuses
+        `LivePredictor.last_features` instead of recomputing features.
+
+        None when there is no projection, or when the vector is the wrong
+        width for it. A silently reshaped vector would land somewhere
+        plausible and mean nothing.
+        """
+        if not self.has_space or features is None:
+            return None
+        space = self.space
+        vec = np.asarray(features, dtype=np.float64).ravel()
+        mean = np.asarray(space["mean"], dtype=np.float64)
+        if vec.shape[0] != mean.shape[0]:
+            return None
+        scale = np.asarray(space["scale"], dtype=np.float64)
+        comps = np.asarray(space["components"], dtype=np.float64)
+        out = ((vec - mean) / scale) @ comps.T
+        if not np.all(np.isfinite(out)):
+            return None
+        return float(out[0]), float(out[1])
 
     def matches(self, predictor: "LivePredictor") -> bool:
         """
@@ -10591,6 +11336,21 @@ class MainWindow(QtWidgets.QMainWindow):
         row2.addWidget(refresh)
         layout.addLayout(row2)
 
+        self.delete_take_button = QtWidgets.QPushButton("DELETE TAKE(S)")
+        self.delete_take_button.setMinimumHeight(28)
+        # Starts disabled rather than waiting for the first _refresh_controls
+        # tick: there is nothing selected yet, and a delete button that is
+        # live for 100 ms before it should be is still live.
+        self.delete_take_button.setEnabled(False)
+        self.delete_take_button.setToolTip(
+            "Move the selected take(s) out of _takes and into _deleted. "
+            "Nothing is erased, so a take can always be recovered. Clips "
+            "already cut from a take are separate recordings and are left "
+            "exactly as they are."
+        )
+        self.delete_take_button.clicked.connect(self.delete_selected_takes)
+        layout.addWidget(self.delete_take_button)
+
         self._free_take_shortcut = QtGui.QShortcut(
             QtGui.QKeySequence("Ctrl+Shift+R"), self)
         self._free_take_shortcut.activated.connect(
@@ -11348,6 +12108,13 @@ class MainWindow(QtWidgets.QMainWindow):
             self.free_take_button.setEnabled(not self.sequence.running)
             self.take_gesture_combo.setEnabled(not taking)
             self.open_take_button.setEnabled(not taking)
+            # Deleting the take that is still being recorded would pull the
+            # file out from under save_take(), so it waits until it is saved.
+            self.delete_take_button.setEnabled(
+                not taking and self.take_list.count() > 0
+                and self.take_list.currentItem() is not None
+                and bool(self.take_list.currentItem().data(
+                    QtCore.Qt.UserRole + 1)))
         labelling = self.label_mode_button.isChecked()
         self.label_mode_button.setEnabled(not self.sequence.running
                                           or labelling)
@@ -12119,7 +12886,8 @@ class MainWindow(QtWidgets.QMainWindow):
         Deliberately not os.remove: a mis-click during a long session should
         cost a folder move, not an hour of a subject's time.
         """
-        target = ensure_dir(os.path.join(self.writer.session_dir, "_deleted"))
+        target = ensure_dir(os.path.join(self.writer.session_dir,
+                                         DELETED_DIRNAME))
         moved = 0
         for key, relative in list(rec.files.items()):
             source = os.path.join(self.writer.root, relative)
@@ -12812,6 +13580,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 f"{fmt_duration(info['duration_s'])}   "
                 f"{info['n_samples']:,} samples")
             item.setData(QtCore.Qt.UserRole, info["path"])
+            # The stem, not the path: DELETE TAKE(S) moves every format the
+            # take was written in, and the list only carries one of them.
+            item.setData(QtCore.Qt.UserRole + 1, info["stem"])
             item.setToolTip(info["path"])
             self.take_list.addItem(item)
         self.take_list.setCurrentRow(0)
@@ -12832,6 +13603,84 @@ class MainWindow(QtWidgets.QMainWindow):
                 "select a take in the list first", COL_WARN)
             return
         self.open_takes_for_cutting(paths)
+
+    def delete_selected_takes(self) -> None:
+        """
+        Move the selected take(s) into _deleted/ after confirming.
+
+        The confirmation names how many clips were cut from each take,
+        because that is the thing someone would want to know before throwing
+        a take away: the clips themselves are untouched (they are ordinary
+        recordings with their own uids), but their `parent_take_file` will
+        point into _deleted/ afterwards and the span cannot be re-cut.
+        """
+        if not hasattr(self, "take_list"):
+            return
+        if self.free_capture is not None:
+            self._set_free_take_status(
+                "stop the running take before deleting takes", COL_WARN)
+            return
+
+        items = self.take_list.selectedItems()
+        if not items:
+            item = self.take_list.currentItem()
+            items = [item] if item is not None else []
+        stems = [i.data(QtCore.Qt.UserRole + 1) for i in items]
+        stems = [s for s in stems if s]
+        if not stems:
+            self._set_free_take_status(
+                "select a take in the list first", COL_WARN)
+            return
+
+        lines, total_clips = [], 0
+        for stem in stems:
+            uid = take_uid_from_stem(stem)
+            n_clips = len(self.writer.clips_from_take(uid)) if uid else 0
+            total_clips += n_clips
+            lines.append(f"    {stem}"
+                         + (f"   ({n_clips} clip(s) cut from it)"
+                            if n_clips else ""))
+
+        detail = "\n".join(lines)
+        note = ""
+        if total_clips:
+            note = (f"\n\n{total_clips} clip(s) were cut from these takes. "
+                    "Those clips are separate recordings and are NOT "
+                    "deleted -- they stay in the dataset. You will not be "
+                    "able to cut any more clips from these takes, though.")
+
+        answer = QtWidgets.QMessageBox.question(
+            self, "Delete take(s)",
+            f"Move {len(stems)} take(s) out of _takes?\n\n{detail}\n\n"
+            "The files move into the _deleted folder, not erased, so the "
+            "signal can always be recovered." + note,
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+            QtWidgets.QMessageBox.No,
+        )
+        if answer != QtWidgets.QMessageBox.Yes:
+            return
+
+        deleted, moved = 0, 0
+        for stem in stems:
+            result = self.writer.delete_take(stem)
+            if result["moved"]:
+                deleted += 1
+                moved += len(result["moved"])
+                self._append_log(
+                    f"Moved take {result['label']} {stem} to "
+                    f"{DELETED_DIRNAME} ({len(result['moved'])} file(s)).")
+            else:
+                self._append_log(f"could not delete take {stem}: no files "
+                                 "matched -- was it already moved?")
+
+        self._refresh_take_history()
+        if deleted:
+            self._set_free_take_status(
+                f"{deleted} take(s) moved to {DELETED_DIRNAME} "
+                f"({moved} file(s))", COL_TEXT_DIM)
+        else:
+            self._set_free_take_status(
+                "nothing was moved -- see the log", COL_WARN)
 
     def open_takes_for_cutting(self, paths) -> None:
         """

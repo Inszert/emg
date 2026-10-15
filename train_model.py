@@ -96,7 +96,13 @@ OVERLAPS = [0.5, 0.75]
 # "normalized" -> per-window robust (median/MAD) scaling; throws away absolute
 #                 amplitude, which is the part that differs most between people
 # "envelope"   -> moving-RMS envelope
-REPRESENTATIONS = ["raw", "normalized", "envelope"]
+# "bandpass"   -> zero-phase Butterworth, EMG_BANDPASS_HZ[EMG_MODE]. On the
+#                 default "filtered" stream that is an 8 Hz LOW-PASS only:
+#                 the Myo already band-passed in hardware, and a high-pass
+#                 would delete the activation level (CLAUDE.md section 13).
+#                 It is a candidate, not a default -- whether smoothing the
+#                 envelope helps is measured here like everything else.
+REPRESENTATIONS = ["raw", "normalized", "envelope", "bandpass"]
 
 INCLUDE_FREQ_FEATURES = [True, False]
 
@@ -1101,7 +1107,106 @@ def leave_one_subject_out(model, X, y, groups_person, labels):
     }
 
 
-def build_decision_panel(spec, quick, X, y, groups, labels, best, meta):
+def feature_space_projection(X, y, labels, groups, feature_names,
+                             take_of=None, max_points=6000):
+    """
+    A 2-D PCA of the feature matrix, plus everything needed to place a LIVE
+    vector on the same axes.
+
+    PCA and NOT LDA, deliberately. LDA picks the axes that best separate the
+    labels, so its scatter looks cleanly separated even when the separation
+    comes from electrode drift rather than from the gesture -- it would make
+    every model look good by construction, which is exactly what safety rule
+    11 forbids. PCA never sees `y`, so what it draws is the structure that is
+    actually in the features.
+
+    The returned `mean`/`scale`/`components` are the whole transform, so
+    `DecisionPanel.project()` can map one live feature vector into the same
+    space without refitting anything and without a second code path.
+
+    `take` is the index of each window's parent take. Colouring by it is how
+    the class-take confound in docs/EDA.md section 2 becomes visible: when the
+    clusters line up with takes rather than with labels, the model is reading
+    the block.
+    """
+    X = np.asarray(X, dtype=np.float64)
+    n, d = X.shape
+    if n < 3 or d < 2:
+        return None
+
+    mean = X.mean(axis=0)
+    scale = X.std(axis=0)
+    #  A constant feature has no variance to standardise by. Leaving it at 1
+    #  keeps it at zero after centring instead of producing inf.
+    scale = np.where(scale > 1e-12, scale, 1.0)
+    Z = (X - mean) / scale
+
+    #  Economy SVD of the standardised matrix: the right singular vectors ARE
+    #  the principal axes, and this avoids forming a d x d covariance matrix.
+    try:
+        _, sing, vt = np.linalg.svd(Z, full_matrices=False)
+    except np.linalg.LinAlgError:                          # pragma: no cover
+        return None
+    if sing.size < 2:
+        return None
+
+    components = vt[:2]
+    var = (sing ** 2) / max(1, n - 1)
+    total = float(var.sum()) or 1.0
+    coords = Z @ components.T
+
+    #  Per-window mean level, by NAME like the trail's `chan` block, so the
+    #  view can colour by amplitude -- which is what makes the R4 void
+    #  visible. Absent for feature sets that do not carry the channel means.
+    wanted = [f"CH{c}_mean" for c in range(1, len(T.CHANNEL_NAMES) + 1)]
+    level = None
+    names = list(feature_names or [])
+    if all(w in names for w in wanted):
+        cols = [names.index(w) for w in wanted]
+        level = np.asarray(X[:, cols], dtype=np.float32).mean(axis=1)
+
+    take_names, take_idx = [], None
+    if take_of:
+        order, seen = [], {}
+        for gid in groups.tolist():
+            src_id = take_of.get(gid) or f"(unplaced) {gid}"
+            if src_id not in seen:
+                seen[src_id] = len(order)
+                order.append(src_id)
+        take_names = order
+        take_idx = np.array([seen[take_of.get(g) or f"(unplaced) {g}"]
+                             for g in groups.tolist()], dtype=np.int16)
+
+    #  The scatter is a diagnostic, not the dataset. Thinning keeps the panel
+    #  file small and the plot responsive; it is evenly spaced rather than
+    #  random so every recording keeps representation.
+    keep = np.arange(n)
+    if n > max_points:
+        keep = np.unique(np.linspace(0, n - 1, max_points).astype(int))
+
+    return {
+        "kind": "pca",
+        "mean": mean.astype(np.float32),
+        "scale": scale.astype(np.float32),
+        "components": components.astype(np.float32),
+        "coords": coords[keep].astype(np.float32),
+        "truth": np.asarray(y, dtype=np.int16)[keep],
+        "level": None if level is None else level[keep],
+        "take": None if take_idx is None else take_idx[keep],
+        "take_names": take_names,
+        "rows": keep.astype(np.int32),
+        "explained": [float(var[0] / total), float(var[1] / total)],
+        "n_points": int(len(keep)),
+        "n_windows": int(n),
+        "n_features": int(d),
+        "note": ("unsupervised PCA of the standardised feature matrix; the "
+                 "axes were chosen without seeing the labels, so any "
+                 "separation shown is really in the features"),
+    }
+
+
+def build_decision_panel(spec, quick, X, y, groups, labels, best, meta,
+                         take_of=None):
     """
     Every candidate's fitted model plus its out-of-fold decision trail.
 
@@ -1226,6 +1331,16 @@ def build_decision_panel(spec, quick, X, y, groups, labels, best, meta):
         cols = [names.index(w) for w in wanted]
         chan = np.asarray(X[:, cols], dtype=np.float32)
 
+    print("    projecting the feature space for MODEL STATS...")
+    space = feature_space_projection(X, y, labels, groups, names, take_of)
+    if space is None:
+        print("      skipped (too few windows or features to project)")
+    else:
+        print(f"      PCA on {space['n_features']} features: "
+              f"PC1 {space['explained'][0] * 100:.1f} %, "
+              f"PC2 {space['explained'][1] * 100:.1f} % of the variance, "
+              f"{space['n_points']} points drawn")
+
     print("    fitting each candidate on the whole dataset for live use...")
     fitted_members = {}
     for name in order:
@@ -1275,6 +1390,7 @@ def build_decision_panel(spec, quick, X, y, groups, labels, best, meta):
             "rec": rec_of,
             "chan": chan,
         },
+        "space": space,
         "n_windows": int(n),
         "n_recordings": len(uid_order),
     }
@@ -2138,8 +2254,15 @@ def main(argv=None):
         print("\nBuilding the decision panel (every candidate on the "
               "winner's setup)...")
         try:
+            #  uid -> the take it was cut from, so the scatter can be
+            #  coloured by source. This is the confound in docs/EDA.md
+            #  section 2 made visible rather than described.
+            take_of = {}
+            for rec in all_recs:
+                placed = source_timeline(rec)
+                take_of[rec.uid] = placed[0] if placed else None
             panel = build_decision_panel(spec, args.quick, X, y, groups,
-                                         labels, best, meta)
+                                         labels, best, meta, take_of)
         except Exception as exc:                           # pragma: no cover
             panel = None
             print(f"  decision panel failed ({exc}); the model is unaffected.")

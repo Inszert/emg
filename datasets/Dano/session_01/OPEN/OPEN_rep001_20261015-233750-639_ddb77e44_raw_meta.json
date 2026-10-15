@@ -1,0 +1,148 @@
+{
+  "uid": "ddb77e44",
+  "stage": "raw",
+  "label": "OPEN",
+  "label_index": 2,
+  "person_id": "Dano",
+  "session_id": "session_01",
+  "repetition": 1,
+  "n_samples": 200,
+  "n_channels": 8,
+  "channel_names": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5",
+    "CH6",
+    "CH7",
+    "CH8"
+  ],
+  "duration_s": 3.98848,
+  "sample_rate_measured": 49.894,
+  "created_unix": 1792100270.6398447,
+  "created_iso": "2026-10-15T23:37:50.639",
+  "start_unix": 1792100150.9179978,
+  "end_unix": 1792100154.9064775,
+  "start_iso": "2026-10-15T23:35:50.917",
+  "end_iso": "2026-10-15T23:35:54.906",
+  "label_start_index": 0,
+  "label_end_index": 200,
+  "amplitude_min": [
+    21,
+    19,
+    23,
+    25,
+    171,
+    239,
+    34,
+    23
+  ],
+  "amplitude_max": [
+    118,
+    548,
+    94,
+    165,
+    748,
+    767,
+    243,
+    229
+  ],
+  "quality_issues": [
+    {
+      "level": "warning",
+      "code": "noisy_baseline",
+      "message": "Resting baseline RMS 98.8 exceeds 60. Check skin contact and move away from mains interference."
+    }
+  ],
+  "quality_worst_level": "warning",
+  "activity_detected": {
+    "found": true,
+    "start": 2,
+    "end": 79,
+    "core_start": 7,
+    "core_end": 72,
+    "threshold_high": 151.27155493100946,
+    "threshold_low": 90.76293295860567,
+    "baseline": 50.42385164366982,
+    "n_candidates": 2,
+    "reason": "ok"
+  },
+  "files": {
+    "raw:csv": "Dano\\session_01\\OPEN\\OPEN_rep001_20261015-233750-639_ddb77e44_raw.csv",
+    "raw:npz": "Dano\\session_01\\OPEN\\OPEN_rep001_20261015-233750-639_ddb77e44_raw.npz"
+  },
+  "meta": {
+    "emg_mode": "filtered",
+    "handedness": "right",
+    "arm_worn_on": "right",
+    "device": "Myo armband",
+    "notes": "",
+    "capture_style": "cut_from_take",
+    "selected_by_operator": true,
+    "selection_seconds": 3.9885,
+    "parent_take_uid": "dfaecc33",
+    "parent_take_label": "OPEN",
+    "parent_take_stage": "take",
+    "parent_take_file": "Dano\\session_01\\_takes\\OPEN_take004_20261015-233547-914_dfaecc33_take.npz",
+    "parent_take_n_samples": 4765,
+    "take_start_index": 149,
+    "take_end_index": 349,
+    "take_start_s": 2.9964,
+    "take_end_s": 6.9849
+  },
+  "config": {
+    "app_version": "1.0.0",
+    "emg_mode": "filtered",
+    "nominal_sample_rate": 50.0,
+    "emg_range": [
+      0,
+      2047
+    ],
+    "gestures": [
+      "REST",
+      "FIST",
+      "OPEN",
+      "THUMB_UP",
+      "WAVE_LEFT",
+      "WAVE_RIGHT"
+    ],
+    "repetitions": 6,
+    "gesture_order": "interleaved",
+    "random_seed": 42,
+    "rest_time": 2.0,
+    "prepare_time": 0.8,
+    "countdown_time": 3.0,
+    "record_time": 4.0,
+    "pause_time": 1.0,
+    "pre_gesture_ms": 300,
+    "post_gesture_ms": 300,
+    "window_ms": 200,
+    "window_overlap": 0.5,
+    "auto_trim": true,
+    "default_cut_seconds": 4.0,
+    "model_spec_file": "model_spec.json",
+    "min_selection_seconds": 0.25,
+    "free_take_max_minutes": 15.0,
+    "trim": {
+      "envelope_ms": 50.0,
+      "baseline_ms": 200.0,
+      "threshold_high": 3.0,
+      "threshold_low": 1.8,
+      "abs_floor": 12.0,
+      "min_active_ms": 120.0,
+      "min_inactive_ms": 250.0,
+      "pre_padding_ms": 100.0,
+      "post_padding_ms": 150.0,
+      "min_active_channels": 2
+    },
+    "quality": {
+      "enabled": true,
+      "min_sample_fraction": 0.8,
+      "max_gap_ms": 120.0,
+      "max_saturated_fraction": 0.02,
+      "max_baseline_rms": 60.0,
+      "min_peak_amplitude": 40.0
+    }
+  }
+}

@@ -104,7 +104,7 @@ still run.
 | `docs/ARCHITECTURE.md` | Threads, buffers, state machine, data flow. |
 | `docs/ML_PIPELINE.md` | From recordings to a validated model. |
 | `requirements.txt` | Dependencies. |
-| `tests/` | Fifteen runnable check scripts (1491 checks total, three need the armband). See `tests/README.md`. |
+| `tests/` | Sixteen runnable check scripts (1603 checks total, three need the armband). See `tests/README.md`. |
 | `datasets/` | Recorded data (created on first run). |
 | `exports/` | Combined ML bundles from the EXPORT button. |
 | `models/` | `gesture_model.joblib` (loaded by the app), `gesture_panel.joblib` (the DECISION TRAIL side file, §8e), timestamped archives, and `reports/` with every sweep's full results. |
@@ -207,7 +207,24 @@ STOP & SAVE TAKE                 the whole stretch -> <session>/_takes/
 OPEN TAKE & CUT CLIPS            carve labelled clips out of it, any time later
     EXTRACT CLIP (Ctrl+Space)      -> an ordinary stage-raw recording
     NEXT >> (Ctrl+Right)           -> step one clip length along
+DELETE TAKE(S)                   the take -> <session>/_deleted/
 ```
+
+**DELETE TAKE(S)** moves the selected take(s) out of `_takes/` and into
+`_deleted/`, through `DatasetWriter.delete_take()` — never `os.remove`
+(safety rule 4). A take is minutes of a subject's time and the one thing
+clips cannot be re-cut from, so a mis-click costs a folder move. Every file
+the take was written in goes together (csv, npz, parquet, the metadata and
+notes sidecars), matched as `<stem>.` or `<stem>_` so a take whose name
+merely *starts* the same cannot be caught, and a `stage: "deleted"` line with
+`deleted_stage: "take"` goes into the append-only manifest.
+
+**Clips already cut from a take are not touched.** They are ordinary
+recordings in the gesture folders with their own uids, and deleting the take
+does not make them wrong — only unre-cuttable. `clips_from_take()` counts
+them from their own `parent_take_uid`, and the confirmation dialog says how
+many there are, because that is what someone needs to know before throwing a
+take away.
 
 **A take is not training data and must never become it.** Two independent
 mechanisms keep it out: it lives in `_takes/`, and `discover_recordings()`
@@ -333,13 +350,13 @@ Then the app's LIVE CLASSIFIER panel works: one-shot or continuous mode, the
 prediction drawn over the graph, per-class probability bars, and a MODEL STATS
 dialog showing the cross-validated numbers with their protocol.
 
-**Current state of the model (2026-10-15):** the payload on disk is from
-2026-10-14 and knows **two** labels, `FIST` and `REST`, trained on 119
-recordings. It scores `window_accuracy = 1.0`, and its `data` block is
-**empty**, so `model_data_status()` reports `unknown` rather than `stale`.
-The dataset has since grown to 308 recordings over six labels, so the saved
-model cannot name four of them. Retrain before using the LIVE CLASSIFIER, and
-read §8f first — the 1.0 is not what it looks like.
+**Current state of the model (2026-10-16):** the payload on disk is
+`SVM-rbf-C10` on `level` / `raw`, 0.5 s windows at 0.75 overlap with frequency
+features, six labels, trained on the **44 recordings of take 1 of the
+re-record** (970 windows, 50 features). It scores 99.4 % per window — and that
+number means nothing yet, because the DC-only control scores **98.4 % per
+window and 100 % per recording** on 8 channel means alone. One sitting cannot
+be anything but confounded; see §8f. Retrain after each new sitting.
 
 *(Superseded, kept for the trend: on 2026-10-06 the dataset was 72 recordings
 and the best score ≈ 43 % per window against a 16.7 % chance level, with 15
@@ -623,6 +640,27 @@ vectors it was never fitted on would produce confident nonsense.
 Full analysis with every number in **`docs/EDA.md`**. The short version,
 because it changes how any result from this project must be read:
 
+> **SUPERSEDED 2026-10-15 — the dataset analysed below was archived.** All
+> 325 recordings were moved whole to
+> `datasets/_archive_pre_r1_20261015/` (not deleted: safety rules 4 and 5, and
+> the leading underscore keeps `discover_recordings()` from ever walking back
+> into it). Its README says why. **Keep it** — it is the baseline that answers
+> "did the re-record change anything", and its DC-only control of 98.9 % is
+> the number to beat.
+>
+> **What is on disk now:** take 1 of the re-record, recorded 2026-10-15
+> 23:27–23:46. 44 recordings, 6 free takes, 3–4 s clips of *relaxed* holds —
+> which is the R4 fix, and it worked. But all six takes are one sitting on one
+> fitting, **one take per gesture**, so label is confounded with take exactly
+> as before and the trainer prints its warning. That is unavoidable with one
+> fitting and is not a mistake; it is take 1 of 5. The confound breaks across
+> *sittings*, not within one. Four more, band off and refitted between, and
+> each gesture has five sources — at which point leave-one-take-out becomes a
+> valid split and this project has its first honest number.
+>
+> The analysis below is kept in full because the failure mode it documents is
+> the one being recorded against.
+
 **308 recordings, 1 subject, 2 sessions, 6 labels, 15.1 minutes of signal.**
 `FIST` 56, `REST` 63, `OPEN` 55, `THUMB_UP` 39, `WAVE_LEFT` 42,
 `WAVE_RIGHT` 53. Measured rate 49.4–50.2 Hz, `filtered` mode throughout. The
@@ -817,6 +855,121 @@ recognised.**
   subject-grouped folds are unequal too. `StratifiedGroupKFold` balances the
   labels, not the people.
 
+## 8i. The band-pass filter, and why "filtered" gets no high-pass
+
+Added 2026-10-15. `bandpass_filter()` in SECTION 2 is a real zero-phase
+Butterworth, and before it existed the only filtering in the project was
+`moving_rms`/`moving_mean` (crude low-passes) and `baseline_level`
+subtraction (a crude DC block).
+
+**It does not import scipy.** The `HAVE_SCIPY` comment records that
+`scipy.signal` costs ~7.3 s on a cold cache and that nothing here actually
+imports it; a filter that runs in the live prediction path is not the place to
+start. `_butter2_coeffs()` writes a 2-pole section out via the bilinear
+transform instead, with `tan()` pre-warping so the cutoff lands where it was
+asked for. Verified against `scipy.signal.butter` to 1e-12 when scipy happens
+to be installed, and against theory when it is not: -6 dB at the cutoff (the
+forward-backward pass doubles one section's -3 dB), monotone roll-off, DC gain
+exactly 1 low-pass / 0 high-pass.
+
+**Zero phase, and that is not a nicety.** A causal filter delays the
+envelope, and a delayed envelope moves a gesture's onset relative to the
+`label_start_index`/`label_end_index` it was cut with -- it would shift the
+label boundaries the whole dataset is built on. `_filtfilt()` runs the section
+forwards then backwards so the phase cancels exactly.
+
+**`EMG_BANDPASS_HZ["filtered"] = (None, 8.0)` -- low-pass only. The missing
+high-pass is a decision, not an omission.** Three reasons, and the third is
+measured:
+
+1. The Myo band-passes and rectifies **on-device**. What arrives in
+   `filtered` mode is already an envelope; the textbook 20-450 Hz stage
+   happened upstream in hardware.
+2. The envelope arrives at ~50 Hz, so Nyquist is ~25 Hz. A 450 Hz low-pass is
+   not merely unnecessary, it is unrepresentable, and a 20 Hz high-pass sits
+   at 0.8x Nyquist.
+3. A high-pass on an envelope removes its DC, and **the DC here is the
+   activation level**. This project measured that twice, and both times it
+   cost accuracy: median-centring moved the Fisher ratio 25.5 -> 15.1 and
+   accuracy 43.2 % -> 33.5 %, and baseline subtraction moved Fisher
+   24.9 -> 11.5-17.2. See the "Absolute amplitude is kept" decision in §13.
+
+`EMG_BANDPASS_HZ["raw"] = (20.0, 95.0)` is the opposite case: a true 200 Hz
+bipolar stream with nothing applied to it, where a band-pass is standard and
+genuinely absent, and 95 Hz fits inside its 100 Hz Nyquist.
+
+**A cutoff at or above Nyquist is SKIPPED, not clamped**, and the reason goes
+into the caller's `report`. Clamping 450 Hz down to 24.9 Hz would apply a
+completely different filter and still call it 20-450 Hz. At these sample rates
+that is not a corner case -- it is what happens the first time someone pastes
+a textbook band from a 1 kHz setup.
+
+**It is a REPRESENTATION, not a file transform.** `"bandpass"` joins `raw`,
+`normalized` and `envelope` in `REPRESENTATIONS`, so it is applied inside
+`model_feature_vector()` -- the one function shared by the trainer and
+`LivePredictor`. Three consequences worth knowing:
+
+- Nothing on disk is rewritten, so safety rules 1 and 3 are untouched. There
+  is no filtered copy of the dataset to keep in sync.
+- The existing dataset is filtered on every run, automatically, because
+  filtering happens at feature time rather than at record time.
+- Whether it *helps* is measured by the sweep like everything else rather than
+  asserted. Measured on the 325-recording dataset at one fixed setup
+  (0.40 s / 0.5 overlap / `level`, LDA-shrinkage): `raw` 98.07 % window /
+  99.10 % vote, `bandpass` 98.15 % / **99.55 %**, `envelope` 87.75 % /
+  95.05 %, `normalized` 22.34 % / 24.32 %. So it is a hair ahead of `raw` and
+  clearly ahead of the other two -- a candidate, not a default.
+
+The fourth representation grows the sweep from 120 to 160 setups.
+
+## 8j. MODEL STATS -> FEATURE SPACE
+
+Added 2026-10-15. Every training window as one point in two dimensions, with
+the live window drawn on the same axes.
+
+```
+train_model.py        feature_space_projection()  -> panel["space"]
+emg_dataset_tool.py   DecisionPanel.project()        one live vector -> (x, y)
+                      FeatureSpaceWidget             the scatter
+                      FeatureSpaceView               controls + caption
+```
+
+**PCA, not LDA, and that is safety rule 11 applied to a picture.** An LDA
+chooses its axes to separate the labels, so an LDA scatter looks beautifully
+separated even when the separation comes from electrode drift rather than from
+the gesture -- it would flatter the model by construction, the same way the
+§8e diagram must not imply the ensemble ships. PCA never sees `y`, so what it
+draws is the structure that is really in the features.
+
+**One transform, used in both directions.** The trainer stores
+`mean`/`scale`/`components`, and `DecisionPanel.project()` is the only thing
+that applies them. Fitting a projection on live data would move the axes under
+the scatter and make the two incomparable -- the same reason the trail reuses
+`LivePredictor.last_features` instead of recomputing features. A vector of the
+wrong width is refused rather than reshaped, because a reshaped vector lands
+somewhere plausible and means nothing.
+
+**Three colourings, because each answers a different question:**
+
+| Colour by | Question it answers |
+|---|---|
+| gesture | do the labels form their own clusters? |
+| take | or do the clusters follow the recording session? If this looks *tidier* than "gesture", the model is reading the block -- §8f made visible |
+| amplitude level | where the effort sits, and the gap a relaxed hold falls into -- `docs/EDA.md` R4 made visible |
+
+The live ring leaves a short fading tail, so a hold decaying out of its own
+cluster reads as a direction rather than a jumping dot. A live point outside
+the training cloud is still drawn: that it *is* outside is the interesting
+case.
+
+It shares the DECISION TRAIL's 120 ms timer rather than adding a second one,
+and the scatter is thinned to `max_points` (6000) evenly rather than randomly,
+so every recording keeps representation. `has_space` is gated on `loaded`
+rather than `ready`: drawing the scatter runs no model, so a panel whose
+members are unusable can still show its projection. A panel built before this
+existed has no `space` block, and the view says so and names
+`explain_votes.py` instead of drawing empty axes.
+
 ## 9. Safety / data-preservation rules
 
 These are invariants. Breaking one is a bug, not a trade-off.
@@ -824,7 +977,10 @@ These are invariants. Breaking one is a bug, not a trade-off.
 1. **Raw is written once and never rewritten.** `*_raw.*` files are immutable.
 2. **Nothing is overwritten.** Every write goes through `unique_path()`.
 3. **Trimming/processing creates new files** with a new stage suffix.
-4. **DELETE LAST moves files to `_deleted/`**; it never calls `os.remove`.
+4. **Deleting moves files to `_deleted/`**; nothing in this project calls
+   `os.remove` on recorded signal. DELETE LAST, REDO and DELETE TAKE(S) all
+   go through a folder move (`DELETED_DIRNAME`), and each logs a
+   `stage: "deleted"` manifest line saying where the files went.
 5. **Bad recordings are flagged, never discarded.** `check_quality` returns
    findings; the operator decides.
 6. **Samples are captured in the acquisition thread**, not the GUI thread, so
@@ -837,7 +993,9 @@ These are invariants. Breaking one is a bug, not a trade-off.
 9. **A free take is never training data, and cutting from it never alters
    it.** Takes live in `_takes/` with stage `take` -- pruned by discovery and
    asked for by no stage selector. EXTRACT CLIP copies samples out; it does
-   not rewrite, rename or delete the take.
+   not rewrite, rename or delete the take. DELETE TAKE(S) is the only thing
+   that moves a take, and it moves the take alone -- never the clips cut
+   from it, which are independent recordings.
 10. **No fake predictions.** The classifier panel shows output only from a
     real model's `predict()`.
 11. **Selecting a model never flatters it.** The model spec decides what gets
@@ -865,11 +1023,12 @@ python tests\test_gui.py                      # 91 checks, no hardware
 python tests\test_review.py                   # 50 checks, no hardware
 python tests\test_label_on_graph.py              # 48 checks, no armband needed
 python tests\test_markers.py                  # 88 checks, no hardware
-python tests\test_free_take.py                # 195 checks, no hardware
+python tests\test_free_take.py                # 255 checks, no hardware
 python tests\test_model_spec.py               # 346 checks, no hardware
 python tests\test_predict.py                  # 109 checks, no hardware
 python tests\test_trail.py                    # 103 checks, the DECISION TRAIL
 python tests\test_sweep_cost.py               # 48 checks, the sweep cost controls (§8g)
+python tests\test_filters.py                  # 52 checks, the band-pass (§8i) + FEATURE SPACE (§8j)
 python tests\test_no_torch.py                 # 11 checks, proves the app needs no torch
 python tests\test_torch.py                    # 163 checks, the RETIRED deep trainer
 python tests\test_live.py                     # 35 checks, NEEDS the armband
@@ -923,8 +1082,22 @@ The data layer degrades gracefully: without pandas you lose
   less smooth while MODEL STATS is open; no samples are lost, because
   capture happens on the acquisition thread. Close the dialog, or set
   `ENABLE_DECISION_PANEL = False`, on a slow machine.
-- **`gesture_panel.joblib` is ~4 MB** and grows with the forests in the
-  spec. It is a desktop diagnostic — do not copy it to the robot.
+- **`gesture_panel.joblib` is ~12 MB** and grows with the forests in the
+  spec. It is a desktop diagnostic — do not copy it to the robot. (It was
+  49 MB at the 325-recording bandpass model; it tracks dataset size as well as
+  forest count.)
+- **AUTO-TRIM ALL destroys a relaxed hold. Do not run it on clips cut from a
+  take.** `detect_activity` picks the *strongest* region by design (§13, "a
+  150 ms explosive burst must beat a second of drift"), and in the recording
+  protocol the relaxed hold is the **weakest** part of the clip. Measured on
+  the 17 relaxed-hold clips of 2026-10-15: it kept a median of 70.8 % of the
+  clip, worst case 42.4 %, and in **16 of 17** clips the part it discarded was
+  weaker than the part it kept — ratios 0.28–0.65, at absolute amplitudes of
+  50–90, which is precisely the 43–171 void the re-record exists to fill. The
+  function is behaving exactly as specified and is exactly wrong for this job.
+  It is also unnecessary: a clip cut from a take is written with
+  `label_start_index = 0, label_end_index = n_samples`, and `make_windows()`
+  trains on that span, so **the operator's selection already is the trim.**
 - **The dataset cannot currently be validated honestly** — every active class
   is a single free take, so a take-grouped split has no training data for the
   class it is testing, and one subject means `leave_one_person_out()` cannot

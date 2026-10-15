@@ -767,8 +767,292 @@ def test_gui():
         shutil.rmtree(root, ignore_errors=True)
 
 
+
+# ==============================================================================
+# PART 3 -- DELETE TAKE(S): a take leaves _takes, it does not leave the disk
+# ==============================================================================
+
+def test_delete_take():
+    print("\n--- delete take (data layer) ---")
+    root = tempfile.mkdtemp(prefix="emg_del_take_")
+    try:
+        w = T.DatasetWriter(root, "p1", "s1")
+
+        check("_deleted is underscore-prefixed",
+              T.DELETED_DIRNAME.startswith("_"), T.DELETED_DIRNAME)
+
+        emg, t = synth_take(20.0)
+        rec = T.Recording(emg=emg, timestamps=time.time() + t, label="FIST",
+                          person_id="p1", session_id="s1", repetition=0,
+                          stage=T.STAGE_RAW)
+        written = w.save_take(rec, 1)
+        stem = os.path.splitext(os.path.basename(written["npz"]))[0]
+        take_uid = rec.uid
+
+        check("uid reads back out of the take filename",
+              T.take_uid_from_stem(stem) == take_uid.lower(),
+              f"{T.take_uid_from_stem(stem)} vs {take_uid}")
+        check("a non-take name yields no uid",
+              T.take_uid_from_stem("not_a_take_name") == "")
+        check("list_takes reports the uid",
+              w.list_takes()[0]["uid"] == take_uid,
+              w.list_takes()[0]["uid"])
+
+        # A clip cut out of the take, so the warning path has something to
+        # count and the survival of the clip can be checked.
+        clip = rec.slice(100, 200, T.STAGE_RAW, {
+            "capture_style": "cut_from_take"})
+        clip.uid = "c0ffee11"
+        clip.meta["parent_take_uid"] = take_uid
+        clip_written = w.save(clip, T.STAGE_RAW)
+        check("the clip was written", os.path.exists(clip_written["npz"]))
+        check("clips_from_take finds it",
+              len(w.clips_from_take(take_uid)) == 1,
+              str(len(w.clips_from_take(take_uid))))
+        check("clips_from_take is case-insensitive",
+              len(w.clips_from_take(take_uid.upper())) == 1)
+        check("clips_from_take ignores an unknown uid",
+              w.clips_from_take("deadbeef") == [])
+        check("clips_from_take ignores an empty uid",
+              w.clips_from_take("") == [])
+
+        n_manifest = len(w.read_manifest())
+        before = sorted(os.listdir(w.takes_dir))
+        result = w.delete_take(stem)
+
+        check("every file of the take moved",
+              len(result["moved"]) == len(before),
+              f"{len(result['moved'])} of {len(before)}")
+        check("the result names the uid", result["uid"] == take_uid.lower(),
+              result["uid"])
+        check("the result names the label", result["label"] == "FIST",
+              result["label"])
+        check("the takes folder is empty now",
+              os.listdir(w.takes_dir) == [], str(os.listdir(w.takes_dir)))
+        check("list_takes no longer offers it", w.list_takes() == [])
+
+        quarantine = os.path.join(w.session_dir, T.DELETED_DIRNAME)
+        check("the files are in _deleted",
+              sorted(os.listdir(quarantine)) == before,
+              str(sorted(os.listdir(quarantine))))
+        check("nothing was erased",
+              all(os.path.exists(os.path.join(root, dst))
+                  for _src, dst in result["moved"]))
+
+        # THE point of a move rather than a delete: the signal still loads.
+        recovered = T.load_recording(
+            os.path.join(quarantine, os.path.basename(written["npz"])))
+        check("the quarantined take still loads",
+              recovered.n_samples == rec.n_samples)
+        check("the quarantined take is bit-exact",
+              np.array_equal(recovered.emg, emg))
+
+        # ...and _deleted is pruned by discovery, exactly like _takes.
+        check("discovery does not see the quarantined take",
+              T.discover_recordings(root, stage=T.STAGE_RAW)
+              == [clip_written["npz"]],
+              str(T.discover_recordings(root, stage=T.STAGE_RAW)))
+
+        # Clips are independent recordings and must survive their take.
+        check("the clip survived", os.path.exists(clip_written["npz"]))
+        check("the clip is still in the dataset",
+              len(T.load_dataset(root, stage="prefer_trimmed")) == 1)
+        check("the clip still names its parent take",
+              T.load_recording(clip_written["npz"]).meta.get(
+                  "parent_take_uid") == take_uid)
+
+        entries = w.read_manifest()
+        deleted = [e for e in entries if e.get("stage") == "deleted"]
+        check("the manifest grew by exactly one line",
+              len(entries) == n_manifest + 1,
+              f"{len(entries)} vs {n_manifest}")
+        check("the manifest records the deletion", len(deleted) == 1)
+        check("the deletion line says which stage went",
+              deleted[0].get("deleted_stage") == T.STAGE_TAKE)
+        check("the deletion line names the take",
+              deleted[0].get("take_stem") == stem)
+        check("the deletion line names the uid",
+              deleted[0].get("uid") == take_uid.lower())
+        check("the deletion line is timestamped",
+              bool(deleted[0].get("deleted_iso")))
+
+        # -- deleting what is not there is a no-op, never an exception -------
+        check("deleting the same take twice moves nothing",
+              w.delete_take(stem)["moved"] == [])
+        check("an unknown take moves nothing",
+              w.delete_take("NOPE_take009_20261015-110112-490_abcdef12_take")
+              ["moved"] == [])
+        check("an empty stem moves nothing", w.delete_take("")["moved"] == [])
+        check("a second delete adds no manifest line",
+              len(w.read_manifest()) == n_manifest + 1)
+
+        # -- a take whose name merely starts the same is not caught ----------
+        emg2, t2 = synth_take(6.0, seed=4)
+        keep = T.Recording(emg=emg2, timestamps=time.time() + t2, label="OPEN",
+                           person_id="p1", session_id="s1", stage=T.STAGE_RAW)
+        kept = w.save_take(keep, 2)
+        kept_stem = os.path.splitext(os.path.basename(kept["npz"]))[0]
+        check("a truncated stem matches nothing",
+              w.delete_take(kept_stem[:-2])["moved"] == [])
+        check("the neighbour take is untouched", os.path.exists(kept["npz"]))
+        n_files = len(os.listdir(w.takes_dir))
+        by_path = w.delete_take(os.path.join(w.takes_dir, kept_stem))
+        check("a full path works where a stem is expected",
+              len(by_path["moved"]) == n_files,
+              f"{len(by_path['moved'])} of {n_files}")
+        check("the neighbour is gone once asked for properly",
+              not os.path.exists(kept["npz"]))
+
+        # -- two takes with the same name never collide in _deleted ----------
+        again = T.Recording(emg=emg, timestamps=time.time() + t, label="FIST",
+                            person_id="p1", session_id="s1",
+                            stage=T.STAGE_RAW, uid=rec.uid,
+                            created_unix=rec.created_unix)
+        written_again = w.save_take(again, 1)
+        same_stem = os.path.splitext(os.path.basename(written_again["npz"]))[0]
+        n_before = len(os.listdir(quarantine))
+        w.delete_take(same_stem)
+        check("a same-named take is kept beside the first",
+              len(os.listdir(quarantine)) > n_before,
+              f"{len(os.listdir(quarantine))} vs {n_before}")
+        check("the first quarantined copy was not overwritten",
+              np.array_equal(T.load_recording(os.path.join(
+                  quarantine, os.path.basename(written["npz"]))).emg, emg))
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def test_delete_take_gui():
+    print("\n--- delete take (gui) ---")
+    from PySide6 import QtWidgets
+
+    root = tempfile.mkdtemp(prefix="emg_gui_del_take_")
+    T.DATA_FOLDER = root
+    T.PROJECT_DIR = root
+    T.PERSON_ID = "tester"
+    T.SESSION_ID = "sess_del"
+    T.MYO_PORT = "COM_DOES_NOT_EXIST"      # keep the real armband out of this
+
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    T.apply_theme(app)
+    window = None
+    real_question = QtWidgets.QMessageBox.question
+    try:
+        window = T.MainWindow()
+        w = window
+
+        check("delete take button built", hasattr(w, "delete_take_button"))
+        check("it is disabled with no takes",
+              not w.delete_take_button.isEnabled())
+
+        emg, t = synth_take(14.0, seed=21)
+        rec = T.Recording(emg=emg, timestamps=time.time() + t, label="FIST",
+                          person_id=w.writer.person_id,
+                          session_id=w.writer.session_id, stage=T.STAGE_RAW)
+        written = w.writer.save_take(rec, 1)
+        stem = os.path.splitext(os.path.basename(written["npz"]))[0]
+        w._refresh_take_history()
+        check("the take shows up in the list", w.take_list.count() == 1)
+        check("the item carries the stem, not just the path",
+              w.take_list.item(0).data(T.QtCore.Qt.UserRole + 1) == stem,
+              str(w.take_list.item(0).data(T.QtCore.Qt.UserRole + 1)))
+        w.take_list.setCurrentRow(0)
+        w._refresh_controls()
+        check("the button is enabled once a take is selected",
+              w.delete_take_button.isEnabled())
+
+        # -- NO means nothing happens ----------------------------------------
+        asked = {"n": 0}
+
+        def say_no(*args, **kwargs):
+            asked["n"] += 1
+            return QtWidgets.QMessageBox.No
+
+        QtWidgets.QMessageBox.question = staticmethod(say_no)
+        w.take_list.setCurrentRow(0)
+        w.delete_selected_takes()
+        check("it asked before deleting anything", asked["n"] == 1)
+        check("answering No left the take alone",
+              os.path.exists(written["npz"]))
+        check("answering No left the list alone", w.take_list.count() == 1)
+
+        # -- YES moves it ----------------------------------------------------
+        seen = {"text": ""}
+
+        def say_yes(_parent, _title, text, *args, **kwargs):
+            seen["text"] = text
+            return QtWidgets.QMessageBox.Yes
+
+        QtWidgets.QMessageBox.question = staticmethod(say_yes)
+        w.take_list.setCurrentRow(0)
+        w.delete_selected_takes()
+        check("the confirmation names _deleted",
+              T.DELETED_DIRNAME in seen["text"], seen["text"][:80])
+        check("the confirmation says nothing is erased",
+              "not erased" in seen["text"])
+        check("the take left _takes", not os.path.exists(written["npz"]))
+        check("the take is in _deleted",
+              os.path.exists(os.path.join(w.writer.session_dir,
+                                          T.DELETED_DIRNAME,
+                                          os.path.basename(written["npz"]))))
+        check("the list refreshed itself",
+              "no takes" in w.take_list.item(0).text(),
+              w.take_list.item(0).text())
+        check("the status line reports it",
+              T.DELETED_DIRNAME in w.free_take_status.text(),
+              w.free_take_status.text())
+        check("the log reports it",
+              T.DELETED_DIRNAME in w.log_box.toPlainText())
+        w._refresh_controls()
+        check("the button is disabled again with no takes",
+              not w.delete_take_button.isEnabled())
+
+        # -- nothing selected is a status message, not a dialog --------------
+        asked["n"] = 0
+        QtWidgets.QMessageBox.question = staticmethod(say_no)
+        w.take_list.setCurrentRow(-1)
+        w.delete_selected_takes()
+        check("with nothing selected it does not ask", asked["n"] == 0)
+        check("it says to select something first",
+              "select" in w.free_take_status.text().lower(),
+              w.free_take_status.text())
+
+        # -- a take that is still recording cannot be deleted -----------------
+        again = T.Recording(emg=emg, timestamps=time.time() + t, label="OPEN",
+                            person_id=w.writer.person_id,
+                            session_id=w.writer.session_id,
+                            stage=T.STAGE_RAW)
+        w.writer.save_take(again, 2)
+        w._refresh_take_history()
+        w.take_list.setCurrentRow(0)
+        w.free_capture = object()          # pretend a free take is running
+        try:
+            w._refresh_controls()
+            check("the button is disabled while a take is recording",
+                  not w.delete_take_button.isEnabled())
+            asked["n"] = 0
+            w.delete_selected_takes()
+            check("calling it anyway does not ask", asked["n"] == 0)
+            check("it says to stop the take first",
+                  "stop" in w.free_take_status.text().lower(),
+                  w.free_take_status.text())
+            check("the take is still on disk", len(w.writer.list_takes()) == 1)
+        finally:
+            w.free_capture = None
+    finally:
+        QtWidgets.QMessageBox.question = real_question
+        if window is not None:
+            try:
+                window.acq.stop()
+            except Exception:
+                pass
+            window.close()
+        shutil.rmtree(root, ignore_errors=True)
+
 if __name__ == "__main__":
     test_data_layer()
     test_gui()
+    test_delete_take()
+    test_delete_take_gui()
     print("\n" + "=" * 16 + f"  {sum(OK)}/{len(OK)} checks passed  " + "=" * 16)
     sys.exit(0 if all(OK) else 1)
