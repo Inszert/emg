@@ -12,6 +12,28 @@ headline is that the dataset currently cannot support episode-, session- or
 subject-independent validation, and the ~99 % scores it produces are a
 measurement of electrode state, not of gesture recognition.
 
+> ### ⚠️ The dataset analysed below was ARCHIVED on 2026-10-15
+>
+> All 325 recordings were moved whole to
+> `datasets/_archive_pre_r1_20261015/` — **moved, not deleted** (safety rules
+> 4 and 5; the leading underscore keeps `discover_recordings()` from ever
+> walking back into it). The analysis stands; the data is no longer the
+> working set.
+>
+> **Why:** the conclusion of §3 turned out to be total rather than partial. On
+> the final sweep the DC-only control reached **98.9 %** against the full
+> 50-feature vector's **98.9 %** — the other 42 features added **+0.0 points**.
+> 325 recordings held only **52 distinct sources**.
+>
+> **What replaced it:** take 1 of a planned 5-sitting re-record — 44
+> recordings, six gestures, 3–4 s clips of *relaxed* holds (R4, applied). One
+> sitting on one fitting is still confounded by construction and the trainer
+> still says so. The confound breaks across *sittings*, not within one.
+>
+> **Keep the archive.** Its 98.9 % control is the number the re-record has to
+> beat, and it is the only way to answer "did the re-record change anything".
+> §10 and §11 below are new and describe what happens as more wearers arrive.
+
 ---
 
 ## 1. Inventory
@@ -520,7 +542,138 @@ assuming the range is safe.
 
 ---
 
-## 9. Reproducing this
+## 10. How other wearers are handled
+
+Written 2026-10-15, before a second subject exists, and verified against a
+synthetic three-subject dataset. **More wearers change what "honest" means,
+and the pipeline follows that change on its own.**
+
+### What is automatic today
+
+| Mechanism | Behaviour |
+|---|---|
+| **Per-person folders** | `datasets/<person_id>/<session_id>/…`. A new subject gets a new `person_id`; nothing else needs changing. |
+| **`leave_one_person_out()`** | splits on `groups`, which `make_windows()` fills with the person id. Dead code with one subject, live with two. |
+| **`SELECTION_GROUPING = "auto"`** | 1 subject → folds grouped by **recording uid**; 2+ subjects → folds grouped by **subject**, automatically. |
+| **Both protocols always reported** | the winner block prints the chosen grouping *and* the other one as contrast, and warns when they disagree by more than 5 points. |
+| **The DC-only control flips meaning** | see below. |
+
+**Why the grouping switch had to be automatic, and it is not a detail.** The
+sweep picks the winner from cross-validated scores. With several wearers but
+folds grouped by *recording*, every subject sits in both train and test — so a
+setup that leans on one person's absolute amplitudes scores well and gets
+**selected**, then fails on the next wearer. `leave_one_subject_out()` already
+reported the honest number, but it ran *after* the winner was chosen, so it
+could only document a bad choice rather than prevent it.
+
+The split key and the vote key are deliberately separate in `evaluate()`:
+`split_groups` decides the folds, `groups` stays the recording id because the
+per-recording vote must still be counted per recording. Passing one for the
+other would either leak a subject or destroy the vote.
+
+### The DC-only control reads differently across subjects
+
+| Dataset | DC-only | Full vector | What it means |
+|---|---|---|---|
+| this one-subject set | 98.9 % | 98.9 % | **red flag** — absolute levels identify the take |
+| synthetic 3-subject | 18.5 % | — (25 % baseline) | **all clear** — levels do not transfer between wearers |
+
+So the control flips from "nothing was learned" to "all clear" exactly when it
+should. Going forward: **cross-subject, a high DC-only score means the
+subjects differ in gain, not that the gestures were recognised.**
+
+### What is NOT automatic
+
+- **Take-grouped CV.** Once a gesture has two or more takes, leave-one-take-out
+  becomes possible (verified synthetically: with 3 takes per class, every class
+  survives every split). Not done yet, because on a one-sitting dataset a
+  leave-one-take-out split removes a whole class from training. Add it when the
+  takes exist, not before.
+- **Electrode rotation between wearers.** Nothing handles the armband being
+  donned at a different angle, which **permutes the channels**. The `share`
+  feature carries the spatial profile with amplitude divided out, but no
+  rotation alignment exists. Expect this to be the next real problem.
+- **Per-subject sample balance.** With unequal recordings per person the
+  subject-grouped folds are unequal too. `StratifiedGroupKFold` balances the
+  labels, not the people.
+- **Amplitude invariance.** `REPRESENTATIONS` contains `normalized`, which
+  divides out absolute amplitude — the part that differs most between people.
+  On one subject it scores ~22 % and `raw`/`bandpass` win. With
+  subject-grouped selection the sweep should start preferring it **on its
+  own**; if it does not, that is a finding worth chasing rather than a knob to
+  force.
+
+---
+
+## 11. Calibration — open
+
+**Nothing is decided, and this section is deliberately almost empty.**
+Specifying a calibration scheme that has not been measured would be exactly
+the failure this document exists to warn about. What follows is the
+constraints a design has to satisfy, not a design.
+
+### What is already settled, because it was measured
+
+**Absolute amplitude is kept, not baseline-subtracted.** Two attempts to
+remove it both hurt:
+
+| Tried | Fisher ratio | Accuracy |
+|---|---|---|
+| median-centring each channel (`extract_features`) | 25.5 → **15.1** | 43.2 % → **33.5 %** |
+| per-recording baseline subtraction | 24.9 → **11.5–17.2** | — |
+
+Within a session the offsets are constant, and a per-recording estimate partly
+cancels the gesture. **Offset/gain invariance therefore belongs in a
+calibration step, not in the feature function** — which is the reason this
+section exists at all.
+
+### Constraints any scheme must satisfy
+
+1. **It must not run per recording.** That is the thing that was measured to
+   hurt. A calibration constant has to be estimated once per *wearer/fitting*
+   and then held fixed.
+2. **It must go through `model_feature_vector()`**, the single function shared
+   by the trainer and `LivePredictor`. A calibration applied in only one of
+   those is the drift bug in §4.7 of `problems.md`, which is the hardest class
+   of bug to notice: live predictions become garbage while the
+   cross-validation score stays perfect.
+3. **It must be recorded in the payload.** A model calibrated for one wearer
+   that silently predicts for another is a fake prediction, which safety rule
+   10 forbids.
+4. **It must be measurable by the sweep**, like every other representation —
+   added as a candidate, not asserted as a default.
+
+### Open questions, unanswered
+
+- **What is the reference?** A short per-session maximum-voluntary-contraction
+  normaliser is the textbook answer, but MVC is fatiguing, drifts within a
+  session, and this project has already measured 59 % amplitude loss across a
+  single 52 s take.
+- **Per channel or global?** Per channel also absorbs electrode rotation,
+  which may or may not be wanted.
+- **Does `normalized` already solve it?** It divides amplitude out entirely.
+  If the sweep starts choosing it once subjects are grouped, an explicit
+  calibration step may be unnecessary. **This should be checked before
+  anything is built.**
+- **What does the operator actually do?** Any scheme needing a careful
+  calibration ritual will be done carelessly.
+
+### What must ship before calibration, and is more urgent
+
+**A contrast check at record time.** `check_quality()` currently flags a
+non-REST recording that never exceeds `QC_MIN_PEAK_AMPLITUDE` — **40 counts,
+absolute**. In the 2026-10-06 session the resting baseline was ~130 counts, so
+every bad recording **passed**, and the dataset was lost. A check relative to
+the session's own rest (`QC_CONTRAST_MIN_RATIO ≈ 3.0`) plus a live "× rest"
+readout would have caught it while it was still fixable. `grep QC_CONTRAST
+emg_dataset_tool.py` returns nothing: it is still only a recommendation.
+
+This is the highest-value open item in the project, and it is a prerequisite
+for trusting any calibration measurement taken later.
+
+---
+
+## 12. Reproducing this
 
 The analysis is plain use of the data layer; nothing in it was persisted:
 

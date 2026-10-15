@@ -99,6 +99,9 @@ still run.
 | `myo.py` | Original k-NN pose demo. Not part of the tool; kept for reference. |
 | `test_myo.py` | Original matplotlib live monitor. Kept as the reference for "the connection definitely works like this". |
 | `GUIDE.md` | **User-facing manual**: what every file and setting does, and how to set the tool up for different jobs. |
+| **`docs/MANUAL.md`** | **The complete manual.** Install, architecture, the interface, the ML pipeline, the honesty machinery, and a condensed engineering record of every problem solved. Start here for the whole picture; this file stays the place for invariants. |
+| **`docs/UI_GUIDE.md`** | **The UI, screen by screen, with annotated screenshots.** Every arrow is placed from the widget's real geometry, so a renamed control breaks the generator instead of producing a picture that points at the wrong thing. |
+| `tools/make_ui_guide.py` | Regenerates `docs/images/`. Points `MYO_PORT` at a port that cannot exist (no hardware is touched) and renders with `WA_DontShowOnScreen`. Uses the **native** Qt platform plugin, not `offscreen` — offscreen ships no font database and renders every glyph as a tofu box. |
 | `docs/DATASET.md` | On-disk format, filenames, CSV/NPZ schema. |
 | **`docs/EDA.md`** | **What is actually in `datasets/` — measured.** Inventory, provenance, the class↔take confound, duplicate clips, drift, and numbered recommendations. Read it before quoting any accuracy number. See §8f. |
 | `docs/ARCHITECTURE.md` | Threads, buffers, state machine, data flow. |
