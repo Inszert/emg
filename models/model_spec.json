@@ -92,7 +92,7 @@
     {
       "name": "LogReg",
       "kind": "logreg",
-      "enabled": true,
+      "enabled": false,
       "scaler": "standard",
       "params": {
         "C": 1.0,
@@ -146,7 +146,7 @@
     {
       "name": "kNN-5",
       "kind": "knn",
-      "enabled": false,
+      "enabled": true,
       "scaler": "standard",
       "params": {
         "n_neighbors": 5,
@@ -157,7 +157,7 @@
     {
       "name": "kNN-15",
       "kind": "knn",
-      "enabled": false,
+      "enabled": true,
       "scaler": "standard",
       "params": {
         "n_neighbors": 15,
@@ -209,14 +209,14 @@
     {
       "name": "RandomForest-800-deep",
       "kind": "random_forest",
-      "enabled": false,
-      "scaler": "none",
+      "enabled": true,
+      "scaler": "robust",
       "params": {
         "n_estimators": 800,
         "max_depth": 0,
         "min_samples_leaf": 1,
         "max_features": "sqrt",
-        "class_weight": "none"
+        "class_weight": "balanced"
       },
       "auto": true
     }

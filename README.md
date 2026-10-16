@@ -258,25 +258,37 @@ python tests\test_free_take.py        # 255    python tests\test_no_torch.py    
 
 ## Current state
 
-**Mid re-record.** The previous 325-recording dataset was archived to
+**Two wearers, and the first honest number.** `Dano` 44 recordings + `Betka`
+41 = **85**, six gestures, 3–4 s clips of relaxed holds.
+
+A second wearer tripped the automatic switch the pipeline was built for: folds
+moved from recording-grouped to **subject-grouped** on their own, so the winner
+was selected on data from a person it had never seen.
+
+```
+subject-grouped  (the chosen protocol)   83.3 % window   82.4 % vote
+recording-grouped (contrast)             97.7 % window   97.6 % vote
+majority class                           19.2 %
+held out: Betka 89.3 %   Dano 77.2 %
+```
+
+**The within-subject score did not improve — it got exposed.** That 14-point
+gap between the two protocols *is* the subject-specificity, and the whole point
+of reporting both is that one number alone would have let 97.7 % be read as a
+cross-wearer result. 83.3 % on an unseen wearer against a 19.2 % baseline is
+the first result here that is not a measurement of electrode state.
+
+The previous 325-recording dataset remains archived in
 `datasets/_archive_pre_r1_20261015/` — not deleted — because its 99.6 %
-accuracy was not gesture recognition:
-
-```
-DC-only control (8 channel means):  98.9 %
-full 50-feature vector:             98.9 %
--> the other 42 features added +0.0 points
-```
-
-Every active gesture in it was a **single free take**, so the label was
-perfectly confounded with electrode state and wall-clock block. 325 recordings
+accuracy was not gesture recognition: the DC-only control scored **98.9 %**
+against the full vector's 98.9 %, so the other 42 features added **+0.0
+points**. Every active gesture in it was a single free take; 325 recordings
 held only 52 distinct sources.
 
-On disk now is **take 1 of a planned 5**: 44 recordings, six gestures, 3–4 s
-clips of *relaxed* holds. One sitting on one fitting is still confounded by
-construction, and the trainer says so. The confound breaks across **sittings**,
-not within one — four more, with the armband removed and refitted between, and
-leave-one-take-out becomes a valid split.
+Still open: more **sittings per wearer**, armband off and refitted between.
+Two wearers fixed the cross-person question; within a person each gesture is
+still one take, which is why the recording-grouped contrast is still 97.7 %.
 
-**Do not quote an accuracy from this project without the DC-only control next
-to it.** That rule is the whole reason the tooling prints it.
+**Do not quote an accuracy from this project without its protocol and the
+DC-only control next to it.** That rule is the whole reason the tooling prints
+them.

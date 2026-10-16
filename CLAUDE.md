@@ -353,13 +353,40 @@ Then the app's LIVE CLASSIFIER panel works: one-shot or continuous mode, the
 prediction drawn over the graph, per-class probability bars, and a MODEL STATS
 dialog showing the cross-validated numbers with their protocol.
 
-**Current state of the model (2026-10-16):** the payload on disk is
-`SVM-rbf-C10` on `level` / `raw`, 0.5 s windows at 0.75 overlap with frequency
-features, six labels, trained on the **44 recordings of take 1 of the
-re-record** (970 windows, 50 features). It scores 99.4 % per window — and that
-number means nothing yet, because the DC-only control scores **98.4 % per
-window and 100 % per recording** on 8 channel means alone. One sitting cannot
-be anything but confounded; see §8f. Retrain after each new sitting.
+**Current state of the model (2026-10-16, second subject):** the payload on
+disk is `ExtraTrees-400` on `level` / `bandpass`, 0.3 s windows at 0.75 overlap
+with frequency features, six labels, trained on **85 recordings from two
+wearers** — `Dano` 44 and `Betka` 41 (3573 deduped windows, 50 features).
+
+**This is the project's first honest number.** A second wearer tripped the
+§8h switch on its own: `SELECTION_GROUPING = "auto"` moved the folds from
+recording-grouped to **subject-grouped**, so the winner was chosen on data
+from a person it had never seen.
+
+| Protocol | Window | Recording vote |
+|---|---|---|
+| **subject-grouped** (the chosen one) | **83.3 %** | 82.4 % |
+| recording-grouped (contrast) | 97.7 % | 97.6 % |
+| majority class | 19.2 % | — |
+
+Per wearer, held out: `Betka` 89.3 %, `Dano` 77.2 %. The 14-point gap between
+the two protocols **is** the subject-specificity, and it is exactly what §8h
+predicted would appear the moment a second person existed. 83.3 % against a
+19.2 % baseline, on a wearer the model never saw, is the first number this
+project has produced that is not a measurement of electrode state.
+
+> **One caveat on the printed DC-only line, and it is a reporting bug, not a
+> data problem.** `dc_only_control()` is passed `groups` — the *recording*
+> ids — so the control is scored **recording-grouped** while the winner is now
+> scored **subject-grouped**. The run therefore printed a gain of
+> **−14.3 points** and tripped the "adds almost nothing" warning, which is
+> comparing two different protocols. The apples-to-apples pair is DC-only
+> 97.6 % against the recording-grouped contrast 97.7 %: **+0.1 points**, so
+> *within* a wearer the confound is still total, as expected while each
+> gesture is one take per person. The control needs the same split key as the
+> winner before its number can be read at all.
+
+Retrain after each new sitting and after each new wearer.
 
 *(Superseded, kept for the trend: on 2026-10-06 the dataset was 72 recordings
 and the best score ≈ 43 % per window against a 16.7 % chance level, with 15
@@ -621,7 +648,7 @@ non-obvious lines of code):
 | | Cost | Why |
 |---|---|---|
 | members at `n_jobs=-1` | **2700 ms** per window | joblib stands up a worker pool per call, for one row through 400 trees |
-| members at `n_jobs=1` | **50-78 ms** per window | `DecisionPanel._serialise_members()` forces this on load |
+| members at `n_jobs=1` | **50-78 ms** per window, now **161 ms** with kNN members in the spec (§12) | `DecisionPanel._serialise_members()` forces this on load |
 | first call ever | **~2500 ms** | HistGradientBoosting builds its prediction kernel on demand (2416 ms first, 2.5 ms second) |
 | after `warm_up()` | — | run once on a worker thread (`PanelWarmUp`) when the dialog opens, so no live window eats it |
 
@@ -651,15 +678,31 @@ because it changes how any result from this project must be read:
 > "did the re-record change anything", and its DC-only control of 98.9 % is
 > the number to beat.
 >
-> **What is on disk now:** take 1 of the re-record, recorded 2026-10-15
-> 23:27–23:46. 44 recordings, 6 free takes, 3–4 s clips of *relaxed* holds —
-> which is the R4 fix, and it worked. But all six takes are one sitting on one
-> fitting, **one take per gesture**, so label is confounded with take exactly
-> as before and the trainer prints its warning. That is unavoidable with one
-> fitting and is not a mistake; it is take 1 of 5. The confound breaks across
-> *sittings*, not within one. Four more, band off and refitted between, and
-> each gesture has five sources — at which point leave-one-take-out becomes a
-> valid split and this project has its first honest number.
+> **What is on disk now (updated 2026-10-16): TWO wearers, 85 recordings.**
+>
+> | Wearer | Recordings | Takes | Sitting |
+> |---|---|---|---|
+> | `Dano` | 44 | 6 | 2026-10-15 23:27–23:46 |
+> | `Betka` | 41 | 6 | 2026-10-16 15:19–15:33 |
+>
+> Both are 3–4 s clips of *relaxed* holds — the R4 fix, applied, and it
+> worked. Within each wearer the old structure is unchanged: **one take per
+> gesture**, so label is still confounded with take *inside* a person and the
+> recording-grouped contrast still reads 97.7 %.
+>
+> **What the second wearer bought is the split that was impossible before.**
+> `SELECTION_GROUPING = "auto"` switched the folds to subject-grouped by
+> itself (§8h), and the winner now scores **83.3 % per window on a person it
+> never saw**, against 19.2 % for the majority class. That is the first
+> honest generalisation estimate in the project's history. The within-subject
+> number did not get better — it got *exposed*: 97.7 % recording-grouped
+> against 83.3 % subject-grouped, a 14-point gap that is precisely the
+> subject-specificity §8h said would show up.
+>
+> Still open: more *sittings per wearer*, band off and refitted between, which
+> is what makes leave-one-take-out valid and what would break the confound
+> inside a person. Two wearers fixed the cross-person question; the
+> cross-fitting question is untouched.
 >
 > The analysis below is kept in full because the failure mode it documents is
 > the one being recorded against.
@@ -1080,15 +1123,27 @@ The data layer degrades gracefully: without pandas you lose
   `NOMINAL_SAMPLE_RATE` is only a hint — the measured rate is what gets stored.
 - **The armband sleeps** when idle. `STALL_TIMEOUT_S` catches that and triggers
   a reconnect; the first reconnect after a sleep can take a few seconds.
-- **The DECISION TRAIL costs 50-78 ms of GUI thread per live window**
-  (§8e), against a 150 ms prediction interval. The plot can look slightly
-  less smooth while MODEL STATS is open; no samples are lost, because
-  capture happens on the acquisition thread. Close the dialog, or set
-  `ENABLE_DECISION_PANEL = False`, on a slow machine.
-- **`gesture_panel.joblib` is ~12 MB** and grows with the forests in the
-  spec. It is a desktop diagnostic — do not copy it to the robot. (It was
-  49 MB at the 325-recording bandpass model; it tracks dataset size as well as
-  forest count.)
+- **The DECISION TRAIL now costs MORE than the prediction interval: 161 ms
+  of GUI thread per live window against the 150 ms interval.** It was
+  50-78 ms (§8e). `tests/test_trail.py` fails on exactly this check
+  (`a live window costs well under the prediction interval -- 161 ms vs
+  150 ms`), and that failure is the budget being exceeded, not a bad test.
+  **The cause is the model spec, not the dataset:** enabling `kNN-5` and
+  `kNN-15` put two members in the panel whose prediction is a distance to all
+  3573 training rows, and `RandomForest-800-deep` added 800 more trees. So
+  with MODEL STATS open the trail misses windows. No samples are lost --
+  capture is on the acquisition thread -- but the view is no longer
+  keeping up. Close the dialog, set `ENABLE_DECISION_PANEL = False`, or
+  disable the kNN candidates in the spec. Re-measure after any spec change
+  that adds members.
+- **`gesture_panel.joblib` is now ~57 MB** and grows with the forests in the
+  spec. It is a desktop diagnostic — do not copy it to the robot. (12 MB at
+  the 44-recording model, 49 MB at the 325-recording bandpass model, 57 MB at
+  the 85-recording two-subject model; it tracks dataset size as well as forest
+  count, and enabling `kNN-5`/`kNN-15` stores the training matrix outright.)
+  At this rate it will cross GitHub's 100 MB hard limit within a few
+  retrains, and it is committed — gitignoring it and the timestamped archives
+  is still an open decision.
 - **AUTO-TRIM ALL destroys a relaxed hold. Do not run it on clips cut from a
   take.** `detect_activity` picks the *strongest* region by design (§13, "a
   150 ms explosive burst must beat a second of drift"), and in the recording

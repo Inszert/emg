@@ -1,0 +1,148 @@
+{
+  "uid": "b7550334",
+  "stage": "raw",
+  "label": "WAVE_LEFT",
+  "label_index": 4,
+  "person_id": "Betka",
+  "session_id": "session_01",
+  "repetition": 5,
+  "n_samples": 150,
+  "n_channels": 8,
+  "channel_names": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5",
+    "CH6",
+    "CH7",
+    "CH8"
+  ],
+  "duration_s": 2.994756,
+  "sample_rate_measured": 49.754,
+  "created_unix": 1792157483.3840315,
+  "created_iso": "2026-10-16T15:31:23.384",
+  "start_unix": 1792156882.2053242,
+  "end_unix": 1792156885.2000806,
+  "start_iso": "2026-10-16T15:21:22.205",
+  "end_iso": "2026-10-16T15:21:25.200",
+  "label_start_index": 0,
+  "label_end_index": 150,
+  "amplitude_min": [
+    68,
+    46,
+    37,
+    38,
+    41,
+    91,
+    76,
+    38
+  ],
+  "amplitude_max": [
+    819,
+    894,
+    594,
+    153,
+    346,
+    822,
+    854,
+    534
+  ],
+  "quality_issues": [
+    {
+      "level": "warning",
+      "code": "noisy_baseline",
+      "message": "Resting baseline RMS 104.8 exceeds 60. Check skin contact and move away from mains interference."
+    }
+  ],
+  "quality_worst_level": "warning",
+  "activity_detected": {
+    "found": true,
+    "start": 8,
+    "end": 150,
+    "core_start": 13,
+    "core_end": 150,
+    "threshold_high": 228.37200421511542,
+    "threshold_low": 137.02320252906927,
+    "baseline": 76.12400140503848,
+    "n_candidates": 1,
+    "reason": "ok"
+  },
+  "files": {
+    "raw:csv": "Betka\\session_01\\WAVE_LEFT\\WAVE_LEFT_rep005_20261016-153123-384_b7550334_raw.csv",
+    "raw:npz": "Betka\\session_01\\WAVE_LEFT\\WAVE_LEFT_rep005_20261016-153123-384_b7550334_raw.npz"
+  },
+  "meta": {
+    "emg_mode": "filtered",
+    "handedness": "right",
+    "arm_worn_on": "right",
+    "device": "Myo armband",
+    "notes": "",
+    "capture_style": "cut_from_take",
+    "selected_by_operator": true,
+    "selection_seconds": 2.9948,
+    "parent_take_uid": "d040d49b",
+    "parent_take_label": "WAVE_LEFT",
+    "parent_take_stage": "take",
+    "parent_take_file": "Betka\\session_01\\_takes\\WAVE_LEFT_take007_20261016-152037-661_d040d49b_take.npz",
+    "parent_take_n_samples": 3396,
+    "take_start_index": 2221,
+    "take_end_index": 2371,
+    "take_start_s": 44.5348,
+    "take_end_s": 47.5295
+  },
+  "config": {
+    "app_version": "1.0.0",
+    "emg_mode": "filtered",
+    "nominal_sample_rate": 50.0,
+    "emg_range": [
+      0,
+      2047
+    ],
+    "gestures": [
+      "REST",
+      "FIST",
+      "OPEN",
+      "THUMB_UP",
+      "WAVE_LEFT",
+      "WAVE_RIGHT"
+    ],
+    "repetitions": 6,
+    "gesture_order": "interleaved",
+    "random_seed": 42,
+    "rest_time": 2.0,
+    "prepare_time": 0.8,
+    "countdown_time": 3.0,
+    "record_time": 4.0,
+    "pause_time": 1.0,
+    "pre_gesture_ms": 300,
+    "post_gesture_ms": 300,
+    "window_ms": 200,
+    "window_overlap": 0.5,
+    "auto_trim": true,
+    "default_cut_seconds": 3.0,
+    "model_spec_file": "model_spec.json",
+    "min_selection_seconds": 0.25,
+    "free_take_max_minutes": 15.0,
+    "trim": {
+      "envelope_ms": 50.0,
+      "baseline_ms": 200.0,
+      "threshold_high": 3.0,
+      "threshold_low": 1.8,
+      "abs_floor": 12.0,
+      "min_active_ms": 120.0,
+      "min_inactive_ms": 250.0,
+      "pre_padding_ms": 100.0,
+      "post_padding_ms": 150.0,
+      "min_active_channels": 2
+    },
+    "quality": {
+      "enabled": true,
+      "min_sample_fraction": 0.8,
+      "max_gap_ms": 120.0,
+      "max_saturated_fraction": 0.02,
+      "max_baseline_rms": 60.0,
+      "min_peak_amplitude": 40.0
+    }
+  }
+}
