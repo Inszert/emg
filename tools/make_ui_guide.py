@@ -252,8 +252,9 @@ PANEL_SHOTS_2 = [
     ("section:LIVE CLASSIFIER", "LIVE CLASSIFIER -- one-shot or continuous, "
      "drawn over the graph with per-class probability bars. The provenance "
      "line reads UP TO DATE / OUT OF DATE / TRAINED / NO MODEL, and MODEL "
-     "STATS opens the full cross-validated numbers. It cannot fabricate a "
-     "prediction."),
+     "STATS opens the full cross-validated numbers. CALIBRATE measures this "
+     "wearer's rest and reference levels, optional and off by default, valid "
+     "until RECALIBRATE. It cannot fabricate a prediction."),
     ("section:TRAINING", "TRAINING -- RETRAIN runs train_model.py as a "
      "subprocess on the CPU (sklearn has no GPU backend, and the dialog "
      "says so even when the badge is green). MODEL SPEC edits which "

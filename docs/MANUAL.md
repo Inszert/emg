@@ -332,6 +332,22 @@ and scrolling past the one you want is this UI's most common irritation.
 - **LIVE CLASSIFIER** — four provenance states, never a guess:
   `NO MODEL TRAINED` · `TRAINED on <date>` (no data block) · `UP TO DATE` ·
   `OUT OF DATE`.
+- **CALIBRATE… / RECALIBRATE…** (`Ctrl+Shift+C`) — on since 2026-10-16; the
+  saved model requires it (§9.1a). **START SWEEP** cues REST and then each
+  gesture, judging every capture as it lands and marking any that did not
+  register so it can be redone — a single squeeze leaves most channels quiet
+  and would set their scale from almost nothing. A quick rest+squeeze path and
+  an offline `DERIVE FROM RECORDED DATA` path are also there. Readiness is
+  judged on the age of the newest **sample**, shown live, because a connected
+  armband that has gone to sleep supplies none.
+  Measures the wearer in the SUBJECT box: three seconds relaxed, three
+  seconds clenched, two levels per channel, stored with that person and valid
+  until you press RECALIBRATE. It also works with no armband
+  (`DERIVE FROM RECORDED DATA`). Its status line has five states and exactly
+  one is true: `NOT CALIBRATED` · `CALIBRATED -- not applied` (a record
+  exists, the mode is off) · `CALIBRATED` · `CALIBRATION REFUSED` (with the
+  reason) · `CALIBRATION OFF`. GUIDE.md has the how-to; §9.1a has why it is
+  off.
 - **TRAINING** — `RETRAIN` runs on the **CPU** even when the GPU badge is
   green. sklearn has no GPU backend, and both the tooltip and the dialog say
   so in words.
@@ -595,6 +611,50 @@ features added. Under 5 points of gain it prints a warning naming the
 confound. Both numbers go into the sweep report and the saved payload.
 
 If 8 numbers score as well as 50, nothing has been learned about gestures.
+
+**The control is scored on the winner's own split key** (fixed 2026-10-16).
+It used to be scored recording-grouped while the winner was scored
+subject-grouped, which made the subtraction compare two different protocols
+and print a *negative* gain. It now takes `split_groups`, states which
+protocol it used, and records that protocol next to the number
+(`confound.dc_only_control.grouping`) so a report cannot be read as comparing
+like with like when it is not.
+
+### 9.1a Per-wearer calibration — on, and what it does and does not buy
+
+Calibration (`CALIBRATION_MODE`, §6) maps each wearer onto a common scale
+from two measured levels per channel. It shipped off, was measured by three
+full sweeps and a leak gate, and is now `"affine"`: **81.3 % → 86.5 %** per
+window, and 80.4 % → 88.2 % on the per-gesture vote, on a wearer the model
+has never seen — with that wearer's calibration fitted on recordings left out
+of the scoring, so the transform did not set its own exam. Three things have to be said next to that
+number, and the tooling says all three on every run:
+
+* A calibrated cross-wearer score is **not zero-shot**. The held-out wearer's
+  own unlabelled signal set their gain, so it answers "how well does this
+  work on a new wearer *who calibrates first*". That is a real deployment,
+  but a different question, and the trainer prints the distinction every
+  calibrated run.
+* Calibration is a **between**-wearer correction and the dataset's main
+  confound is **within** a wearer (one take per gesture per person), so it
+  does not fix it. Measured: the within-wearer contrast moved 97.8 % → 98.2 %
+  — nothing. More sittings per wearer is still the fix.
+* **A rising DC-only control is not progress.** The `gain` mode lifted that
+  control by 20 points (54.4 % → 74.3 %) while leaving the real score flat:
+  it made the eight channel means transfer between people, which is not
+  learning anything about gestures. §8h said to read a high cross-subject
+  DC-only score that way; `gain` is that effect produced on purpose.
+
+**Method note, learned the hard way here.** A fixed-setup A/B — swapping
+calibration in underneath the previous winner's preprocessing — said it was a
+wash. It was the wrong measurement: calibration changes which preprocessing
+and which feature family is best, so it has to be compared by re-running the
+sweep. Both numbers are in CLAUDE.md §8k, the wrong one kept deliberately.
+
+A bad calibration is refused rather than coerced, and a model refuses to
+predict on a scale it was not fitted on, for the same reason a mismatched
+decision panel is refused: the failure would otherwise be confident output,
+not an error.
 
 ### 9.2 Both validation protocols, always
 

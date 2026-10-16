@@ -105,9 +105,11 @@ the port, close `test_myo.py` (and Myo Connect, if installed) first.
 | `datasets/` | All recorded data: `datasets/<person>/<session>/<GESTURE>/…` |
 | `datasets/…/_graphs/` | Graph images you export. |
 | `datasets/…/_deleted/` | Recordings removed with DELETE LAST. **Still there** — nothing is erased. |
+| `datasets/<person>/calibration.json` | That wearer's current calibration, if they have one. Optional — see CALIBRATE below. |
+| `datasets/<person>/calibration_log.jsonl` | Append-only: every calibration that wearer has ever had, including ones you cleared. |
 | `exports/` | Combined ML bundles from EXPORT DATASET. |
 | `models/` | `gesture_model.joblib` (what the app loads), timestamped archives, and `reports/` with every sweep's scores. Created by `train_model.py`. |
-| `models/gesture_panel.joblib` | Every candidate the sweep trained, for MODEL STATS → DECISION TRAIL. About 4 MB. The app predicts fine without it and never loads it to predict — delete it freely, or rebuild it with `python explain_votes.py`. |
+| `models/gesture_panel.joblib` | Every candidate the sweep trained, for MODEL STATS → DECISION TRAIL. Currently 9.5 MB, and it follows what is in MODEL SPEC — it has been as large as 57 MB. The app predicts fine without it and never loads it to predict — delete it freely, or rebuild it with `python explain_votes.py`. |
 
 ---
 
@@ -324,6 +326,160 @@ many recordings per gesture, which subjects and sessions, the newest
 recording that went into it, the dataset id, and whether that is still what
 is on disk. It also states plainly when a cross-subject claim cannot be
 made. There is a **Reload model** button for after you retrain.
+
+## CALIBRATE — making one number mean the same effort on everybody
+
+**CALIBRATE…** (`Ctrl+Shift+C`, in the LIVE CLASSIFIER panel) is **on since
+2026-10-16, and the current model needs it.** It is still one setting
+(`CALIBRATION_MODE`): set it to `off` and retrain, and you have exactly what
+you had before.
+
+It was switched on because it was measured: on a wearer the model has never
+seen it is worth **+5.3 points** per window (81.3 % → 86.5 %) and **+7.8 on
+the per-gesture vote** (80.4 % → 88.2 %) — measured with each wearer's
+calibration fitted on recordings that were then left out of the scoring, so it
+is not a number the calibration gave itself. The table and the caveats are in
+CLAUDE.md §8k.
+
+> **What this means for you in practice:** every new wearer has to spend six
+> seconds calibrating before the classifier will work for them. If they skip
+> it, the LIVE CLASSIFIER refuses and says so — it does **not** guess.
+
+### Why it exists
+
+The armband reads a different number on every wearer for the same effort.
+Skin, muscle, how tight the band is, where pod 1 ended up — all of it scales
+the signal. So a model trained on you can read a new wearer's hard squeeze as
+your gentle one.
+
+A calibration fixes that by measuring two levels per channel, once, for one
+person:
+
+* **rest** — what that channel reads when they are relaxed;
+* **reference** — what it reads during a strong contraction.
+
+Those two numbers map the wearer onto a common scale. Six seconds of signal,
+measured once.
+
+### How to do it — the guided sweep
+
+1. Put the band on properly and connect, so the graph is running. The dialog
+   shows a green **STREAM: streaming, 50 Hz** line when it can actually
+   capture; if it says NO STREAM it tells you why.
+2. Check the **Person id** in the SUBJECT panel is the person wearing it. The
+   calibration is saved for *that* person.
+3. Press **CALIBRATE…**, then **START SWEEP**.
+4. It cues **RELAX** first — stay relaxed — and then each gesture in turn,
+   with a short `GET READY: FIST` beat before each one. Hold each gesture
+   firmly and steadily for its countdown. Strong, not explosive: it is
+   setting the top of the scale, so a spike is worse than a firm hold.
+5. Watch the table as you go. Each gesture gets a row saying how many samples
+   arrived, which pod it peaked on, and `accepted` — or why not.
+6. **If a row says `hold it harder`, select it and press REDO SELECTED.**
+   That gesture contributes nothing to the calibration until it registers, so
+   repeating it is the point, not a fallback. Do that until every row you
+   care about reads `accepted`.
+7. Press **SAVE CALIBRATION**.
+
+The button then reads **RECALIBRATE…**, and the status line underneath says
+`CALIBRATED`.
+
+**Why a whole sweep and not just one squeeze.** The reference is meant to be
+each channel's *full scale*, and one gesture only drives the muscles that
+gesture uses. On the real data one wearer's channels top out anywhere between
+154 and 992 depending on which gesture you ask — so calibrating from a single
+fist sets the quiet channels' scale from almost nothing, and then those
+channels get divided by noise. Measured on a stand-in built from the real
+profiles: a one-gesture reference under-scales **seven of eight channels by up
+to 3.2×**.
+
+You do not have to do all six. Three well-spread gestures (something that
+peaks on the inside of the forearm, something on the outside, something that
+uses the whole arm) cover the eight pods better than six sloppy ones.
+`CALIBRATION_GESTURES` sets the list.
+
+### The quick way, if you are in a hurry
+
+**RELAX** then **SQUEEZE HARD**, two captures, six seconds. It is in the
+QUICK box and it is worse than the sweep for the reason above — but it is
+much better than nothing, and it is what to use when you just need the
+classifier running for somebody.
+
+**It stays valid until you press RECALIBRATE.** It does not expire, nothing
+re-measures it behind your back, and it survives closing the application. It
+is stored with the person, in `datasets/<person>/calibration.json`, so
+switching **Person id** switches which calibration is in force.
+
+### No armband? DERIVE FROM RECORDED DATA
+
+The dialog also works offline. **DERIVE FROM RECORDED DATA** takes the same
+two level vectors from percentiles of everything that person has already
+recorded — the quiet 10 % stands in for the rest capture and the loud 5 % for
+the reference. It is how a dataset recorded before this feature existed gets
+calibrated, and it is how `Dano` and `Betka` were calibrated.
+
+It **ignores the labels**. That is deliberate rather than lazy: using the
+recordings labelled `REST` to set the rest level would mean a cross-wearer
+score was partly built from the held-out person's answers.
+
+### Which mode to use
+
+| Mode | What it does | Measured, on a wearer the model never saw, with the calibration held out too |
+|---|---|---|
+| **off** | nothing is applied; the model sees raw device counts | 81.3 % — what every number before 2026-10-16 was measured with |
+| **gain** | one divisor for all eight channels | 81.1 % — nothing. These two wearers' overall volumes differ by only 9 %, so there is nothing for one divisor to fix |
+| **per channel** | each channel gets its own divisor | 85.6 % — most of the benefit is already here |
+| **affine** | per channel, with the wearer's rest level subtracted first | **86.5 %** — the default, and the one that pays |
+
+**Which one is best was measured, not decided.** Three full sweeps, same
+recordings, same classifiers, same folds, only the calibration different.
+What differs between these two wearers is not their overall volume but their
+per-channel profile — up to 1.85× on one channel, because of where the pods
+ended up — and `affine` is the mode that removes that.
+
+The interesting part is *why* it helps: calibrated, a whole family of
+features that was useless before starts working. The classic EMG features
+(waveform length, zero crossings) centre each channel, which throws away the
+activation level and made them worthless on this stream — but once the
+wearer's own rest level has already been taken out, they become comparable
+*between* wearers and start paying. The winner went from 50 features to 154,
+and its macro F1 from 73.8 % to 83.2 %.
+
+**It does not fix the dataset's real problem**, and it is not claimed to.
+Within one wearer each gesture is still a single take, so the model can still
+win by recognising which block of time it is looking at — the within-wearer
+score barely moved (97.8 % → 98.2 %). More sittings per wearer, band taken
+off and refitted between them, is still the fix for that.
+
+### Two things that will trip you up
+
+**Changing the mode makes the loaded model refuse to predict, and that is
+correct.** A model remembers which scale it was trained on. If you switch
+calibration on after training, the LIVE CLASSIFIER says the model was trained
+with a different calibration and asks you to retrain. It is refusing because
+it *would* still produce labels — confident, and wrong by that wearer's gain.
+Retrain, or put the mode back.
+
+**Calibrate everybody or nobody.** A dataset where some wearers are calibrated
+and some are not is not on one scale, and scores from it mean nothing. The
+trainer prints a `MIXED SCALES` warning when it sees that.
+
+### What it never does
+
+* It never changes a recording. Calibration is applied when features are
+  computed, not when signal is saved, so every file on disk stays
+  byte-identical and there is no second, calibrated copy of your dataset.
+* A bad calibration is **refused**, not quietly accepted. A single gesture
+  capture is only counted as evidence if its peak reaches 60 counts *and*
+  twice the wearer's rest level, with at least half a second of samples —
+  otherwise the row says `hold it harder` and that gesture is left out. And
+  the finished record is refused outright if its reference is under 40 counts,
+  under twice rest, or short of samples: the dialog says so and SAVE stays
+  disabled. Dividing a wearer's whole signal by noise is worse than not
+  calibrating.
+* **CLEAR** does not destroy the measurement. The full record is written to
+  `datasets/<person>/calibration_log.jsonl` first, which is append-only and
+  holds every calibration that person has ever had.
 
 ## MODEL SPEC — which classifiers compete, and how they vote
 
@@ -1091,6 +1247,32 @@ The GUI shows the estimate under *Recording plan*.
 |---|---|---|
 | `WINDOW_MS` | `200` | Analysis window length. 200 ms is the usual accuracy/latency compromise for real-time control. |
 | `WINDOW_OVERLAP` | `0.5` | Overlap between windows. `0.5` = 50 %. More overlap = more training windows, but they are **not** independent — never split them randomly. |
+
+## 4.7a Per-wearer calibration (affects later ML, not recording)
+
+Nothing here changes a single recorded sample. See **CALIBRATE** above for
+what it is and how to use it.
+
+| Setting | Default | What it does |
+|---|---|---|
+| `CALIBRATION_ENABLED` | `True` | Whether the CALIBRATE button exists at all. |
+| `CALIBRATION_MODE` | `"affine"` | `off` / `gain` / `per_channel` / `affine`. `affine` since 2026-10-16, because it measured **+5.3 points** on a wearer the model has never seen, with the calibration held out too. `off` plus a retrain reproduces every number this project reported before then. Changing it means the saved model no longer matches — retrain. |
+| `CALIBRATION_REST_SECONDS` | `3.0` | Length of the relaxed capture. |
+| `CALIBRATION_EFFORT_SECONDS` | `3.0` | Length of the one-squeeze capture on the QUICK path. |
+| `CALIBRATION_GESTURE_SECONDS` | `2.5` | Length of each capture in the guided sweep. |
+| `CALIBRATION_GESTURES` | `None` | Which gestures the sweep cues. `None` = every entry in `GESTURES` except REST, which is always captured first and separately because it sets the floor. A shorter, well-spread list is a valid trade. |
+| `CALIBRATION_PREPARE_SECONDS` | `1.2` | The `GET READY: FIST` beat before each capture, so the countdown does not start while the hand is still moving. |
+| `CALIBRATION_MIN_GESTURE_CONTRAST` | `2.0` | A sweep capture counts as evidence only if its peak channel reaches this multiple of rest. |
+| `CALIBRATION_MIN_GESTURE_LEVEL` | `60.0` | …and this many counts in absolute terms. Both are needed: noise near rest inflates a percentile, so a 32-count shrug can read as 2.5× and sail through the ratio alone. |
+| `CALIBRATION_STALE_SECONDS` | `2.0` | No sample for this long and the dialog treats the stream as down. Judged on the newest **sample**, not the link: a connected armband that has gone to sleep supplies none. |
+| `CALIBRATION_REST_PERCENTILE` | `50.0` | Which percentile of the rest capture becomes the stored rest level. A median, so one twitch does not move it. |
+| `CALIBRATION_EFFORT_PERCENTILE` | `95.0` | Same for the reference. Not the maximum, so one spike does not define the wearer's whole scale. |
+| `CALIBRATION_TARGET_LEVEL` | `600.0` | What a reference contraction maps to. Not arbitrary: the level features have absolute terms, so calibrated signal is scaled back into the range the Myo delivers rather than into 0–1. |
+| `CALIBRATION_MIN_SAMPLES` | `24` | Fewer samples than this in either capture and it is refused (about half a second at 50 Hz). |
+| `CALIBRATION_MIN_CONTRAST` | `2.0` | The effort capture must be at least this many times the rest capture. |
+| `CALIBRATION_MIN_REFERENCE` | `40.0` | …and at least this many counts. Both guard the same mistake: a "maximum effort" capture where nothing happened. |
+| `CALIBRATION_DERIVE_REST_PERCENTILE` | `10.0` | Used by DERIVE FROM RECORDED DATA, where everything is pooled and the labels are ignored, so the quiet percentile has to stand in for rest. |
+| `CALIBRATION_DERIVE_EFFORT_PERCENTILE` | `95.0` | Same, for the reference. |
 
 ## 4.8 Automatic trimming
 

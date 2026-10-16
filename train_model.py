@@ -718,16 +718,22 @@ def dedupe_windows(rec_windows, keep_report=None):
     return out
 
 
-def feature_vector(window, representation, include_freq, feature_set):
+def feature_vector(window, representation, include_freq, feature_set,
+                   calibration=None):
     """
     One window -> one feature vector.
 
     This function is the contract between training and inference: the live
     predictor calls the very same code path, so a change here cannot silently
     desynchronise the two.
+
+    `calibration` is the RESOLVED calibration of the wearer this window came
+    from (T.resolve_calibration), or None. It is passed through rather than
+    applied here for the same reason: the one place that applies it is
+    T.model_feature_vector, which the live predictor calls too.
     """
     return T.model_feature_vector(window, representation, feature_set,
-                                  include_freq, MODEL_FS)
+                                  include_freq, MODEL_FS, calibration)
 
 
 def feature_names_for(feature_set, include_freq):
@@ -736,7 +742,7 @@ def feature_names_for(feature_set, include_freq):
 
 def build_dataset(recs, window_s, overlap, representation, include_freq,
                   feature_set="level", dedupe=True, screen_fraction=1.0,
-                  report=None):
+                  report=None, calibration=None):
     """
     Recordings -> (features, y, groups, labels, meta).
 
@@ -752,6 +758,12 @@ def build_dataset(recs, window_s, overlap, representation, include_freq,
     evenly spaced per recording. It exists for the preprocessing SCREEN only
     (stage A1), where the job is to rank setups, not to produce a number worth
     quoting. Every score that gets reported is measured at 1.0.
+
+    `calibration` is a TABLE, person id -> resolved calibration
+    (T.calibration_table). Each recording's windows are calibrated with the
+    numbers of the wearer who produced them, and a wearer with no calibration
+    is left uncalibrated rather than borrowing someone else's gain. An empty
+    table is the uncalibrated pipeline exactly as it was.
     """
     win = max(4, int(round(window_s * MODEL_FS)))
     step = max(1, int(round(win * (1.0 - overlap))))
@@ -821,9 +833,10 @@ def build_dataset(recs, window_s, overlap, representation, include_freq,
             n_keep = max(1, int(round(idx.size * screen_fraction)))
             idx = idx[np.linspace(0, idx.size - 1, n_keep).round().astype(int)]
             idx = np.unique(idx)
+        cal = (calibration or {}).get(rec.person_id)
         for i in idx:
             feats.append(feature_vector(windows[i], representation,
-                                        include_freq, feature_set))
+                                        include_freq, feature_set, cal))
             ys.append(index[rec.label])
             groups.append(rec.uid)
 
@@ -835,6 +848,7 @@ def build_dataset(recs, window_s, overlap, representation, include_freq,
             labels,
             {"window_samples": win, "step": step, "window_s": window_s,
              "deduped": bool(dedupe),
+             "calibrated_subjects": sorted(calibration or {}),
              "screen_fraction": float(screen_fraction)})
 
 
@@ -1056,7 +1070,8 @@ def resolve_grouping(n_subjects, requested=None):
                        "than for within-subject fit")
 
 
-def dc_only_control(model, X, y, groups, labels, feature_names):
+def dc_only_control(model, X, y, groups, labels, feature_names,
+                    split_groups=None):
     """
     Re-score the winner using ONLY the 8 per-channel mean levels.
 
@@ -1069,16 +1084,30 @@ def dc_only_control(model, X, y, groups, labels, feature_names):
     the DC levels alone.
 
     Reported, never acted on. It does not change what is trained or saved.
+
+    `split_groups` must be the SAME split key the winner was scored on. It is
+    a parameter because getting this wrong makes the control unreadable
+    rather than merely imprecise: scoring the control recording-grouped while
+    the winner is scored subject-grouped compares two different protocols,
+    and the subtraction then prints a negative "gain" and trips the
+    "adds almost nothing" warning for no reason. That happened -- see the
+    caveat in CLAUDE.md section 8 -- which is why the key is passed in now
+    instead of defaulting to `groups`.
     """
     cols = [i for i, n in enumerate(feature_names)
             if n.endswith("_mean") and not n.endswith("_log_mean")]
     if len(cols) < 2 or X.shape[1] <= len(cols):
         return None
-    scores = evaluate(clone(model), X[:, cols], y, groups, labels)
+    scores = evaluate(clone(model), X[:, cols], y, groups, labels,
+                      split_groups=split_groups)
     if scores is None:
         return None
     return {"n_features": len(cols),
             "feature_names": [feature_names[i] for i in cols],
+            # Which protocol this number is from, stored next to the number,
+            # so a report can never be read as comparing like with like when
+            # it is not.
+            "grouping": "recording" if split_groups is None else "subject",
             "window_accuracy": scores["window_accuracy"],
             "recording_vote_accuracy": scores["recording_vote_accuracy"]}
 
@@ -1206,7 +1235,7 @@ def feature_space_projection(X, y, labels, groups, feature_names,
 
 
 def build_decision_panel(spec, quick, X, y, groups, labels, best, meta,
-                         take_of=None):
+                         take_of=None, calibration_mode="off"):
     """
     Every candidate's fitted model plus its out-of-fold decision trail.
 
@@ -1366,6 +1395,10 @@ def build_decision_panel(spec, quick, X, y, groups, labels, best, meta,
             "exclude": best["exclude"],
             "window_samples": meta["window_samples"],
             "model_fs": MODEL_FS,
+            #  The members were fitted on features built on this calibration
+            #  scale, so a panel is only comparable with a model built the
+            #  same way -- matches() checks it.
+            "calibration_mode": calibration_mode,
             "n_features": int(X.shape[1]),
             "feature_names": names,
         },
@@ -1439,6 +1472,16 @@ def main(argv=None):
                              "sweep, their hyperparameters and whether they "
                              "vote. Written by MODEL SPEC... in the GUI. "
                              "Without it the built-in roster is used.")
+    parser.add_argument("--calibration", default=None,
+                        choices=list(T.CALIBRATION_MODES),
+                        help="apply each wearer's stored per-wearer "
+                             "calibration before featurising, in this mode. "
+                             "Default: whatever CALIBRATION_MODE is set to in "
+                             "emg_dataset_tool.py (\"off\" out of the box). A "
+                             "calibrated model can only be used live by a "
+                             "wearer who also has a calibration, and the "
+                             "payload records the mode so the app can refuse "
+                             "rather than predict from the wrong scale.")
     parser.add_argument("--top", type=int, default=12,
                         help="how many sweep rows to print")
     parser.add_argument("--no-panel", action="store_true",
@@ -1478,6 +1521,65 @@ def main(argv=None):
         print(" generalising to another wearer is made below. Scores are")
         print(" leave-recordings-out within this subject.")
         print("!" * 78)
+
+    # ---- per-wearer calibration -------------------------------------------
+    # Optional, off unless asked for, and resolved ONCE per wearer here so the
+    # per-window cost is a subtract and a divide. A wearer with no usable
+    # calibration stays uncalibrated: borrowing another person's gain would
+    # be worse than applying none.
+    cal_requested = args.calibration or T.CALIBRATION_MODE or "off"
+    cal_table = T.calibration_table(args.root, cal_requested)
+    cal_records = T.load_calibrations(args.root)
+    cal_missing = [p for p in people if p not in cal_table]
+    #  The payload must record what was DONE, not what was asked for. With a
+    #  mode set but no usable calibration for anybody, nothing is applied --
+    #  and stamping the payload "affine" anyway would make LivePredictor
+    #  refuse to load a model whose features are plain device counts. The
+    #  requested mode is kept beside it so the discrepancy is visible rather
+    #  than silently resolved.
+    cal_mode = cal_requested if cal_table else "off"
+    print(f"\nCalibration    : mode {cal_requested}")
+    if cal_requested != "off" and not cal_table:
+        print("                 NO WEARER HAS A USABLE CALIBRATION -- none "
+              "was applied, and the")
+        print("                 model is recorded as uncalibrated so it can "
+              "still be loaded.")
+    if cal_requested == "off":
+        print("                 not applied -- features are in device counts, "
+              "as every earlier run")
+    else:
+        for person in people:
+            record = cal_records.get(person)
+            if person in cal_table:
+                print(f"                 {person:<10} "
+                      f"{T.describe_calibration(record, cal_mode)}")
+            elif record is None:
+                print(f"                 {person:<10} NO CALIBRATION -- "
+                      f"left in device counts")
+            else:
+                _ok, _why = T.validate_calibration(record)
+                print(f"                 {person:<10} REFUSED -- "
+                      f"{_why[0] if _why else 'invalid'}")
+        if cal_missing and cal_table:
+            print("\n" + "!" * 78)
+            print(" MIXED SCALES -- some wearers are calibrated and some are "
+                  "not, so the")
+            print(" feature space is not one scale. Calibrate everyone or "
+                  "nobody before")
+            print(f" reading these scores. Uncalibrated: "
+                  f"{', '.join(cal_missing)}")
+            print("!" * 78)
+        if cal_table and len(people) > 1:
+            print("\n  NOTE: a calibrated subject-grouped score is NOT "
+                  "zero-shot. The held-out")
+            print("        wearer's own signal set their gain, so the number "
+                  "answers \"how well")
+            print("        does this work on a new wearer WHO CALIBRATES "
+                  "FIRST\" -- which is a")
+            print("        real deployment, but a different question from the "
+                  "uncalibrated one.")
+            print("        The uncalibrated run is the comparison; "
+                  "--calibration off gives it.")
 
     # ---- sweep --------------------------------------------------------------
     windows = WINDOW_SECONDS[:2] if args.quick else WINDOW_SECONDS
@@ -1669,7 +1771,8 @@ def main(argv=None):
             return None
         built = build_dataset(recs_for, window_s, overlap, representation,
                               include_freq, feature_set,
-                              dedupe=DEDUPE_WINDOWS)
+                              dedupe=DEDUPE_WINDOWS,
+                              calibration=cal_table)
         if built is None:
             return None
         X, y, groups, labels, meta = built
@@ -1700,7 +1803,8 @@ def main(argv=None):
                             include_freq, feature_set,
                             dedupe=DEDUPE_WINDOWS,
                             screen_fraction=SCREEN_FRACTION,
-                            report=dedup_report)
+                            report=dedup_report,
+                            calibration=cal_table)
                         if built is None:
                             continue
                         X, y, groups, labels, meta = built
@@ -2057,11 +2161,16 @@ def main(argv=None):
     feat_names = feature_names_for(best["feature_set"], best["freq_features"])
     majority = (float(max(Counter(y.tolist()).values())) / float(len(y))
                 if len(y) else 0.0)
-    control = dc_only_control(model, X, y, groups, labels, feat_names)
+    split_vector = persons if grouping == "subject" else None
+    #  Scored on the winner's own split key, not on the recording ids: the
+    #  control only means something against the number it is subtracted from.
+    control = dc_only_control(model, X, y, groups, labels, feat_names,
+                              split_groups=split_vector)
     print(f"\n  majority-class baseline: {majority * 100:.1f}%")
     if control:
         gain = best["window_accuracy"] - control["window_accuracy"]
-        print(f"  DC-only control ({control['n_features']} channel means): "
+        print(f"  DC-only control ({control['n_features']} channel means, "
+              f"{control['grouping']}-grouped like the winner): "
               f"{control['window_accuracy'] * 100:.1f}% per window, "
               f"{control['recording_vote_accuracy'] * 100:.1f}% per recording")
         print(f"  -> the other {len(feat_names) - control['n_features']} "
@@ -2138,6 +2247,22 @@ def main(argv=None):
                      "data. A1 rows are in 'screen' and are NOT comparable "
                      "with 'sweep' rows."),
         },
+        "calibration": {
+            "mode": cal_mode,
+            "requested": cal_requested,
+            "target_level": float(T.CALIBRATION_TARGET_LEVEL),
+            "calibrated_subjects": sorted(cal_table),
+            "uncalibrated_subjects": cal_missing,
+            "records": {p: cal_records[p] for p in sorted(cal_table)},
+            "protocol_note": (
+                "A calibrated subject-grouped score is not zero-shot: the "
+                "held-out wearer's own unlabelled signal set their gain. It "
+                "answers 'how well does this work on a new wearer who "
+                "calibrates first'. Compare against the --calibration off "
+                "run for the zero-shot number."
+                if cal_mode != "off" and len(people) > 1 else
+                "no per-wearer calibration was applied"),
+        },
         "confound": {
             "majority_class": majority,
             "dc_only_control": control,
@@ -2184,6 +2309,30 @@ def main(argv=None):
                                            best["freq_features"]),
         "channel_names": list(T.CHANNEL_NAMES),
         "emg_mode": T.EMG_MODE,
+        # Which per-wearer calibration this model's features were built with,
+        # and whose. LivePredictor reads this and REFUSES to predict in a mode
+        # it cannot reproduce for the current wearer: a model fitted on
+        # calibrated features and then fed device counts would not break, it
+        # would be confidently wrong, which is worse.
+        "calibration": {
+            # `mode` is what was APPLIED -- it is what LivePredictor has to
+            # reproduce. `requested` is what was asked for, and the two differ
+            # only when no wearer had a usable calibration.
+            "mode": cal_mode,
+            "requested": cal_requested,
+            "target_level": float(T.CALIBRATION_TARGET_LEVEL),
+            "subjects": sorted(cal_table),
+            "uncalibrated_subjects": cal_missing,
+            "records": {p: cal_records[p] for p in sorted(cal_table)},
+            "note": ("the features were built on each wearer's own calibrated "
+                     "scale; a new wearer must calibrate before this model "
+                     "can be used on them"
+                     if cal_mode != "off" else
+                     f"no calibration applied -- device counts"
+                     + (f" (mode {cal_requested!r} was requested, but no "
+                        f"wearer had a usable calibration)"
+                        if cal_requested != "off" else "")),
+        },
         "created_iso": T.iso_time(time.time()),
         # What this model was trained on, in a form the app can compare
         # against the dataset on disk. Without it "is my model up to date?"
@@ -2221,6 +2370,8 @@ def main(argv=None):
             "majority_class": majority,
             "dc_only_control": control,
             "deduped_windows": DEDUPE_WINDOWS,
+            "calibration_mode": cal_mode,
+            "calibrated_subjects": sorted(cal_table),
             "confound_warning": (
                 "Each active gesture is one continuous take, so label is "
                 "confounded with electrode state and time block; the "
@@ -2262,7 +2413,8 @@ def main(argv=None):
                 placed = source_timeline(rec)
                 take_of[rec.uid] = placed[0] if placed else None
             panel = build_decision_panel(spec, args.quick, X, y, groups,
-                                         labels, best, meta, take_of)
+                                         labels, best, meta, take_of,
+                                         cal_mode)
         except Exception as exc:                           # pragma: no cover
             panel = None
             print(f"  decision panel failed ({exc}); the model is unaffected.")

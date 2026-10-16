@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "person_id": "Betka",
+  "session_id": "session_01",
+  "created_unix": 1792165595.2274678,
+  "created_iso": "2026-10-16T17:46:35.227",
+  "emg_mode": "filtered",
+  "fs": 49.86079061547024,
+  "channel_names": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5",
+    "CH6",
+    "CH7",
+    "CH8"
+  ],
+  "rest": [
+    19.0,
+    21.0,
+    22.0,
+    22.0,
+    22.0,
+    22.0,
+    26.0,
+    20.0
+  ],
+  "reference": [
+    397.0,
+    528.0,
+    285.0,
+    280.0,
+    910.5,
+    1077.0,
+    496.0,
+    471.0
+  ],
+  "rest_level": 21.75,
+  "reference_level": 555.5625,
+  "contrast": 25.54310344827586,
+  "target_level": 600.0,
+  "n_rest_samples": 5676,
+  "n_effort_samples": 5676,
+  "rest_percentile": 50.0,
+  "effort_percentile": 95.0,
+  "source": "derived_from_recordings",
+  "notes": "percentiles 10/95 over 41 recordings (5676 samples), labels not used",
+  "device": "Myo armband",
+  "arm_worn_on": "right",
+  "handedness": "right",
+  "derived_from": {
+    "n_recordings": 41,
+    "n_samples": 5676,
+    "rest_percentile": 10.0,
+    "effort_percentile": 95.0,
+    "sessions": [
+      "session_01"
+    ],
+    "uses_labels": false
+  }
+}

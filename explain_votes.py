@@ -193,12 +193,28 @@ def main(argv=None):
     exclude = TM.EXCLUDE_SETS.get(best["exclude"], ())
     recs, dropped = TM.load_recordings(root, exclude_codes=exclude)
     print(f"  recordings   : {len(recs)} kept, {len(dropped)} dropped")
+
+    # The calibration mode comes from the PAYLOAD, not from the current
+    # configuration: this script rebuilds the panel for the model that is
+    # already saved, so it has to build the features that model was fitted
+    # on. Reading CALIBRATION_MODE here would silently produce a panel on a
+    # different scale from the model it is supposed to explain.
+    cal_mode = (payload.get("calibration") or {}).get("mode", "off")
+    cal_table = T.calibration_table(root, cal_mode)
+    print(f"  calibration  : mode {cal_mode}"
+          + (f", wearers {', '.join(sorted(cal_table))}" if cal_table else ""))
+    if cal_mode != "off" and not cal_table:
+        print("  WARNING: the model was trained with calibration but no "
+              "usable calibration is on disk now. The panel will be built "
+              "uncalibrated and the view will say it does not match.")
+
     # Same dedup setting the trainer used, so the panel is fitted on the data
     # the saved model was scored on rather than on a leakier superset.
     built = TM.build_dataset(recs, best["window_s"], best["overlap"],
                              best["representation"], best["freq_features"],
                              best["feature_set"],
-                             dedupe=TM.DEDUPE_WINDOWS)
+                             dedupe=TM.DEDUPE_WINDOWS,
+                             calibration=cal_table)
     if built is None:
         raise SystemExit("that setup produced no windows; nothing to do.")
     X, y, groups, labels, meta = built
@@ -212,7 +228,8 @@ def main(argv=None):
 
     print("\nScoring every candidate on that setup...")
     panel = TM.build_decision_panel(spec, args.quick, X, y, groups, labels,
-                                    best, meta)
+                                    best, meta,
+                                    calibration_mode=cal_mode)
     if panel is None:
         raise SystemExit("the panel could not be built (too few recordings "
                          "or no usable candidates).")

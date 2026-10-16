@@ -104,11 +104,12 @@ still run.
 | `tools/make_ui_guide.py` | Regenerates `docs/images/`. Points `MYO_PORT` at a port that cannot exist (no hardware is touched) and renders with `WA_DontShowOnScreen`. Uses the **native** Qt platform plugin, not `offscreen` — offscreen ships no font database and renders every glyph as a tofu box. |
 | `docs/DATASET.md` | On-disk format, filenames, CSV/NPZ schema. |
 | **`docs/EDA.md`** | **What is actually in `datasets/` — measured.** Inventory, provenance, the class↔take confound, duplicate clips, drift, and numbered recommendations. Read it before quoting any accuracy number. See §8f. |
+| **`calib_plan.md`** | **Per-wearer calibration: the design study.** Measures what calibration would have to fix (rest is identical between wearers, global gain is 0.89×, it is not a band rotation) and concludes a per-channel spatial map is the only candidate. **Tier 1 of it is built — §8k;** tiers 2–3 are not. Its §5 leak gate is the reason §8k's headline number is +5.3 and not +6.6. |
 | `docs/ARCHITECTURE.md` | Threads, buffers, state machine, data flow. |
 | `docs/ML_PIPELINE.md` | From recordings to a validated model. |
 | `requirements.txt` | Dependencies. |
-| `tests/` | Sixteen runnable check scripts (1603 checks total, three need the armband). See `tests/README.md`. |
-| `datasets/` | Recorded data (created on first run). |
+| `tests/` | Seventeen runnable check scripts (1746 checks total, three need the armband). See `tests/README.md`. |
+| `datasets/` | Recorded data (created on first run). Also `<person>/calibration.json` + `calibration_log.jsonl` — the per-wearer calibration, §8k. |
 | `exports/` | Combined ML bundles from the EXPORT button. |
 | `models/` | `gesture_model.joblib` (loaded by the app), `gesture_panel.joblib` (the DECISION TRAIL side file, §8e), timestamped archives, and `reports/` with every sweep's full results. |
 
@@ -139,6 +140,9 @@ machine with no display.
 ## 5. Data format
 
 ```
+datasets/person_01/
+    calibration.json             the wearer's CURRENT calibration (8k), if any
+    calibration_log.jsonl        append-only; every calibration they ever had
 datasets/person_01/session_01/
     session_config.json          config snapshot for the session
     manifest.jsonl               append-only log, one line per saved file set
@@ -353,38 +357,61 @@ Then the app's LIVE CLASSIFIER panel works: one-shot or continuous mode, the
 prediction drawn over the graph, per-class probability bars, and a MODEL STATS
 dialog showing the cross-validated numbers with their protocol.
 
-**Current state of the model (2026-10-16, second subject):** the payload on
-disk is `ExtraTrees-400` on `level` / `bandpass`, 0.3 s windows at 0.75 overlap
-with frequency features, six labels, trained on **85 recordings from two
-wearers** — `Dano` 44 and `Betka` 41 (3573 deduped windows, 50 features).
+**Current state of the model (2026-10-16, two subjects + calibration):** the
+payload on disk is `LDA-shrinkage` on `both` / `raw`, **0.5 s** windows at 0.5
+overlap with frequency features, six labels, trained on **85 recordings from
+two wearers** — `Dano` 44 and `Betka` 41 (935 deduped windows, **154**
+features) — on the **`affine` per-wearer calibrated scale** (§8k).
 
-**This is the project's first honest number.** A second wearer tripped the
-§8h switch on its own: `SELECTION_GROUPING = "auto"` moved the folds from
-recording-grouped to **subject-grouped**, so the winner was chosen on data
-from a person it had never seen.
+**It requires a calibration.** Every wearer must calibrate once before the
+classifier will run for them; `LivePredictor` refuses rather than predicting
+on the wrong scale. That is the cost of the +5.3 points below.
 
 | Protocol | Window | Recording vote |
 |---|---|---|
-| **subject-grouped** (the chosen one) | **83.3 %** | 82.4 % |
-| recording-grouped (contrast) | 97.7 % | 97.6 % |
-| majority class | 19.2 % | — |
+| **subject-grouped** (the chosen one) | **86.8 % ± 4.5** | 87.1 % |
+| recording-grouped (contrast) | 98.2 % | 98.8 % |
+| DC-only control, subject-grouped | 68.2 % | 62.4 % |
+| majority class | 19.3 % | — |
 
-Per wearer, held out: `Betka` 89.3 %, `Dano` 77.2 %. The 14-point gap between
-the two protocols **is** the subject-specificity, and it is exactly what §8h
-predicted would appear the moment a second person existed. 83.3 % against a
-19.2 % baseline, on a wearer the model never saw, is the first number this
-project has produced that is not a measurement of electrode state.
+Per wearer, held out: `Betka` 91.3 %, `Dano` 82.4 %. Macro F1 83.2 %.
 
-> **One caveat on the printed DC-only line, and it is a reporting bug, not a
-> data problem.** `dc_only_control()` is passed `groups` — the *recording*
-> ids — so the control is scored **recording-grouped** while the winner is now
-> scored **subject-grouped**. The run therefore printed a gain of
-> **−14.3 points** and tripped the "adds almost nothing" warning, which is
-> comparing two different protocols. The apples-to-apples pair is DC-only
-> 97.6 % against the recording-grouped contrast 97.7 %: **+0.1 points**, so
-> *within* a wearer the confound is still total, as expected while each
-> gesture is one take per person. The control needs the same split key as the
-> winner before its number can be read at all.
+**The honest gain from calibration is +5.3 points, not +6.6.** The sweep
+derived each wearer's calibration from all of their own recordings, including
+the ones scored in their held-out fold. Re-measured with the calibration
+fitted on a disjoint third of each wearer's recordings — §8k's leak gate —
+calibrated beats uncalibrated **86.5 % against 81.3 %** per window and
+**88.2 % against 80.4 %** on the vote. Quote those.
+
+The 11.4-point gap between the subject-grouped and recording-grouped
+protocols **is** the subject-specificity §8h predicted; calibration narrowed
+it from 17.6, which is the only thing that has ever moved it.
+
+*(Superseded, kept for the trend: the previous payload was `ExtraTrees-400` on
+`level`/`bandpass`, 0.3 s at 0.75, 3573 windows, 50 features, and scored
+83.3 % subject-grouped against 97.7 % recording-grouped. That was the
+project's first honest number — a second wearer tripped §8h's
+`SELECTION_GROUPING = "auto"` on its own, moving the folds to subject-grouped
+so the winner was chosen on a person it had never seen. Calibration then
+changed which feature family wins, so the setup moved too; §8k explains why.)*
+
+> **The DC-only reporting bug is FIXED (2026-10-16).** `dc_only_control()`
+> used to be passed `groups` — the *recording* ids — so the control was scored
+> **recording-grouped** while the winner was scored **subject-grouped**. It
+> printed a gain of **−14.3 points** and tripped the "adds almost nothing"
+> warning by comparing two different protocols. It now takes `split_groups`
+> and is scored on the winner's own split key, prints which protocol that was,
+> and stores it in the report as `confound.dc_only_control.grouping`.
+>
+> With that fixed, on the full sweeps: **uncalibrated** the control reads
+> 54.4 % subject-grouped against the winner's 80.2 %, so the real features are
+> worth **+25.8 points**; **calibrated** (`affine`, what is on disk) it reads
+> 68.2 % against 86.8 %, worth **+18.6**. *Within* a wearer the confound
+> remains total: DC-only 97.6 % against the recording-grouped contrast 97.7 %,
+> **+0.1 points**, as expected while each gesture is one take per person. Every
+> number now carries the protocol that produced it, and §8k adds the rule that
+> a *rising* DC-only score is not good news — the `gain` mode lifted it 20
+> points while leaving the real score flat.
 
 Retrain after each new sitting and after each new wearer.
 
@@ -702,7 +729,11 @@ because it changes how any result from this project must be read:
 > Still open: more *sittings per wearer*, band off and refitted between, which
 > is what makes leave-one-take-out valid and what would break the confound
 > inside a person. Two wearers fixed the cross-person question; the
-> cross-fitting question is untouched.
+> cross-fitting question is untouched. **Per-wearer calibration (§8k, added
+> 2026-10-16) took the cross-person number from 80.2 % to 86.8 % and did
+> nothing at all to this one** — the within-wearer contrast moved 97.8 % to
+> 98.2 %, which is the point: calibration is a between-wearer correction and
+> this confound is inside a wearer.
 >
 > The analysis below is kept in full because the failure mode it documents is
 > the one being recorded against.
@@ -888,15 +919,22 @@ recognised.**
   survives every split"). The trainer does not do it yet, because on today's
   data a leave-one-take-out split removes a whole class from training (§8f
   consequence 1). Add it when the takes exist, not before.
-- **Amplitude-invariant preprocessing.** `REPRESENTATIONS` already contains
-  `normalized`, which divides out absolute amplitude — the part that differs
-  most between people. On one subject it scored 48.7 % and `raw` won. With
-  subject-grouped selection the sweep should start preferring it on its own;
-  if it does not, that is a finding worth chasing rather than a knob to force.
+- ~~**Amplitude-invariant preprocessing.**~~ **DONE 2026-10-16, but not the
+  way this bullet expected.** The prediction was that the sweep would start
+  preferring `normalized`, which divides out amplitude per window. It did
+  not — `normalized` still loses badly (22–48 % in every measurement), because
+  dividing each *window* by its own scale throws away the activation level
+  along with the wearer's gain. What worked is a per-WEARER constant measured
+  once: `CALIBRATION_MODE = "affine"` (§8k), 80.2 % → 86.8 % subject-grouped.
+  The distinction is the whole lesson — per-window normalisation and
+  per-wearer calibration both "divide out amplitude" and only one of them
+  keeps the information.
 - **Electrode rotation between wearers.** Nothing here handles the armband
   being donned at a different angle, which permutes the channels. The `share`
-  feature carries the spatial profile with amplitude divided out, but no
-  rotation alignment exists. Expect this to be the next real problem.
+  feature carries the spatial profile with amplitude divided out, and §8k's
+  `per_channel`/`affine` modes equalise per-channel *gain*, but neither is
+  rotation alignment: a permutation of the channels is not a rescaling of
+  them. Expect this to be the next real problem.
 - **Per-subject sample balance.** With unequal recordings per person the
   subject-grouped folds are unequal too. `StratifiedGroupKFold` balances the
   labels, not the people.
@@ -1016,6 +1054,406 @@ members are unusable can still show its projection. A panel built before this
 existed has no `space` block, and the view says so and names
 `explain_votes.py` instead of drawing empty axes.
 
+## 8k. Per-wearer calibration — optional, measured, and it won
+
+Added 2026-10-16, answering §13's "offset/gain invariance belongs in the
+future per-user calibration" and §8h's open item on wearers differing in
+gain. It shipped **optional and off**, was measured by three full sweeps, and
+`CALIBRATION_MODE` is now **`"affine"`** because it is worth **+5.3 points**
+on the only honest number this project has — measured with the calibration
+itself held out, which is the gate `calib_plan.md` §5 demanded.
+
+**It is still one config line.** `CALIBRATION_MODE = "off"` plus a retrain
+reproduces every number this project reported before 2026-10-16, bit for bit,
+and the code path when it is off is the old one unchanged — calibration
+resolves to `None` and `None` means "do nothing" everywhere.
+
+**The price of the new default is real, and it is enforced rather than hoped
+for:** a model fitted on calibrated features obliges every wearer to
+calibrate before it will predict for them, and `LivePredictor.load()` refuses
+with instructions rather than answering on the wrong scale. That is the
+trade: +5.3 points, at the cost of six seconds per wearer and a hard failure
+if they skip it.
+
+```
+emg_dataset_tool.py  SECTION 2   CALIBRATION_MODES, calibration_levels,
+                                 validate_calibration, resolve_calibration,
+                                 apply_calibration, calibration_record,
+                                 calibration_from_captures,
+                                 calibration_from_recordings,
+                                 describe_calibration
+                     SECTION 4   calibration_path / _log_path,
+                                 load/save/clear_calibration,
+                                 load_calibrations, calibration_table,
+                                 calibration_status
+                     SECTION 7   CalibrationDialog,
+                                 MainWindow.open_calibration
+train_model.py                   --calibration MODE, threaded through
+                                 build_dataset -> feature_vector
+```
+
+**What a calibration is.** Two levels per channel — a REST level and a
+REFERENCE (strong-contraction) level — measured once for one wearer, six
+seconds of signal, labels never involved. Together they define an affine map
+onto a common scale, so that a given number means the same amount of effort
+on anybody. Four modes, and the choice is a real trade-off rather than a
+quality setting:
+
+| Mode | What it divides by | What it costs |
+|---|---|---|
+| `off` | nothing | — (the default) |
+| `gain` | ONE scalar, all 8 channels | nothing: every ratio between channels survives exactly, so the spatial profile the gestures actually differ in is untouched. `tests/test_calibration.py` asserts this bit-for-bit, and that every `_share` feature is literally unchanged |
+| `per_channel` | each channel by its own reference | flattens per-channel differences that may be real, not just differences in where the pods sat |
+| `affine` | each channel, rest subtracted first | the most aggressive; below-rest signal is floored at 0 |
+
+**It stays valid until it is replaced.** RECALIBRATE measures a new one.
+Nothing expires, nothing is re-estimated per recording, and a calibration
+survives restarts because it lives in the wearer's own folder:
+`datasets/<person>/calibration.json`, with every calibration that wearer has
+ever had in the append-only `calibration_log.jsonl` beside it. Per wearer and
+not next to the model on purpose — that placement is what lets the trainer
+calibrate each training subject with that subject's own numbers while the GUI
+calibrates whoever is wearing the band right now, out of the same files.
+
+**Why `affine` is not the §13 baseline-subtraction mistake.** §13 records that
+baseline subtraction measurably hurt (Fisher 24.9 → 11.5–17.2). That was a
+**per-recording** baseline, estimated from the recording itself, which partly
+cancels the gesture it is supposed to be a baseline for. A calibration
+baseline is one constant per wearer, measured once from a dedicated rest
+capture, and cannot cancel a gesture because it never sees one. Different
+operation, different risk — which is why it is a mode to measure rather than
+a default.
+
+### How a calibration is measured — the guided gesture sweep
+
+**Cue REST, then each gesture in turn, and take each channel's reference as
+the loudest that channel ever got across the set.**
+
+```
+reference[c] = max over ACCEPTED gestures of percentile(capture_g[:, c], 95)
+rest[c]      = median of the REST capture
+```
+
+**One generic squeeze is not enough, and the gap is measured.** A squeeze only
+drives the muscles a squeeze uses, so the channels it leaves quiet get their
+full scale set from almost nothing — and then `per_channel`/`affine` divide
+those channels by noise. Real evidence for the shape of the problem: `Dano`'s
+derived reference is `[553, 657, 154, 219, 919, 992, 364, 404]`, so CH3 and
+CH4 top out at 154 and 219 where CH6 reaches 992. On the synthetic stand-in
+built from those profiles, a one-gesture reference **under-scales seven of
+eight channels by 1.9×–3.2×**, the two quietest by 2.2× and 2.9×.
+`tests/test_calibration.py` asserts that gap rather than describing it.
+
+The **max** rather than a pooled percentile, for two reasons: "how loud does
+this channel ever get" should not be diluted by the four gestures that leave
+it quiet, and the answer then does not depend on how long each capture ran.
+
+**Each capture is judged as it lands, so a gesture that did not register can
+be redone on the spot.** `calibration_capture_quality()` returns the sample
+count, the peak channel and the contrast against the wearer's own rest, and a
+capture is accepted as evidence only if it clears **both**
+`CALIBRATION_MIN_GESTURE_CONTRAST` (2×) **and**
+`CALIBRATION_MIN_GESTURE_LEVEL` (60 counts). Both gates are needed, and the
+second one was added because the first is not enough: noise on a channel
+sitting near rest inflates a high percentile, so a shrug at 32 counts against
+a rest of 21 reads as 2.5× and sails through. The absolute floor is set from
+the measured spread on this hardware — REST p95 is 24–27 counts and the
+weakest real gesture any wearer produced is 183 (`Betka`'s THUMB_UP) — so 60
+has clear headroom in both directions.
+
+**A rejected capture contributes nothing; it does not drag its channels
+down.** It stays on screen with the reason ("peak only 41 counts, need 60 —
+hold it harder") and is excluded from the max until it is redone. That is the
+"keep going until it is right" part, and it is a gate rather than a loop: the
+wearer decides when to stop, and the dialog will not pretend a shrug was a
+gesture.
+
+The quick **rest + one squeeze** path is kept, because six seconds is better
+than nothing, and `DERIVE FROM RECORDED DATA` is kept because it needs no
+armband. All three write the same record shape; `source` says which produced
+it (`live_gesture_sweep`, `live`, `derived_from_recordings`) and the sweep
+also stores every gesture's contrast and verdict under `gesture_sweep`, so a
+stored calibration can always say how it was obtained.
+
+> **The two wearers on disk were calibrated by the DERIVED route**, not by a
+> sweep — the feature did not exist when their data was recorded. The derived
+> route pools all of a wearer's samples and takes per-channel percentiles,
+> which estimates the same quantity by a different and slightly cruder path:
+> it cannot balance across gestures, it just happens to see all of them.
+> The **+5.3 points** in §8k's leak gate was measured with derived
+> calibrations, so it is a *floor* for what the sweep should achieve rather
+> than a measurement of it. Re-measuring with swept calibrations needs a
+> wearer and an armband, and has not been done.
+
+### Readiness is judged on samples, not on the link
+
+`CalibrationDialog.stream_state()` reads `stats()["last_sample_age"]`, because
+what a capture needs is samples: a connected armband that has gone to sleep
+supplies none, and §12 records that it does exactly that when idle. Three
+distinct answers — no acquisition, no samples yet (naming the connection
+state), and no sample for N seconds — shown live in the dialog the whole time
+it is open rather than only after a button press fails. A capture that loses
+the stream half way through is abandoned with a message instead of storing a
+stub.
+
+> **This replaced a hard bug, worth recording because the class of it recurs
+> here.** The first version asked `getattr(acq, "running", False)`, and
+> `MyoAcquisition` has no `running` attribute — it has a private
+> `_running` Event and a `connected` property. The check was therefore
+> **always False**, so CALIBRATE could never capture anything, with or without
+> hardware, and said "Not streaming" either way. Same shape as
+> `free_capture` vs `free_take_capture` and `log_box` vs `log_view` before
+> it: a `getattr` default silently turning a wrong attribute name into a
+> plausible answer. `tests/test_calibration.py` now pins that
+> `MyoAcquisition` has no `running` attribute and that `last_sample_age` is
+> in `stats()`, so the next person to reach for one gets a failing test
+> rather than a dead button.
+
+### A bad calibration is REFUSED, never coerced
+
+`validate_model_spec()` coerces, because a clamped hyperparameter still trains
+something sensible. `validate_calibration()` **refuses**, because a gain does
+not work that way: a "maximum effort" capture where the wearer did nothing
+would divide their whole signal by noise. Four gates —
+`CALIBRATION_MIN_REFERENCE` (40 counts), `CALIBRATION_MIN_CONTRAST` (2×),
+`CALIBRATION_MIN_SAMPLES` (24), and reference-above-rest on every channel —
+and the refusal happens before the record reaches the disk. `resolve_*`
+returns `None` for anything that fails, and `None` everywhere means "behave
+exactly as the uncalibrated pipeline", so an unusable calibration degrades to
+no calibration and never to a wrong one.
+
+### One feature path, and a refusal rather than a wrong answer
+
+Calibration is applied inside `model_feature_vector()` — the one function
+`train_model.py` and `LivePredictor` both call, for the same reason the
+representations live there. The trainer resolves the table once per wearer
+(`calibration_table()`) and hands each recording's windows the numbers of the
+wearer who produced them; a wearer with no calibration is left uncalibrated
+rather than borrowing someone else's gain, and the trainer prints a MIXED
+SCALES warning when that happens.
+
+**The payload records what was APPLIED, not what was asked for.** `mode` is
+the scale the features were actually built on and `requested` is the flag the
+run was given; they differ only when a mode was set and *no* wearer had a
+usable calibration, in which case nothing was applied and `mode` is `"off"`.
+Getting this wrong is not cosmetic — stamping `"affine"` on plain device
+counts produces a model the app refuses to load, which is to say a trainer
+that locks its own output out of its own application. The run says so in
+words when it happens.
+
+The payload also records whose calibrations built it, and
+**`LivePredictor.load()` refuses a model it cannot reproduce the scale for.**
+A model fitted on calibrated features and then fed device counts does not
+break — it answers at 7 Hz with every amplitude feature off by that wearer's
+gain, which is worse. Same rule as §8e's "a mismatched panel is refused, not
+fed". The panel carries `calibration_mode` too, so `matches()` catches a panel
+rebuilt on a different scale.
+
+### Applied to the existing data: derived, with labels unused
+
+The 85 recordings predate the feature, so both wearers' calibrations were
+**derived** from signal already on disk — `calibration_from_recordings()`,
+which pools all of one wearer's samples and takes the 10th and 95th
+percentiles per channel. It deliberately does not read `rec.label`:
+computing the rest level from the recordings labelled `REST` would use the
+held-out wearer's **labels** to build the transform their own test fold is
+scored through, which is leakage. Pooling everything uses only their
+unlabelled signal. `tests/test_calibration.py` shuffles every label in the
+fixture and asserts not one number moves.
+
+Measured, both wearers, 2026-10-16:
+
+| | rest (per channel) | reference (per channel) | contrast |
+|---|---|---|---|
+| `Dano` | 20 22 21 20 22 25 20 19 | 553 657 154 219 919 992 364 404 | 25.2× |
+| `Betka` | 19 21 22 22 22 22 26 20 | 397 528 285 280 910 1077 496 471 | 25.5× |
+
+**Read those two rows carefully — they predict which mode will work.** The
+wearers' pooled p95 differ by only **9 %** overall (737 vs 673) and their
+rest levels are identical to within a count, so between these two people
+there is almost nothing for a single master-volume divisor to correct. That
+is why `gain` does nothing (measured below: 79.7 % against 80.2 %
+uncalibrated). What *does* differ is the per-channel profile, by up to
+**1.85×** (CH3) — where the pods sat — and that is the difference `affine`
+removes, which is why `affine` is the mode that pays.
+
+Adding a calibration does **not** move `dataset_fingerprint()` — it is not a
+recording and discovery never sees it — so no saved model goes stale when one
+appears. That is asserted, because the alternative would be every model on
+disk reading `OUT OF DATE` the moment anybody calibrated.
+
+### What it is worth, measured — and `affine` won
+
+**Measure this with the SWEEP, not at a fixed setup.** Both were run, and they
+disagree, because the choice of preprocessing is not independent of the
+calibration. The fixed-setup A/B is kept below as the record of a wrong
+method.
+
+**Three full sweeps, same 85 recordings, same spec, same folds**, differing
+only in `--calibration`. Subject-grouped (the held-out wearer's data is never
+in training), against a 19.3 % majority class:
+
+| | `off` | **`affine`** | `gain` |
+|---|---|---|---|
+| winner | LDA-shrinkage | LDA-shrinkage | Vote-soft-6 |
+| its setup | 0.5 s / 0.5 / `raw` / **`level`** (50 feat) | 0.5 s / 0.5 / `raw` / **`both`** (154 feat) | 0.5 s / 0.5 / `raw` / `level` (50 feat) |
+| **per window** | 80.2 % ± 0.1 | **86.8 % ± 4.5** | 79.7 % ± 0.4 |
+| **per recording** | 80.0 % | **87.1 %** | 80.0 % |
+| macro F1 | 73.8 % | **83.2 %** | 73.3 % |
+| recording-grouped contrast | 97.8 % | 98.2 % | 98.0 % |
+| **protocol gap** | 17.6 pts | **11.4 pts** | 18.2 pts |
+| DC-only, same protocol | 54.4 % (+25.8) | 68.2 % (+18.6) | 74.3 % (+5.5) |
+| held out `Betka` / `Dano` | 80.1 / 80.3 | **91.3 / 82.4** | 79.4 / 80.1 |
+
+`affine` is **+6.6 points per window and +7.1 on the vote** here, both wearers
+improve when held out, and the gap between the two protocols — which *is* the
+subject-specificity (§8h) — narrows from 17.6 to 11.4 points. That is
+calibration doing the one thing it is for.
+
+**These three columns are how the mode was CHOSEN, and they are optimistic.**
+Each wearer's calibration was derived from all of their own recordings,
+including the ones scored in their held-out fold. The honest re-measurement is
+the next subsection and it is the number to quote: **+5.3 points**.
+`CALIBRATION_MODE` was set to `"affine"` and the model retrained only after
+that gate passed.
+
+**Why it helps is more interesting than that it helps.** All three sweeps
+picked the same preprocessing; the only thing that changed is which *feature
+family* won. Uncalibrated, `level` wins and `both` is dead weight — §13
+records why: `extract_features()` median-centres each channel, which on this
+rectified envelope deletes the activation level. Calibrated with `affine`,
+the wearer's rest level has already been removed and the scale normalised, so
+the classic shape features (waveform length, zero crossings, slope sign
+changes) become **comparable between wearers** and start paying: 50 features
+→ 154, and macro F1 up 9.4 points, a bigger relative move than the accuracy.
+Calibration did not merely rescale the inputs — it made a feature family
+transferable that was not.
+
+**`gain` is the control that confirms the mechanism.** It leaves the full
+score flat (79.7 vs 80.2) while lifting the DC-only control by **20 points**
+(54.4 → 74.3). That is exactly what dividing by one number per wearer should
+do: it makes the eight channel means transfer between people without adding
+one bit of information about the gesture. A reminder that a *rising* DC-only
+score is not good news.
+
+### The leak gate — run it, because the sweep number is optimistic
+
+`calib_plan.md` §5 names the trap, and the sweep walked into it: every wearer's
+calibration was **derived from all of that wearer's recordings, including the
+ones then scored in the held-out fold.** That is fitting the transform on the
+test set. It needs measuring, not describing, so:
+
+```
+for each wearer W:
+    model <- LDA-shrinkage fitted on every OTHER wearer
+    C_W   <- derived from a DISJOINT third of W's recordings (every 3rd per
+             label), labels unused
+    score <- that model on W's REMAINING recordings, calibrated with C_W
+```
+
+Setup fixed to the sweep's winner, nothing selected, 571 windows scored:
+
+| Protocol | window | vote | macro F1 | `Betka` | `Dano` |
+|---|---|---|---|---|---|
+| uncalibrated | 81.3 % | 80.4 % | 80.4 % | 83.1 | 80.0 |
+| `affine`, **leaky** (what the sweep did) | 86.9 % | 90.2 % | 86.0 % | 91.9 | 83.3 |
+| **`affine`, honest** (held-out calibration) | **86.5 %** | **88.2 %** | **85.3 %** | 90.7 | 83.6 |
+| `per_channel`, honest | 85.6 % | 86.3 % | 84.6 % | 91.5 | 81.5 |
+| `gain`, honest | 81.1 % | 80.4 % | 80.2 % | 83.1 | 79.7 |
+
+**The leak was worth 0.4 points per window and 2.0 on the vote. The honest
+gain is +5.3 per window and +7.8 on the vote, and it clears the gate.**
+
+**Why the leak is so small is the argument for keeping the scheme stupid.** A
+calibration here is sixteen numbers — two percentiles per channel — and a
+statistic with that little capacity has nowhere to memorise a test set. The
+honest and leaky reference vectors agree to within 10 % on every channel
+(ratios 0.93–1.10). A richer fit, such as `calib_plan.md` §3.4's 64-parameter
+tier 3, has no such defence and would have to clear this gate on its own
+merits.
+
+It also separates the two things `affine` does: `per_channel` (divide by the
+per-channel reference) is worth +4.3, and subtracting the wearer's rest level
+on top of it adds the remaining **+0.9**. So the per-channel map is where
+nearly all of it comes from, exactly as `calib_plan.md` §2.6 predicted, and
+`gain` at **−0.2** is its prediction for a single scalar confirmed to the
+decimal.
+
+**Caveats, and they are not small:**
+
+- **Two wearers means two folds.** The ± on `affine` is 4.5 against 0.1 for
+  `off`, and that spread *is* the Betka/Dano difference (91.3 vs 82.4): the
+  calibration helps one wearer a great deal and the other modestly. With
+  n = 2 there is no way to tell which of those is the typical case. **This is
+  the biggest remaining caveat on the whole result** — +5.3 points is the
+  average of +7.6 and +3.6 on a sample of two people.
+- **Nothing here was validated on a wearer who was not in the reference.**
+  Both wearers' calibrations map onto a fixed `CALIBRATION_TARGET_LEVEL`
+  rather than toward a stored reference frame, so there is no frame to leak —
+  but there is also no third wearer to check the scheme transfers to.
+- **935 windows** survive dedup at the winning setup. Small.
+- The DC-only numbers are **not comparable across the three columns**,
+  because a different feature set won in each; only the gain within one
+  column is.
+- The within-subject contrast barely moves (97.8 → 98.2), as expected:
+  calibration is a *between*-wearer correction and the §8f confound is
+  *within* a wearer.
+
+**Kept for the record: the fixed-setup A/B, which pointed the other way.**
+At the previously-saved model's own setup (0.30 s @ 0.75, `bandpass`/`level`
++freq, 3573 windows), subject-grouped per window:
+
+| Mode | LDA-shr | ExtraTrees-400 | RF-400 | SVM-rbf-C10 |
+|---|---|---|---|---|
+| `off` | 74.8 | **83.3** | 78.7 | 73.5 |
+| `gain` | 75.2 | **83.5** | 79.6 | 74.1 |
+| `per_channel` | 74.0 | 80.7 | 76.3 | 78.2 |
+| `affine` | **80.7** | 82.0 | 77.4 | 79.7 |
+
+Read on its own this says calibration is a wash — `affine` worth +5.9 to LDA
+and +6.2 to SVM but −1.3 to both forests, nothing beating uncalibrated
+ExtraTrees. **It is the wrong measurement.** Holding the setup fixed holds it
+at the setup that won *uncalibrated*, and the whole point is that calibration
+changes which setup is best. The lesson generalises: anything that alters the
+feature distribution has to be compared by re-running the sweep, not by
+swapping it in underneath the previous winner.
+
+**It is NOT a sweep axis, and that is deliberate.** Representation is one
+because the choice is invisible to the user; calibration is not, because a
+calibrated model obliges every future wearer to calibrate before they can use
+it. That is a deployment decision, not a hyperparameter, so it is a flag the
+operator sets (`--calibration`, which the GUI passes from `CALIBRATION_MODE`)
+and the runs are compared deliberately. It also keeps the sweep at 160 setups
+instead of 640.
+
+### Rules this adds
+
+- **A calibrated subject-grouped score is NOT zero-shot.** The held-out
+  wearer's own unlabelled signal set their gain, so it answers "how well does
+  this work on a new wearer *who calibrates first*" — a real deployment, but a
+  different question. The trainer prints this in words on every calibrated
+  run, and the uncalibrated run is the comparison.
+- **Calibration does not fix the §8f confound and does not claim to.** The
+  confound is *within* a wearer — one take per gesture per person — and a
+  per-wearer constant is a *between*-wearer correction. Measured: the
+  recording-grouped contrast barely moves (97.8 % → 98.2 %). More sittings
+  per wearer, band off and refitted between, is still the fix.
+- **A rising DC-only control is not good news.** `gain` lifted it by 20
+  points (54.4 % → 74.3 %) while leaving the full score flat. Making the
+  eight channel means transfer between people is not the same as learning
+  anything about gestures — §8h already said to read a high cross-subject
+  DC-only score as "the wearers differ in gain", and here it was *caused*
+  deliberately.
+- **Compare anything that changes the feature distribution by re-running the
+  sweep.** A fixed-setup A/B held at the uncalibrated winner's setup said
+  calibration was a wash; the sweep said +6.6 points and the leak gate
+  confirmed +5.3, because calibration
+  changes which setup and which feature family is best. Both measurements are
+  below, and the fixed-setup one is kept as the record of a wrong method.
+- **Never mix scales.** Calibrate every wearer or none. The trainer warns, but
+  a feature space where some people are calibrated and some are not is not one
+  scale and its scores mean nothing.
+
 ## 9. Safety / data-preservation rules
 
 These are invariants. Breaking one is a bug, not a trade-off.
@@ -1049,6 +1487,16 @@ These are invariants. Breaking one is a bug, not a trade-off.
     AUTO-generated -- goes through the same cross-validation. Where selection
     bias exists (AUTO mode), it is stated in the dialog, the training log and
     MODEL STATS rather than hidden.
+12. **Calibration never rewrites signal, and a bad one is refused.** A
+    calibration is two level vectors per wearer, applied at FEATURE time in
+    `model_feature_vector()`; nothing on disk is scaled, so there is no
+    calibrated copy of the dataset to keep in sync and rules 1 and 3 are
+    untouched. `validate_calibration()` refuses rather than coerces -- a
+    clamped hyperparameter still trains something, a clamped gain divides a
+    wearer's signal by noise -- and an unusable record resolves to None,
+    which everywhere means "behave as the uncalibrated pipeline". Clearing
+    one writes the full record to the append-only `calibration_log.jsonl`
+    before the file goes, so the measurement is never actually lost. §8k.
 
 ## 10. How to run
 
@@ -1061,6 +1509,7 @@ python test_myo.py                            # original reference monitor
 python train_model.py --spec models\model_spec.json   # THE trainer (CPU)
 python train_model.py --quick --spec models\model_spec.json   # reduced grid
 python train_model.py --no-panel                      # skip the DECISION TRAIL file
+python train_model.py --calibration affine            # per-wearer calibration on (§8k)
 python explain_votes.py                               # rebuild it for the saved model
 python explain_votes.py --json                        # ...and a JSON copy of the trail
 
@@ -1073,6 +1522,7 @@ python tests\test_free_take.py                # 255 checks, no hardware
 python tests\test_model_spec.py               # 346 checks, no hardware
 python tests\test_predict.py                  # 109 checks, no hardware
 python tests\test_trail.py                    # 103 checks, the DECISION TRAIL
+python tests\test_calibration.py              # 143 checks, per-wearer calibration (§8k)
 python tests\test_sweep_cost.py               # 48 checks, the sweep cost controls (§8g)
 python tests\test_filters.py                  # 52 checks, the band-pass (§8i) + FEATURE SPACE (§8j)
 python tests\test_no_torch.py                 # 11 checks, proves the app needs no torch
@@ -1136,14 +1586,15 @@ The data layer degrades gracefully: without pandas you lose
   keeping up. Close the dialog, set `ENABLE_DECISION_PANEL = False`, or
   disable the kNN candidates in the spec. Re-measure after any spec change
   that adds members.
-- **`gesture_panel.joblib` is now ~57 MB** and grows with the forests in the
-  spec. It is a desktop diagnostic — do not copy it to the robot. (12 MB at
-  the 44-recording model, 49 MB at the 325-recording bandpass model, 57 MB at
-  the 85-recording two-subject model; it tracks dataset size as well as forest
-  count, and enabling `kNN-5`/`kNN-15` stores the training matrix outright.)
-  At this rate it will cross GitHub's 100 MB hard limit within a few
-  retrains, and it is committed — gitignoring it and the timestamped archives
-  is still an open decision.
+- **`gesture_panel.joblib` tracks the spec, not the dataset, and the spec can
+  swing it by 6×.** It is a desktop diagnostic — do not copy it to the robot.
+  Measured: 12 MB at the 44-recording model, 49 MB at the 325-recording
+  bandpass model, **57 MB** at the 85-recording two-subject model with
+  `kNN-5`/`kNN-15` enabled (kNN stores the training matrix outright), and
+  **9.5 MB** at the current calibrated model, whose spec is six models and a
+  soft vote with one forest. The 100 MB GitHub hard limit is no longer close,
+  but it is one spec edit away — gitignoring this file and the timestamped
+  archives is still an open decision. The saved model itself is **209 KB**.
 - **AUTO-TRIM ALL destroys a relaxed hold. Do not run it on clips cut from a
   take.** `detect_activity` picks the *strongest* region by design (§13, "a
   150 ms explosive burst must beat a second of drift"), and in the recording
@@ -1161,6 +1612,18 @@ The data layer degrades gracefully: without pandas you lose
   class it is testing, and one subject means `leave_one_person_out()` cannot
   split either. 74 of 308 recordings are also byte-identical duplicates that
   uid-grouped CV does not separate. §8f and `docs/EDA.md`.
+- **A NEW WEARER MUST CALIBRATE BEFORE THE CLASSIFIER WILL RUN FOR THEM.**
+  This is the cost of `CALIBRATION_MODE = "affine"` (§8k) and it is the thing
+  most likely to look like a bug. The saved model was fitted on calibrated
+  features, so for a wearer with no calibration `LivePredictor.load()`
+  refuses — "this model was trained on 'affine' per-wearer calibration, and
+  <person> has none. Press CALIBRATE, or retrain with calibration off" — and
+  the LIVE CLASSIFIER shows that instead of a prediction. It refuses because
+  it *would* otherwise answer, at 7 Hz, with every amplitude feature off by
+  that wearer's gain. Press CALIBRATE (six seconds), or set the mode to `off`
+  and retrain. The same refusal appears if the mode is changed without
+  retraining; the panel reloads the model the moment the mode or the wearer
+  changes, so the message arrives then rather than at the next PREDICT.
 - **`MAX_RECORDINGS = 0`** means unlimited, not zero.
 - **The `dropped` counter is approximate.** The dongle delivers 2–4 buffered
   packets at once, so the inter-sample interval is bursty and the heuristic
@@ -1225,11 +1688,21 @@ The data layer degrades gracefully: without pandas you lose
   is 28–70 Hz and unevenly sampled, so a fixed sample count would mean a
   varying real duration. `resample_uniform()` is applied in training and in
   `LivePredictor` alike.
-- **Absolute amplitude is kept, not baseline-subtracted.** Baseline
-  subtraction was tried and measurably hurt (Fisher 24.9 → 11.5–17.2): within
-  a session the offsets are constant, and a per-recording estimate partly
-  cancels the gesture. Offset/gain invariance belongs in the future per-user
-  calibration, not here.
+- **Absolute amplitude is kept per recording, and removed per WEARER.**
+  Baseline subtraction *per recording* was tried and measurably hurt
+  (Fisher 24.9 → 11.5–17.2): within a session the offsets are constant, and a
+  per-recording estimate partly cancels the gesture it is meant to baseline.
+  A **per-wearer** calibration is the opposite case and it measurably helps
+  (+5.3 points subject-grouped with the calibration itself held out, §8k):
+  one constant measured once from a
+  dedicated rest capture, which never sees a gesture and so cannot cancel
+  one. The distinction between those two is the whole content of §8k, and
+  getting it backwards would undo either result.
+- **Calibration is a deployment decision, not a sweep axis.** The sweep
+  chooses the representation because that choice is invisible to whoever uses
+  the model. A calibrated model obliges every future wearer to calibrate
+  before they can use it at all, so the mode is a flag the operator sets and
+  the two runs are compared by hand. §8k.
 - **Retraining always uses the whole dataset.** `train_model.py` reads the
   entire tree, so the GUI's RETRAIN button adds new recordings to all earlier
   ones. There is deliberately no "train on the latest batch only" path.

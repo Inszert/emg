@@ -645,6 +645,156 @@ ONE_SHOT_DELAY_S = 0.8
 ONE_SHOT_HOLD_S = 3.0            # how long the result stays on screen
 
 # ------------------------------------------------------------------------------
+# PER-WEARER CALIBRATION  (optional; off until you press CALIBRATE)
+# ------------------------------------------------------------------------------
+# The armband reads a different number on every wearer for the same effort:
+# skin impedance, muscle mass, band tightness and where pod 1 ended up all
+# scale the signal. Measured on this dataset (CLAUDE.md section 8k): the two
+# wearers' pooled p95 differ by only 9 % OVERALL, but per channel they differ
+# by up to 1.85x -- so what actually varies between people here is the
+# per-channel profile, not the master volume.
+#
+# A calibration is four numbers per channel measured once per wearer: a REST
+# level and a REFERENCE (strong-contraction) level. Together they define an
+# affine map onto a common scale, so "half effort" means the same number for
+# everybody.
+#
+# IT IS OFF BY DEFAULT, and that is the honest default. Nothing about the
+# pipeline changes until a calibration exists AND a mode other than "off" is
+# chosen; `CALIBRATION_MODE = "off"` reproduces every number this project has
+# ever reported. Whether calibration HELPS is measured by the sweep like
+# every other representation choice -- see section 8k -- not asserted here.
+#
+# One calibration is valid until it is replaced. RECALIBRATE in the GUI
+# measures a new one; nothing expires on its own, nothing is re-estimated per
+# recording, and a stored calibration survives restarts because it lives in
+# the dataset next to the wearer's data.
+CALIBRATION_ENABLED = True
+
+# How a calibration is applied, if one exists:
+#   "off"         -> not applied at all. The signal reaches the features in
+#                    device counts, exactly as before.
+#   "gain"        -> ONE scalar divisor for all eight channels. The most
+#                    conservative mode: it fixes overall effort/gain between
+#                    wearers and leaves the spatial profile -- the thing that
+#                    actually distinguishes the gestures -- bit-for-bit
+#                    proportional.
+#   "per_channel" -> each channel gets its own divisor. Also equalises the
+#                    per-channel differences that come from where the pods sat,
+#                    at the cost of flattening profile differences that may be
+#                    real.
+#   "affine"      -> per-channel divisor AND the wearer's rest level
+#                    subtracted first. The most aggressive.
+#
+# NOTE on the rest subtraction in "affine": CLAUDE.md section 13 records that
+# baseline subtraction measurably HURT (Fisher 24.9 -> 11.5-17.2). That was a
+# PER-RECORDING baseline, estimated from the recording itself, which partly
+# cancels the gesture it is supposed to be a baseline for. A calibration
+# baseline is one constant per wearer, measured once from a dedicated rest
+# capture, and cannot cancel a gesture because it never sees one. Different
+# operation, different risk -- which is why it is a mode you can measure
+# rather than a default.
+#
+# SET TO "affine" ON 2026-10-16, because the full sweep said so. Measured on
+# the 85 recordings of two wearers, subject-grouped per window: off 80.2 %,
+# gain 79.7 %, affine **86.8 %** -- and the gap between the subject-grouped
+# and recording-grouped protocols, which IS the subject-specificity, narrowed
+# from 17.6 to 11.4 points. The full table and the caveats are in CLAUDE.md
+# section 8k. The price of this default is real and is enforced rather than
+# hoped for: every wearer must calibrate before the saved model will predict
+# for them, and LivePredictor refuses rather than answering on the wrong
+# scale. Set this back to "off" and retrain to undo it exactly.
+CALIBRATION_MODE = "affine"
+
+# File names. The record lives in the WEARER's folder, not next to the model,
+# because it belongs to the person: that is what lets the trainer calibrate
+# each training subject with their own numbers and the GUI calibrate whoever
+# is wearing the band right now.
+#       <root>/<person_id>/calibration.json          the current one
+#       <root>/<person_id>/calibration_log.jsonl     append-only history
+CALIBRATION_NAME = "calibration.json"
+CALIBRATION_LOG_NAME = "calibration_log.jsonl"
+
+# How long each of the two captures runs, in seconds.
+CALIBRATION_REST_SECONDS = 3.0
+CALIBRATION_EFFORT_SECONDS = 3.0
+
+# Fewer samples than this in either capture and the calibration is REFUSED.
+# At ~50 Hz this is about half a second.
+CALIBRATION_MIN_SAMPLES = 24
+
+# Which percentile of each capture becomes the stored level. The rest level
+# is a median (robust to a twitch); the reference is a high percentile rather
+# than the maximum, because one spike should not define a wearer's full scale.
+CALIBRATION_REST_PERCENTILE = 50.0
+CALIBRATION_EFFORT_PERCENTILE = 95.0
+
+# What a calibrated reference contraction maps to. The value is arbitrary but
+# it is NOT free: the level features include absolute terms (`log_mean`,
+# `total_log`) and the quality checks have absolute thresholds, so calibrated
+# signal is scaled back into roughly the same numeric range the Myo delivers
+# instead of into 0..1. 600 is about a strong contraction in device counts on
+# this hardware.
+CALIBRATION_TARGET_LEVEL = 600.0
+
+# A calibration is refused unless the effort capture is at least this many
+# times the rest capture, and the reference is at least this many counts.
+# Both guard the same mistake -- a "maximum effort" capture where the wearer
+# did nothing -- which would otherwise divide the whole dataset by noise.
+CALIBRATION_MIN_CONTRAST = 2.0
+CALIBRATION_MIN_REFERENCE = 40.0
+# Percentiles used when a calibration is DERIVED from recordings that already
+# exist instead of measured live (calibration_from_recordings). All of a
+# wearer's samples are pooled with their labels ignored, so the low percentile
+# has to stand in for "relaxed" and the high one for "strong effort". 10/95
+# rather than 50/95: pooled over a whole sitting the median is not rest, it is
+# whatever the wearer spent most of the time doing.
+CALIBRATION_DERIVE_REST_PERCENTILE = 10.0
+CALIBRATION_DERIVE_EFFORT_PERCENTILE = 95.0
+# ---- the guided gesture sweep ------------------------------------------------
+# The better ritual, and the default one: instead of one generic clench, cue
+# REST and then each gesture in turn, and take each channel's reference as the
+# loudest that channel ever got across the set. One gesture only drives the
+# muscles that gesture uses, so a single-clench reference sets the quiet
+# channels' scale from nearly nothing -- see calibration_from_gesture_captures.
+CALIBRATION_GESTURE_SECONDS = 2.5
+
+# Which gestures the sweep cues. None = every entry in GESTURES except REST,
+# which is always captured first and separately because it sets the floor.
+# A shorter list is a valid trade: three well-spread gestures cover the eight
+# channels better than six sloppy ones.
+CALIBRATION_GESTURES = None
+
+# A short "GET READY: FIST" beat before each capture, so the countdown does
+# not start while the hand is still moving.
+CALIBRATION_PREPARE_SECONDS = 1.2
+
+# One capture is only accepted as evidence when its peak channel reaches this
+# multiple of the wearer's rest level. Below it the capture is kept on screen,
+# marked, and excluded from the reference -- "that one did not register, do it
+# again" rather than silently storing a shrug.
+CALIBRATION_MIN_GESTURE_CONTRAST = 2.0
+
+# ...and its peak must reach this many counts in absolute terms. The ratio
+# alone is not enough: noise on a channel sitting near rest inflates a high
+# percentile, so a shrug at 32 counts against a rest of 21 can read as 2.5x
+# and sail through. Set from the measured spread on this hardware -- REST p95
+# is 24-27 counts and the WEAKEST real gesture any wearer produced is 183
+# (Betka's THUMB_UP) -- so 60 has clear headroom on both sides. It is
+# deliberately higher than CALIBRATION_MIN_REFERENCE (40), which guards a
+# whole record: a calibration capture is a deliberate strong contraction, not
+# the relaxed hold the recording protocol asks for.
+CALIBRATION_MIN_GESTURE_LEVEL = 60.0
+
+# No sample for this long and the dialog treats the stream as down. It is
+# checked against the newest SAMPLE's age rather than the link state, because
+# what a capture needs is samples, and a connected armband that has gone to
+# sleep supplies none.
+CALIBRATION_STALE_SECONDS = 2.0
+
+
+
+# ------------------------------------------------------------------------------
 # MODEL SPECIFICATION  (which classifiers compete, and how they vote)
 # ------------------------------------------------------------------------------
 # The sweep in train_model.py trains every ENABLED entry below, scores them all
@@ -1381,6 +1531,428 @@ def normalize_per_channel(x: np.ndarray, mode: str = "mad",
 
 
 # ------------------------------------------------------------------------------
+# Per-wearer calibration
+# ------------------------------------------------------------------------------
+# A calibration is two levels per channel -- REST and REFERENCE (strong
+# contraction) -- measured once for one wearer. Everything below turns those
+# into the affine map that is applied to a window on its way to the features,
+# and nothing here reads the label of anything: a calibration is measured from
+# unlabelled signal, which is what makes it something a new wearer can do in
+# six seconds before using the model.
+#
+# The record is a plain dict so it can be JSON on disk and compared in tests
+# without numpy. `resolve_calibration()` turns it into the two arrays the
+# per-window transform needs, ONCE, so the cost in the live path is one
+# subtract and one divide per window.
+
+CALIBRATION_MODES = ("off", "gain", "per_channel", "affine")
+CALIBRATION_VERSION = 1
+
+
+def calibration_levels(record: dict):
+    """
+    Stored record -> (rest[8], reference[8]) as float arrays.
+
+    Returns None when the record does not carry a usable pair, so every
+    caller fails the same way instead of each inventing a fallback.
+    """
+    if not isinstance(record, dict):
+        return None
+    try:
+        rest = np.asarray(record["rest"], dtype=np.float64).ravel()
+        ref = np.asarray(record["reference"], dtype=np.float64).ravel()
+    except (KeyError, TypeError, ValueError):
+        return None
+    if rest.size != N_CHANNELS or ref.size != N_CHANNELS:
+        return None
+    if not (np.all(np.isfinite(rest)) and np.all(np.isfinite(ref))):
+        return None
+    return rest, ref
+
+
+def validate_calibration(record: dict):
+    """
+    Is this record safe to divide a dataset by?  -> (ok, problems)
+
+    Never raises, and never "fixes" anything. A model spec gets coerced
+    (validate_model_spec) because a clamped hyperparameter still trains
+    something sensible; a gain does not work that way. A calibration whose
+    reference level is noise would scale a wearer's whole signal by a factor
+    of twenty, so the only honest options are accept or refuse.
+    """
+    problems: List[str] = []
+    levels = calibration_levels(record)
+    if levels is None:
+        return False, [f"no usable rest/reference pair of {N_CHANNELS} "
+                       f"finite values"]
+    rest, ref = levels
+
+    if np.any(rest < 0) or np.any(ref < 0):
+        problems.append("negative levels (the filtered stream is rectified, "
+                        "so every level should be >= 0)")
+
+    ref_scalar = float(np.mean(ref))
+    rest_scalar = float(np.mean(rest))
+    if ref_scalar < CALIBRATION_MIN_REFERENCE:
+        problems.append(
+            f"reference level {ref_scalar:.0f} is below "
+            f"CALIBRATION_MIN_REFERENCE ({CALIBRATION_MIN_REFERENCE:.0f}) -- "
+            f"the effort capture looks like rest, not like a contraction")
+    contrast = ref_scalar / max(1e-9, rest_scalar)
+    if contrast < CALIBRATION_MIN_CONTRAST:
+        problems.append(
+            f"effort is only {contrast:.2f}x rest, below "
+            f"CALIBRATION_MIN_CONTRAST ({CALIBRATION_MIN_CONTRAST:.2f}) -- "
+            f"the two captures did not measure two different things")
+    if np.any(ref <= rest):
+        quiet = [CHANNEL_NAMES[i] for i in range(N_CHANNELS) if ref[i] <= rest[i]]
+        problems.append("reference is not above rest on " + ", ".join(quiet))
+
+    for key, floor in (("n_rest_samples", CALIBRATION_MIN_SAMPLES),
+                       ("n_effort_samples", CALIBRATION_MIN_SAMPLES)):
+        n = record.get(key)
+        if n is not None and int(n) < floor:
+            problems.append(f"{key} = {int(n)}, fewer than "
+                            f"CALIBRATION_MIN_SAMPLES ({floor})")
+
+    return (not problems), problems
+
+
+def resolve_calibration(record: dict, mode: str = None,
+                        target: float = None) -> Optional[dict]:
+    """
+    Stored record + mode -> the arrays `apply_calibration()` needs.
+
+    Returns None when nothing should be applied: mode "off", no record, or a
+    record that does not validate. None is the "behave exactly as before"
+    answer, and every caller treats it that way, so an unusable calibration
+    degrades to the uncalibrated pipeline instead of to a wrong one.
+    """
+    mode = (CALIBRATION_MODE if mode is None else mode) or "off"
+    if mode == "off" or mode not in CALIBRATION_MODES:
+        return None
+    ok, _problems = validate_calibration(record)
+    if not ok:
+        return None
+    rest, ref = calibration_levels(record)
+    target = float(CALIBRATION_TARGET_LEVEL if target is None else target)
+
+    if mode == "gain":
+        #  ONE divisor for all eight channels, so every ratio between
+        #  channels -- the spatial profile the gestures actually differ in --
+        #  comes out of this unchanged.
+        offset = np.zeros(N_CHANNELS, dtype=np.float64)
+        scale = np.full(N_CHANNELS, float(np.mean(ref)), dtype=np.float64)
+    elif mode == "per_channel":
+        offset = np.zeros(N_CHANNELS, dtype=np.float64)
+        scale = np.asarray(ref, dtype=np.float64).copy()
+    else:                                                      # "affine"
+        offset = np.asarray(rest, dtype=np.float64).copy()
+        scale = np.asarray(ref, dtype=np.float64) - offset
+
+    #  One device count is the quantisation step of the stream, so it is the
+    #  natural floor: it caps the gain this can ever apply instead of letting
+    #  a hand-edited file ask for a factor of a million.
+    scale = np.maximum(scale, 1.0)
+    return {
+        "mode": mode,
+        "offset": offset,
+        "scale": scale,
+        "target": target,
+        "person_id": record.get("person_id", ""),
+        "created_iso": record.get("created_iso", ""),
+    }
+
+
+def apply_calibration(block: np.ndarray, cal: dict) -> np.ndarray:
+    """
+    One window (n, 8) -> the same window on the calibrated scale.
+
+        y = target * (x - offset) / scale
+
+    `cal` is the output of `resolve_calibration()`; None means "return the
+    input untouched", which is what makes calibration optional everywhere
+    without a flag at every call site.
+
+    The result is floored at 0. Only the "affine" mode can go negative, and
+    only below the wearer's own rest level, where the rectified envelope is
+    noise -- but `share` (the spatial profile feature) divides by the channel
+    total, and a negative channel would make that meaningless rather than
+    merely noisy.
+    """
+    if not cal:
+        return block
+    x = np.asarray(block, dtype=np.float64)
+    if x.ndim != 2 or x.shape[1] != N_CHANNELS:
+        return block
+    out = (x - cal["offset"]) * (float(cal["target"]) / cal["scale"])
+    return np.maximum(out, 0.0)
+
+
+def calibration_record(rest_levels, effort_levels, person_id: str = "",
+                       session_id: str = "", fs: float = None,
+                       n_rest: int = 0, n_effort: int = 0,
+                       source: str = "live", notes: str = "",
+                       extra: dict = None) -> dict:
+    """Build the record that goes on disk. JSON-safe, no numpy left in it."""
+    rest = np.asarray(rest_levels, dtype=np.float64).ravel()
+    ref = np.asarray(effort_levels, dtype=np.float64).ravel()
+    now = time.time()
+    rest_scalar = float(np.mean(rest)) if rest.size else 0.0
+    ref_scalar = float(np.mean(ref)) if ref.size else 0.0
+    record = {
+        "version": CALIBRATION_VERSION,
+        "person_id": person_id,
+        "session_id": session_id,
+        "created_unix": now,
+        "created_iso": iso_time(now),
+        "emg_mode": EMG_MODE,
+        "fs": float(fs) if fs else None,
+        "channel_names": list(CHANNEL_NAMES),
+        "rest": [float(v) for v in rest],
+        "reference": [float(v) for v in ref],
+        "rest_level": rest_scalar,
+        "reference_level": ref_scalar,
+        "contrast": ref_scalar / max(1e-9, rest_scalar),
+        "target_level": float(CALIBRATION_TARGET_LEVEL),
+        "n_rest_samples": int(n_rest),
+        "n_effort_samples": int(n_effort),
+        "rest_percentile": float(CALIBRATION_REST_PERCENTILE),
+        "effort_percentile": float(CALIBRATION_EFFORT_PERCENTILE),
+        "source": source,
+        "notes": notes,
+        "device": DEVICE_NAME,
+        "arm_worn_on": ARM_WORN_ON,
+        "handedness": HANDEDNESS,
+    }
+    record.update(extra or {})
+    return record
+
+
+def calibration_from_captures(rest_block: np.ndarray, effort_block: np.ndarray,
+                              person_id: str = "", session_id: str = "",
+                              fs: float = None, notes: str = "",
+                              source: str = "live") -> dict:
+    """
+    Two short captures -> a calibration record.
+
+    `rest_block` is the wearer relaxed, `effort_block` the wearer holding a
+    strong contraction. Neither is labelled and neither is kept: only the two
+    level vectors go on disk.
+    """
+    rest = np.asarray(rest_block, dtype=np.float64)
+    effort = np.asarray(effort_block, dtype=np.float64)
+    rest_levels = (np.percentile(rest, CALIBRATION_REST_PERCENTILE, axis=0)
+                   if rest.size else np.zeros(N_CHANNELS))
+    effort_levels = (np.percentile(effort, CALIBRATION_EFFORT_PERCENTILE, axis=0)
+                     if effort.size else np.zeros(N_CHANNELS))
+    return calibration_record(
+        rest_levels, effort_levels, person_id=person_id,
+        session_id=session_id, fs=fs,
+        n_rest=int(rest.shape[0]) if rest.ndim == 2 else 0,
+        n_effort=int(effort.shape[0]) if effort.ndim == 2 else 0,
+        source=source, notes=notes)
+
+
+def calibration_from_recordings(recordings, person_id: str = "",
+                                rest_percentile: float = None,
+                                effort_percentile: float = None) -> Optional[dict]:
+    """
+    A wearer's existing recordings -> a calibration record, WITHOUT labels.
+
+    This is how a dataset recorded before calibration existed gets calibrated
+    (CLAUDE.md section 8k). The levels come from percentiles of all of that
+    wearer's samples pooled together: the low percentile stands in for the
+    rest capture and the high one for the effort capture, which is the same
+    pair of numbers a live calibration measures, taken from signal that
+    happens to already be on disk.
+
+    **It deliberately does not look at `rec.label`.** Computing the rest level
+    from the recordings labelled REST would be using the held-out wearer's
+    LABELS to build the transform their own test fold is scored through, which
+    is leakage. Pooling everything uses only the wearer's unlabelled signal,
+    which is exactly the assumption a per-user calibration makes anyway: the
+    new wearer gives you some of their signal before you classify it.
+
+    It is still not a zero-shot protocol, and the trainer says so in words
+    whenever a calibrated model is scored subject-grouped.
+    """
+    recs = [r for r in (recordings or [])
+            if getattr(r, "emg", None) is not None and r.emg.size]
+    if person_id:
+        recs = [r for r in recs if r.person_id == person_id]
+    if not recs:
+        return None
+    lo = (CALIBRATION_DERIVE_REST_PERCENTILE if rest_percentile is None
+          else float(rest_percentile))
+    hi = (CALIBRATION_DERIVE_EFFORT_PERCENTILE if effort_percentile is None
+          else float(effort_percentile))
+
+    pooled = np.vstack([np.asarray(r.emg, dtype=np.float64) for r in recs])
+    rates = [r.fs for r in recs if getattr(r, "fs", 0)]
+    record = calibration_record(
+        np.percentile(pooled, lo, axis=0),
+        np.percentile(pooled, hi, axis=0),
+        person_id=person_id or recs[0].person_id,
+        session_id=sorted({r.session_id for r in recs})[0],
+        fs=float(np.median(rates)) if rates else None,
+        n_rest=int(pooled.shape[0]), n_effort=int(pooled.shape[0]),
+        source="derived_from_recordings",
+        notes=(f"percentiles {lo:g}/{hi:g} over {len(recs)} recordings "
+               f"({pooled.shape[0]} samples), labels not used"),
+        extra={"derived_from": {"n_recordings": len(recs),
+                                "n_samples": int(pooled.shape[0]),
+                                "rest_percentile": lo,
+                                "effort_percentile": hi,
+                                "sessions": sorted({r.session_id for r in recs}),
+                                "uses_labels": False}})
+    return record
+
+
+def calibration_capture_quality(block: np.ndarray, rest_levels=None) -> dict:
+    """
+    Judge ONE capture while the wearer is still standing there.
+
+    This is what lets the dialog say "that one did not register, do it again"
+    instead of storing a shrug and discovering it later. Returns the numbers,
+    never a verdict about the whole calibration -- that is
+    `validate_calibration()`'s job on the finished record.
+
+        ok            enough samples, and loud enough against rest
+        n_samples     how much signal arrived
+        contrast      peak channel level / mean rest level
+        peak_channel  which pod it landed on, 1-based
+        levels        the per-channel levels at EFFORT percentile
+        reason        why not, when ok is False
+    """
+    x = np.asarray(block, dtype=np.float64) if block is not None else None
+    if x is None or x.ndim != 2 or x.shape[0] == 0:
+        return {"ok": False, "n_samples": 0, "contrast": 0.0,
+                "peak_channel": 0, "levels": None,
+                "reason": "nothing was captured"}
+    n = int(x.shape[0])
+    levels = np.percentile(x, CALIBRATION_EFFORT_PERCENTILE, axis=0)
+    rest = (np.asarray(rest_levels, dtype=np.float64).ravel()
+            if rest_levels is not None else None)
+    #  Against the wearer's own rest when it is known, and against the
+    #  hardware's noise floor when it is not, so the first capture of a
+    #  session can still be judged.
+    floor = (float(np.mean(rest)) if rest is not None and rest.size
+             else float(CALIBRATION_MIN_REFERENCE) / 2.0)
+    peak = int(np.argmax(levels))
+    contrast = float(levels[peak]) / max(1e-9, floor)
+    info = {"ok": True, "n_samples": n, "contrast": contrast,
+            "peak_channel": peak + 1, "levels": levels, "reason": ""}
+    if n < CALIBRATION_MIN_SAMPLES:
+        info["ok"] = False
+        info["reason"] = (f"only {n} samples, need "
+                          f"{CALIBRATION_MIN_SAMPLES}")
+    elif contrast < CALIBRATION_MIN_GESTURE_CONTRAST:
+        info["ok"] = False
+        info["reason"] = (f"peak only {contrast:.1f}x rest, need "
+                          f"{CALIBRATION_MIN_GESTURE_CONTRAST:.1f}x -- "
+                          f"hold it harder")
+    elif float(levels[peak]) < CALIBRATION_MIN_GESTURE_LEVEL:
+        #  The ratio can be flattered by noise on a channel sitting at rest;
+        #  the absolute level cannot.
+        info["ok"] = False
+        info["reason"] = (f"peak only {levels[peak]:.0f} counts, need "
+                          f"{CALIBRATION_MIN_GESTURE_LEVEL:.0f} -- "
+                          f"hold it harder")
+    return info
+
+
+def calibration_from_gesture_captures(rest_block: np.ndarray,
+                                      gesture_blocks: dict,
+                                      person_id: str = "",
+                                      session_id: str = "",
+                                      fs: float = None, notes: str = "",
+                                      source: str = "live_gesture_sweep") -> dict:
+    """
+    REST plus one capture per GESTURE -> a calibration record.
+
+    **Why this beats one generic clench, measured on this dataset.** The
+    reference is meant to be each channel's full scale, and one gesture only
+    drives the muscles that gesture uses. `Dano`'s derived reference is
+    [553, 657, 154, 219, 919, 992, 364, 404] -- CH3 and CH4 reach 154 and 219
+    where CH6 reaches 992. Calibrating from a single fist would set CH3's
+    scale from whatever a fist happens to do to CH3, which is nearly nothing,
+    and then divide that channel by noise. Sweeping the gesture set gives
+    every channel a chance to be the loud one.
+
+        reference[c] = max over gestures of percentile(capture_g[:, c])
+
+    The MAX rather than a pooled percentile, because "how loud does this
+    channel ever get" should not be diluted by the four gestures that leave
+    it quiet, and because it then does not matter how long each capture ran.
+
+    REST is the one capture that is not part of the max: it sets the floor.
+    """
+    rest = np.asarray(rest_block, dtype=np.float64) if rest_block is not None \
+        else np.zeros((0, N_CHANNELS))
+    rest_levels = (np.percentile(rest, CALIBRATION_REST_PERCENTILE, axis=0)
+                   if rest.size else np.zeros(N_CHANNELS))
+
+    per_gesture = {}
+    stacked = []
+    n_effort = 0
+    for label, block in (gesture_blocks or {}).items():
+        quality = calibration_capture_quality(block, rest_levels)
+        if quality["levels"] is None:
+            continue
+        per_gesture[label] = {
+            "n_samples": quality["n_samples"],
+            "contrast": round(quality["contrast"], 3),
+            "peak_channel": quality["peak_channel"],
+            "accepted": bool(quality["ok"]),
+            "levels": [float(v) for v in quality["levels"]],
+        }
+        if not quality["ok"]:
+            #  A capture that did not register must not pull a channel's
+            #  scale DOWN, and it cannot push one up either -- it is simply
+            #  not evidence. Recorded, so the dialog can show what happened.
+            continue
+        stacked.append(quality["levels"])
+        n_effort += quality["n_samples"]
+
+    reference = (np.max(np.vstack(stacked), axis=0) if stacked
+                 else np.zeros(N_CHANNELS))
+    accepted = sorted(k for k, v in per_gesture.items() if v["accepted"])
+    return calibration_record(
+        rest_levels, reference, person_id=person_id, session_id=session_id,
+        fs=fs, n_rest=int(rest.shape[0]), n_effort=int(n_effort),
+        source=source,
+        notes=notes or (f"gesture sweep over {len(accepted)} gesture(s): "
+                        f"{', '.join(accepted) or 'none accepted'}"),
+        extra={"gesture_sweep": {
+            "gestures": accepted,
+            "rejected": sorted(k for k, v in per_gesture.items()
+                               if not v["accepted"]),
+            "per_gesture": per_gesture,
+            "reference_rule": (f"per channel, max over accepted gestures of "
+                               f"the p{CALIBRATION_EFFORT_PERCENTILE:g} level"),
+        }})
+
+
+def describe_calibration(record: dict, mode: str = None) -> str:
+    """One line for a status label or a log. Says 'none' rather than guessing."""
+    mode = (CALIBRATION_MODE if mode is None else mode) or "off"
+    if not record:
+        return f"no calibration (mode {mode})"
+    ok, problems = validate_calibration(record)
+    when = (record.get("created_iso") or "")[:16].replace("T", " ")
+    head = (f"{record.get('person_id', '?')}  {when}  "
+            f"rest {record.get('rest_level', 0):.0f} -> ref "
+            f"{record.get('reference_level', 0):.0f} "
+            f"({record.get('contrast', 0):.1f}x)")
+    if not ok:
+        return f"{head}  REFUSED: {problems[0]}"
+    if mode == "off":
+        return f"{head}  stored, NOT APPLIED (mode off)"
+    return f"{head}  applied as {mode}"
+
+
+# ------------------------------------------------------------------------------
 # Activity detection / automatic trimming
 # ------------------------------------------------------------------------------
 
@@ -1687,10 +2259,24 @@ def all_feature_names(include_freq: bool = True) -> List[str]:
 def model_feature_vector(window: np.ndarray, representation: str = "raw",
                          feature_set: str = "level",
                          include_freq: bool = True,
-                         fs: float = None) -> np.ndarray:
-    """One analysis window -> the feature vector a trained model expects."""
+                         fs: float = None,
+                         calibration: dict = None) -> np.ndarray:
+    """
+    One analysis window -> the feature vector a trained model expects.
+
+    `calibration` is a RESOLVED calibration (resolve_calibration()), or None
+    for the uncalibrated pipeline. It is applied here, before the
+    representation, for the same reason the representations live here: this is
+    the one function train_model.py and LivePredictor both call, so the
+    trainer cannot calibrate a window in a way the live path does not.
+    Resolving it per window instead of per wearer would be the drift this
+    function exists to prevent.
+    """
     block = np.asarray(window, dtype=np.float64)
     fs = float(fs or nominal_rate())
+
+    if calibration:
+        block = apply_calibration(block, calibration)
 
     if representation == "normalized":
         block = normalize_per_channel(block, "mad")[0]
@@ -2109,6 +2695,13 @@ def recording_config_snapshot() -> dict:
         "auto_trim": AUTO_TRIM,
         "default_cut_seconds": LABEL_DEFAULT_SELECTION_S,
         "model_spec_file": MODEL_SPEC_NAME,
+        # The mode is a snapshot, not the calibration itself: the record
+        # lives in the wearer's folder and is a measurement of the person,
+        # not of this recording. Noting the mode is what makes it possible
+        # to tell later whether a sitting was recorded while calibration was
+        # being applied to the live classifier.
+        "calibration_mode": CALIBRATION_MODE if CALIBRATION_ENABLED else "off",
+        "calibration_target_level": CALIBRATION_TARGET_LEVEL,
         "min_selection_seconds": LABEL_MIN_SELECTION_S,
         "free_take_max_minutes": FREE_TAKE_MAX_MINUTES,
         "trim": {
@@ -2917,6 +3510,12 @@ def model_report_html(predictor, stats: dict) -> str:
                           f"{stats.get('representation', '?')})")
         + row("Outputs", ", ".join(predictor.labels or
                                    stats.get("labels", []) or ["?"]))
+        + row("Calibration",
+              (f"{stats.get('calibration_mode')} -- per-wearer, fitted on "
+               + ", ".join(stats.get("calibrated_subjects") or ["?"])
+               + "; a new wearer must calibrate first")
+              if (stats.get("calibration_mode") or "off") != "off"
+              else "off -- device counts, no per-wearer scaling")
         + '</table>')))
 
     # -- how it decides -------------------------------------------------------
@@ -3890,6 +4489,251 @@ def append_recording_note(data_path: str, marker: Marker,
 # ------------------------------------------------------------------------------
 # Reading / ML-ready loading
 # ------------------------------------------------------------------------------
+
+
+# ------------------------------------------------------------------------------
+# Calibration storage -- one record per WEARER, in the wearer's own folder
+# ------------------------------------------------------------------------------
+#       <root>/<person_id>/calibration.json          the current one
+#       <root>/<person_id>/calibration_log.jsonl     append-only history
+#
+# Per wearer and not next to the model, because a calibration describes a
+# person and their armband fit, not a classifier. That placement is what lets
+# the trainer calibrate each training subject with that subject's own numbers
+# while the GUI calibrates whoever is wearing the band right now, from the
+# same files, with no second copy to keep in sync.
+#
+# The record is the current state; the log is the history, append-only like
+# manifest.jsonl and markers.jsonl. A calibration is never edited -- a
+# correction is a new measurement, and the previous one is already in the log.
+
+
+def calibration_root(root: str = None) -> str:
+    """
+    Resolve a dataset root the way `LivePredictor.full_path` resolves the
+    model path: a relative root is relative to the PROJECT, not to whatever
+    the current working directory happens to be. Without this a calibration
+    would be found when the app is launched from its own folder and silently
+    missed when it is launched from anywhere else.
+    """
+    root = root or DATA_FOLDER
+    return (os.path.abspath(root) if os.path.isabs(root)
+            else os.path.abspath(os.path.join(PROJECT_DIR, root)))
+
+
+def calibration_path(root: str = None, person_id: str = None) -> str:
+    person = safe_slug(person_id or PERSON_ID, "person")
+    return os.path.join(calibration_root(root), person, CALIBRATION_NAME)
+
+
+def calibration_log_path(root: str = None, person_id: str = None) -> str:
+    person = safe_slug(person_id or PERSON_ID, "person")
+    return os.path.join(calibration_root(root), person, CALIBRATION_LOG_NAME)
+
+
+def append_calibration_log(path: str, entry: dict) -> str:
+    """One JSON object per line, appended. Nothing in the file is ever rewritten."""
+    ensure_dir(os.path.dirname(path))
+    with open(path, "a", encoding="utf-8") as fh:
+        fh.write(json.dumps(entry, ensure_ascii=False, default=str) + "\n")
+    return path
+
+
+def load_calibration(root: str = None, person_id: str = None) -> Optional[dict]:
+    """
+    The wearer's current calibration, or None.
+
+    A missing file is the normal case, not an error: calibration is optional
+    and most wearers will not have one. A corrupt file is also None -- the
+    uncalibrated pipeline is the safe answer, and the GUI reports the reason
+    separately through `calibration_status()`.
+    """
+    path = calibration_path(root, person_id)
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as fh:
+            record = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    return record if isinstance(record, dict) else None
+
+
+def save_calibration(record: dict, root: str = None,
+                     person_id: str = None) -> str:
+    """
+    Write the wearer's calibration and append it to their log.
+
+    Refuses a record that does not validate, so a calibration that would
+    divide a wearer's signal by noise cannot reach the disk, let alone the
+    trainer. Raises ValueError with the reasons -- the caller has a human in
+    front of it and should show them.
+    """
+    person = safe_slug(person_id or record.get("person_id") or PERSON_ID,
+                       "person")
+    ok, problems = validate_calibration(record)
+    if not ok:
+        raise ValueError("; ".join(problems))
+
+    stored = dict(record)
+    stored["person_id"] = person
+    path = calibration_path(root, person)
+    ensure_dir(os.path.dirname(path))
+    previous = load_calibration(root, person)
+
+    #  Write-then-replace: a kill mid-dump cannot leave a half-written
+    #  calibration for the next run to divide a dataset by.
+    staging = path + ".partial"
+    with open(staging, "w", encoding="utf-8") as fh:
+        json.dump(stored, fh, indent=2, ensure_ascii=False, default=str)
+    os.replace(staging, path)
+
+    append_calibration_log(calibration_log_path(root, person), {
+        "action": "calibrated",
+        "written_iso": iso_time(time.time()),
+        "replaced": bool(previous),
+        "replaced_created_iso": (previous or {}).get("created_iso"),
+        "record": stored,
+    })
+    return path
+
+
+def clear_calibration(root: str = None, person_id: str = None,
+                      reason: str = "") -> Optional[dict]:
+    """
+    Drop the wearer's current calibration. Returns the record that was active.
+
+    The full record goes into the append-only log BEFORE the file is removed,
+    so clearing loses nothing: the measurement is still on disk and can be
+    put back by hand. That is why this is the one place in the project that
+    removes a file it wrote -- a calibration is a measured constant, not
+    recorded signal, and safety rule 4 is about signal.
+    """
+    person = safe_slug(person_id or PERSON_ID, "person")
+    record = load_calibration(root, person)
+    if record is None:
+        return None
+    append_calibration_log(calibration_log_path(root, person), {
+        "action": "cleared",
+        "written_iso": iso_time(time.time()),
+        "reason": reason,
+        "record": record,
+    })
+    try:
+        os.remove(calibration_path(root, person))
+    except OSError:
+        pass
+    return record
+
+
+def load_calibration_log(root: str = None, person_id: str = None) -> List[dict]:
+    """Every calibration this wearer has ever had, oldest first."""
+    path = calibration_log_path(root, person_id)
+    if not os.path.exists(path):
+        return []
+    out = []
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(entry, dict):
+                out.append(entry)
+    return out
+
+
+def load_calibrations(root: str = None, persons=None) -> Dict[str, dict]:
+    """
+    Every wearer's calibration under `root`, keyed by person id.
+
+    Walks the same top-level folders `discover_recordings()` does and prunes
+    the same underscore ones, so an archived dataset cannot contribute a
+    calibration to a live run.
+    """
+    root = calibration_root(root)
+    wanted = None if persons is None else {safe_slug(p, "person")
+                                           for p in persons}
+    out: Dict[str, dict] = {}
+    if not os.path.isdir(root):
+        return out
+    for name in sorted(os.listdir(root)):
+        if name.startswith("_") or not os.path.isdir(os.path.join(root, name)):
+            continue
+        if wanted is not None and name not in wanted:
+            continue
+        record = load_calibration(root, name)
+        if record is not None:
+            out[name] = record
+    return out
+
+
+def calibration_table(root: str = None, mode: str = None,
+                      persons=None) -> Dict[str, dict]:
+    """
+    person id -> RESOLVED calibration, for every wearer who has a usable one.
+
+    This is what the trainer wants: resolve once per wearer, then hand the
+    right entry to `model_feature_vector()` for each of that wearer's windows.
+    A wearer with no calibration, or an unusable one, is simply absent, and
+    the caller treats absence as "uncalibrated" -- which is the one safe
+    default, because applying someone else's gain would be worse than
+    applying none.
+    """
+    mode = (CALIBRATION_MODE if mode is None else mode) or "off"
+    if mode == "off":
+        return {}
+    out: Dict[str, dict] = {}
+    for person, record in load_calibrations(root, persons).items():
+        resolved = resolve_calibration(record, mode)
+        if resolved is not None:
+            out[person] = resolved
+    return out
+
+
+def calibration_status(root: str = None, person_id: str = None,
+                       mode: str = None) -> dict:
+    """
+    Everything a status line needs, with the reason spelled out.
+
+    Five states, and exactly one is true at a time:
+        "disabled"   CALIBRATION_ENABLED is False
+        "none"       no record for this wearer
+        "invalid"    a record exists but would not be safe to apply
+        "stored"     a valid record exists, but the mode is "off"
+        "active"     a valid record exists and is being applied
+    """
+    mode = (CALIBRATION_MODE if mode is None else mode) or "off"
+    person = safe_slug(person_id or PERSON_ID, "person")
+    record = load_calibration(root, person)
+    info = {
+        "person_id": person,
+        "mode": mode,
+        "record": record,
+        "path": calibration_path(root, person),
+        "problems": [],
+        "summary": "",
+    }
+    if not CALIBRATION_ENABLED:
+        info["state"] = "disabled"
+        info["summary"] = "calibration is disabled in the configuration"
+        return info
+    if record is None:
+        info["state"] = "none"
+        info["summary"] = f"{person} has no calibration"
+        return info
+    ok, problems = validate_calibration(record)
+    info["problems"] = problems
+    if not ok:
+        info["state"] = "invalid"
+        info["summary"] = f"{person}: calibration refused -- {problems[0]}"
+        return info
+    info["state"] = "stored" if mode == "off" else "active"
+    info["summary"] = describe_calibration(record, mode)
+    return info
 
 
 def load_recording_npz(path: str) -> Recording:
@@ -8503,6 +9347,648 @@ class ModelStatsDialog(QtWidgets.QDialog):
         self.accept()
 
 
+class CalibrationDialog(QtWidgets.QDialog):
+    """
+    Measure one wearer onto the common scale, or derive it from the data they
+    already recorded.
+
+    Three routes, and the first is the one to use:
+
+      * **GUIDED GESTURE SWEEP** -- cue REST, then each gesture in turn, and
+        take each channel's reference as the loudest that channel ever got
+        across the set. A single clench only drives the muscles that clench
+        uses: measured on the synthetic stand-in for this dataset, a
+        one-gesture reference under-scales seven of eight channels by
+        1.9x-3.2x, and the two quietest by 2.2x and 2.9x. Each capture is
+        judged as it lands (`calibration_capture_quality`), so a gesture that
+        did not register is marked and can be redone there and then instead
+        of being stored as a shrug.
+      * **quick rest + clench** -- two captures, kept because it is six
+        seconds and better than nothing.
+      * **DERIVE FROM RECORDED DATA** -- no armband needed; percentiles of
+        everything that wearer has already recorded, labels ignored.
+
+    Nothing recorded is touched by any of them: a calibration is a pair of
+    level vectors, and every recording on disk stays byte-identical whether
+    one exists or not.
+    """
+
+    #  Phases. Reading the ring at the END of a countdown rather than
+    #  accumulating during it keeps this off the sample path entirely: the
+    #  acquisition thread is already storing the samples, so a GUI timer that
+    #  misses a tick costs nothing.
+    IDLE, PREPARE, COUNTING = "idle", "prepare", "counting"
+
+    def __init__(self, parent, acquisition, person_id: str, root: str = None,
+                 mode: str = None):
+        super().__init__(parent)
+        self.setWindowTitle("Per-wearer calibration")
+        self.acq = acquisition
+        self.person_id = safe_slug(person_id, "person")
+        self.root = root or os.path.join(PROJECT_DIR, DATA_FOLDER)
+        self.mode = (CALIBRATION_MODE if mode is None else mode) or "off"
+
+        self.rest_block = None
+        self.effort_block = None
+        self.gesture_blocks: Dict[str, np.ndarray] = {}
+        self.record = load_calibration(self.root, self.person_id)
+        self.saved = False
+        self.phase = self.IDLE
+        self._target = ""
+        self._deadline = 0.0
+        self._queue: List[str] = []
+
+        self._build()
+        self._refresh()
+
+        #  Runs the whole time the dialog is open, not just during a capture:
+        #  it also keeps the "is the stream alive" line honest, which is the
+        #  thing that was impossible to tell before.
+        self.tick = QtCore.QTimer(self)
+        self.tick.setInterval(100)
+        self.tick.timeout.connect(self._on_tick)
+        self.tick.start()
+
+    # -- which gestures -------------------------------------------------------
+
+    def sweep_gestures(self) -> List[str]:
+        """The active gestures to cue, REST excluded -- it sets the floor."""
+        names = CALIBRATION_GESTURES or GESTURES
+        return [g for g in names if g != "REST"]
+
+    # -- construction ---------------------------------------------------------
+
+    def _build(self) -> None:
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setSpacing(8)
+
+        layout.addWidget(make_label(f"Calibrating: {self.person_id}", 14, True))
+        intro = make_label(
+            "The armband reads a different number on every wearer for the "
+            "same effort. A calibration measures two levels per channel -- "
+            "relaxed, and under load -- so that a given number means the same "
+            "amount of effort on anybody.\n\n"
+            "Measured ONCE, valid until you calibrate again. No recording is "
+            "modified.",
+            10, False, COL_TEXT_DIM)
+        intro.setWordWrap(True)
+        layout.addWidget(intro)
+
+        self.state_label = make_label("", 11, True)
+        self.state_label.setWordWrap(True)
+        layout.addWidget(self.state_label)
+
+        #  Live stream state. Without this the only way to find out why a
+        #  capture would not start was to press the button and read an error.
+        self.stream_label = make_label("", 10, True, COL_TEXT_DIM)
+        self.stream_label.setWordWrap(True)
+        layout.addWidget(self.stream_label)
+
+        # ---- the guided sweep ------------------------------------------
+        box = QtWidgets.QGroupBox("GUIDED GESTURE SWEEP  (recommended)")
+        outer = QtWidgets.QVBoxLayout(box)
+        outer.setSpacing(6)
+        hint = make_label(
+            "Cues REST and then each gesture. Each channel's reference is the "
+            "loudest it gets across the whole set, which is why this beats "
+            "one generic squeeze: a squeeze leaves most channels quiet and "
+            "would set their scale from nearly nothing.",
+            9, False, COL_TEXT_DIM)
+        hint.setWordWrap(True)
+        outer.addWidget(hint)
+
+        row = QtWidgets.QHBoxLayout()
+        self.sweep_button = QtWidgets.QPushButton("START SWEEP")
+        self.sweep_button.setObjectName("primary")
+        self.sweep_button.setMinimumHeight(32)
+        self.sweep_button.clicked.connect(self.start_sweep)
+        row.addWidget(self.sweep_button, 2)
+        self.redo_button = QtWidgets.QPushButton("REDO SELECTED")
+        self.redo_button.setMinimumHeight(32)
+        self.redo_button.setToolTip(
+            "Capture just the selected row again. A gesture that did not "
+            "register is excluded from the reference until it does, so "
+            "repeating it is the whole point rather than a fallback.")
+        self.redo_button.clicked.connect(self.redo_selected)
+        row.addWidget(self.redo_button, 1)
+        self.abort_button = QtWidgets.QPushButton("STOP")
+        self.abort_button.setMinimumHeight(32)
+        self.abort_button.clicked.connect(self.abort_sweep)
+        row.addWidget(self.abort_button, 1)
+        outer.addLayout(row)
+
+        self.sweep_table = QtWidgets.QTableWidget(0, 4)
+        self.sweep_table.setHorizontalHeaderLabels(
+            ["gesture", "samples", "peak", "verdict"])
+        self.sweep_table.verticalHeader().setVisible(False)
+        self.sweep_table.setEditTriggers(
+            QtWidgets.QAbstractItemView.NoEditTriggers)
+        self.sweep_table.setSelectionBehavior(
+            QtWidgets.QAbstractItemView.SelectRows)
+        self.sweep_table.setSelectionMode(
+            QtWidgets.QAbstractItemView.SingleSelection)
+        self.sweep_table.horizontalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.Stretch)
+        self.sweep_table.itemSelectionChanged.connect(self._refresh)
+        outer.addWidget(self.sweep_table)
+        layout.addWidget(box)
+
+        self.countdown_label = make_label("", 22, True, COL_WARN)
+        self.countdown_label.setAlignment(QtCore.Qt.AlignCenter)
+        layout.addWidget(self.countdown_label)
+
+        #  What the armband is reading right now, so a wearer can see the
+        #  gesture register before the countdown ends.
+        self.live_label = make_label("", 9, False, COL_TEXT_DIM)
+        self.live_label.setAlignment(QtCore.Qt.AlignCenter)
+        layout.addWidget(self.live_label)
+
+        # ---- the quick path --------------------------------------------
+        quick = QtWidgets.QGroupBox("QUICK  (rest + one strong squeeze)")
+        grid = QtWidgets.QGridLayout(quick)
+        grid.setSpacing(6)
+        self.rest_button = QtWidgets.QPushButton(
+            f"RELAX ({CALIBRATION_REST_SECONDS:.0f} s)")
+        self.rest_button.setMinimumHeight(30)
+        self.rest_button.clicked.connect(lambda: self._start("rest"))
+        grid.addWidget(self.rest_button, 0, 0)
+        self.rest_result = make_label("not measured", 10, False, COL_TEXT_DIM)
+        self.rest_result.setWordWrap(True)
+        grid.addWidget(self.rest_result, 0, 1)
+
+        self.effort_button = QtWidgets.QPushButton(
+            f"SQUEEZE HARD ({CALIBRATION_EFFORT_SECONDS:.0f} s)")
+        self.effort_button.setMinimumHeight(30)
+        self.effort_button.clicked.connect(lambda: self._start("effort"))
+        grid.addWidget(self.effort_button, 1, 0)
+        self.effort_result = make_label("not measured", 10, False, COL_TEXT_DIM)
+        self.effort_result.setWordWrap(True)
+        grid.addWidget(self.effort_result, 1, 1)
+        grid.setColumnStretch(1, 1)
+        layout.addWidget(quick)
+
+        self.derive_button = QtWidgets.QPushButton(
+            "DERIVE FROM RECORDED DATA (no armband needed)")
+        self.derive_button.setMinimumHeight(28)
+        self.derive_button.setToolTip(
+            "Take the same two level vectors from percentiles of every "
+            "recording this wearer already has, with the labels IGNORED.\n\n"
+            "This is how a dataset recorded before calibration existed gets "
+            "calibrated. It uses the wearer's own unlabelled signal, which is "
+            "the same assumption a live calibration makes -- but a score "
+            "measured that way is not zero-shot, and the trainer says so.")
+        self.derive_button.clicked.connect(self._derive)
+        layout.addWidget(self.derive_button)
+
+        # ---- per-channel readout ---------------------------------------
+        self.table = QtWidgets.QTableWidget(N_CHANNELS, 3)
+        self.table.setHorizontalHeaderLabels(["channel", "rest", "reference"])
+        self.table.verticalHeader().setVisible(False)
+        self.table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        self.table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
+        self.table.horizontalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.Stretch)
+        self.table.setFixedHeight(24 * N_CHANNELS + 28)
+        layout.addWidget(self.table)
+
+        # ---- how it is applied -----------------------------------------
+        row = QtWidgets.QHBoxLayout()
+        row.addWidget(make_label("Apply as", 10, False, COL_TEXT_DIM))
+        self.mode_combo = QtWidgets.QComboBox()
+        for name, caption in (
+                ("off", "off -- stored but not applied"),
+                ("gain", "gain -- one divisor, spatial profile untouched"),
+                ("per_channel", "per channel -- each channel own divisor"),
+                ("affine", "affine -- per channel, rest subtracted")):
+            self.mode_combo.addItem(caption, name)
+        self.mode_combo.setCurrentIndex(
+            max(0, self.mode_combo.findData(self.mode)))
+        self.mode_combo.setToolTip(
+            "Which of the measured numbers actually get applied.\n\n"
+            "off          nothing changes; the model sees device counts.\n"
+            "gain         one divisor for all eight channels. Conservative: "
+            "every ratio between channels, which is what distinguishes the "
+            "gestures, survives exactly.\n"
+            "per channel  also equalises where the pods sat.\n"
+            "affine       per channel plus the wearer's rest level removed. "
+            "Measured best on this dataset: +5.3 points on a wearer the model "
+            "never saw.\n\n"
+            "Changing it means the saved model no longer matches -- retrain.")
+        self.mode_combo.currentIndexChanged.connect(self._on_mode_changed)
+        row.addWidget(self.mode_combo, 1)
+        layout.addLayout(row)
+
+        self.warning_label = make_label("", 10, False, COL_WARN)
+        self.warning_label.setWordWrap(True)
+        layout.addWidget(self.warning_label)
+
+        # ---- buttons ----------------------------------------------------
+        buttons = QtWidgets.QHBoxLayout()
+        self.save_button = QtWidgets.QPushButton("SAVE CALIBRATION")
+        self.save_button.setObjectName("primary")
+        self.save_button.setMinimumHeight(32)
+        self.save_button.clicked.connect(self._save)
+        buttons.addWidget(self.save_button, 2)
+
+        self.clear_button = QtWidgets.QPushButton("CLEAR")
+        self.clear_button.setMinimumHeight(32)
+        self.clear_button.setToolTip(
+            "Drop this wearer's calibration. The full record is written to "
+            "calibration_log.jsonl before the file goes, so the measurement "
+            "is not lost.")
+        self.clear_button.clicked.connect(self._clear)
+        buttons.addWidget(self.clear_button, 1)
+
+        close = QtWidgets.QPushButton("CLOSE")
+        close.setMinimumHeight(32)
+        close.clicked.connect(self.reject)
+        buttons.addWidget(close, 1)
+        layout.addLayout(buttons)
+
+        fit_to_screen(self, 680, 900)
+
+    # -- stream state ---------------------------------------------------------
+
+    def stream_state(self) -> tuple:
+        """
+        (ok, message). Judged on the age of the newest SAMPLE, not on the link
+        state: what a capture needs is samples, and an armband that has gone
+        to sleep is still "connected" while supplying none.
+        """
+        if self.acq is None:
+            return False, "no acquisition -- the armband is not set up"
+        try:
+            stats = self.acq.stats()
+        except Exception as exc:                               # pragma: no cover
+            return False, f"cannot read the stream: {exc}"
+        age = stats.get("last_sample_age")
+        rate = stats.get("rate") or 0.0
+        if age is None:
+            state = getattr(self.acq, "state", "") or "not connected"
+            return False, f"no samples yet ({state})"
+        if age > CALIBRATION_STALE_SECONDS:
+            return False, (f"no sample for {age:.1f} s -- the stream has "
+                           f"stopped")
+        return True, f"streaming, {rate:.0f} Hz"
+
+    def _streaming(self) -> bool:
+        return self.stream_state()[0]
+
+    # -- live capture ---------------------------------------------------------
+
+    def _start(self, which: str, prepare: bool = False) -> None:
+        """`which` is "rest", "effort", or a gesture label."""
+        if self.phase != self.IDLE:
+            return
+        ok, message = self.stream_state()
+        if not ok:
+            self._queue = []
+            self.warning_label.setText(
+                f"Cannot capture: {message}. Connect the armband, or use "
+                f"DERIVE FROM RECORDED DATA.")
+            self._refresh()
+            return
+        self.warning_label.setText("")
+        self._target = which
+        if prepare:
+            self.phase = self.PREPARE
+            self._deadline = time.perf_counter() + CALIBRATION_PREPARE_SECONDS
+        else:
+            self.phase = self.COUNTING
+            self._deadline = time.perf_counter() + self._seconds_for(which)
+        self._refresh()
+
+    def _seconds_for(self, which: str) -> float:
+        if which == "rest":
+            return float(CALIBRATION_REST_SECONDS)
+        if which == "effort":
+            return float(CALIBRATION_EFFORT_SECONDS)
+        return float(CALIBRATION_GESTURE_SECONDS)
+
+    def _cue_for(self, which: str) -> str:
+        if which == "rest":
+            return "RELAX"
+        if which == "effort":
+            return "SQUEEZE HARD"
+        return which
+
+    def _on_tick(self) -> None:
+        if self.phase == self.IDLE:
+            self._refresh_stream_line()
+            return
+
+        remaining = self._deadline - time.perf_counter()
+        cue = self._cue_for(self._target)
+
+        if self.phase == self.PREPARE:
+            if remaining > 0:
+                self.countdown_label.setText(f"GET READY:  {cue}")
+                self.live_label.setText("")
+                return
+            self.phase = self.COUNTING
+            self._deadline = time.perf_counter() + self._seconds_for(self._target)
+            return
+
+        if remaining > 0:
+            self.countdown_label.setText(f"{cue}   {remaining:.1f} s")
+            self.live_label.setText(self._live_text())
+            #  A capture that loses the stream half way through is not a
+            #  capture. Abandon it and say so rather than storing a stub.
+            if not self._streaming():
+                self.phase = self.IDLE
+                self._target = ""
+                self._queue = []
+                self.countdown_label.setText("")
+                self.warning_label.setText(
+                    "The stream stopped during the capture -- nothing was "
+                    "stored. Reconnect and try again.")
+                self._refresh()
+            return
+
+        self.countdown_label.setText("")
+        self.live_label.setText("")
+        self._capture(self._target)
+        self.phase = self.IDLE
+        self._target = ""
+        self._advance_sweep()
+        self._refresh()
+
+    def _live_text(self) -> str:
+        """The newest sample's per-channel levels, as a one-line meter."""
+        if self.acq is None:
+            return ""
+        emg, _t = self.acq.ring.snapshot(12)
+        if emg.shape[0] == 0:
+            return ""
+        levels = np.asarray(emg, dtype=np.float64).mean(axis=0)
+        return "  ".join(f"{CHANNEL_NAMES[i]} {levels[i]:4.0f}"
+                         for i in range(min(N_CHANNELS, levels.size)))
+
+    def _capture(self, which: str) -> None:
+        """Take the span that just elapsed out of the ring buffer."""
+        seconds = self._seconds_for(which)
+        try:
+            rate = self.acq.stats().get("rate") or nominal_rate()
+        except Exception:                                      # pragma: no cover
+            rate = nominal_rate()
+        want = int(seconds * rate * 1.3) + 8
+        emg, t = self.acq.ring.snapshot(max(8, want))
+        if t.size:
+            keep = t >= (t[-1] - seconds)
+            emg = emg[keep]
+        if which == "rest":
+            self.rest_block = emg
+        elif which == "effort":
+            self.effort_block = emg
+        else:
+            self.gesture_blocks[which] = emg
+
+    # -- the sweep ------------------------------------------------------------
+
+    def start_sweep(self) -> None:
+        """REST first -- it sets the floor every gesture is judged against."""
+        if self.phase != self.IDLE:
+            return
+        self.gesture_blocks = {}
+        self.effort_block = None
+        self._queue = ["rest"] + self.sweep_gestures()
+        self._advance_sweep()
+
+    def abort_sweep(self) -> None:
+        """Stop cueing. Whatever was captured so far is kept."""
+        self._queue = []
+        self.phase = self.IDLE
+        self._target = ""
+        self.countdown_label.setText("")
+        self.live_label.setText("")
+        self._refresh()
+
+    def redo_selected(self) -> None:
+        label = self.selected_gesture()
+        if not label or self.phase != self.IDLE:
+            return
+        self._queue = []
+        self._start(label, prepare=True)
+
+    def selected_gesture(self) -> str:
+        row = self.sweep_table.currentRow()
+        item = self.sweep_table.item(row, 0) if row >= 0 else None
+        return item.text() if item is not None else ""
+
+    def _advance_sweep(self) -> None:
+        if not self._queue:
+            return
+        which = self._queue.pop(0)
+        #  No "GET READY" for rest -- the wearer is already relaxed.
+        self._start(which, prepare=(which != "rest"))
+
+    # -- derive ---------------------------------------------------------------
+
+    def _derive(self) -> None:
+        """Build the record from recordings instead of from a live capture."""
+        self.warning_label.setText("")
+        try:
+            recs = load_dataset(self.root, persons=[self.person_id],
+                                stage="prefer_trimmed", prefer="npz")
+        except Exception as exc:                               # pragma: no cover
+            self.warning_label.setText(f"could not read the dataset: {exc}")
+            return
+        if not recs:
+            self.warning_label.setText(
+                f"{self.person_id} has no recordings under {self.root} to "
+                f"derive a calibration from.")
+            return
+        record = calibration_from_recordings(recs, self.person_id)
+        if record is None:
+            self.warning_label.setText("no usable samples in those recordings.")
+            return
+        self.record = record
+        self.rest_block = self.effort_block = None
+        self.gesture_blocks = {}
+        self._refresh()
+        ok, problems = validate_calibration(record)
+        self.warning_label.setText(
+            f"Derived from {len(recs)} recordings, labels not used. "
+            + ("Press SAVE CALIBRATION to keep it."
+               if ok else "REFUSED: " + problems[0]))
+
+    # -- state ----------------------------------------------------------------
+
+    def pending_record(self) -> Optional[dict]:
+        """
+        The record SAVE would write, in order of preference: the gesture
+        sweep, then the quick two-capture pair, then whatever is already
+        loaded (stored or derived).
+        """
+        try:
+            rate = (self.acq.stats().get("rate") if self.acq else None)
+        except Exception:                                      # pragma: no cover
+            rate = None
+        fs = rate or nominal_rate()
+
+        if self.rest_block is not None and self.gesture_blocks:
+            return calibration_from_gesture_captures(
+                self.rest_block, self.gesture_blocks,
+                person_id=self.person_id, session_id=SESSION_ID, fs=fs)
+        if self.rest_block is not None and self.effort_block is not None:
+            return calibration_from_captures(
+                self.rest_block, self.effort_block,
+                person_id=self.person_id, session_id=SESSION_ID,
+                fs=fs, source="live")
+        return self.record
+
+    def _level_text(self, block, percentile: float) -> str:
+        if block is None:
+            return "not measured"
+        n = int(np.asarray(block).shape[0])
+        if n < CALIBRATION_MIN_SAMPLES:
+            return f"only {n} samples -- need {CALIBRATION_MIN_SAMPLES}"
+        levels = np.percentile(np.asarray(block, dtype=np.float64),
+                               percentile, axis=0)
+        return f"{n} samples, mean level {np.mean(levels):.0f}"
+
+    def _refresh_stream_line(self) -> None:
+        ok, message = self.stream_state()
+        self.stream_label.setText(("STREAM: " if ok else "NO STREAM: ")
+                                  + message)
+        self.stream_label.setStyleSheet(
+            f"color: {COL_GOOD if ok else COL_WARN}; background: transparent;")
+        busy = self.phase != self.IDLE
+        for widget in (self.sweep_button, self.rest_button,
+                       self.effort_button):
+            widget.setEnabled(ok and not busy)
+        self.redo_button.setEnabled(ok and not busy
+                                    and bool(self.selected_gesture()))
+        self.abort_button.setEnabled(busy or bool(self._queue))
+
+    def _refresh(self) -> None:
+        busy = self.phase != self.IDLE
+        self._refresh_stream_line()
+        for widget in (self.derive_button, self.clear_button,
+                       self.mode_combo):
+            widget.setEnabled(not busy)
+
+        self.rest_result.setText(
+            self._level_text(self.rest_block, CALIBRATION_REST_PERCENTILE))
+        self.effort_result.setText(
+            self._level_text(self.effort_block, CALIBRATION_EFFORT_PERCENTILE))
+        self._fill_sweep_table()
+
+        record = self.pending_record()
+        self.clear_button.setEnabled(
+            not busy
+            and load_calibration(self.root, self.person_id) is not None)
+
+        if record is None:
+            self.state_label.setText(f"{self.person_id} has no calibration.")
+            self.state_label.setStyleSheet(
+                f"color: {COL_TEXT_DIM}; background: transparent;")
+            self.save_button.setEnabled(False)
+            self._fill_table(None, None)
+            return
+
+        ok, problems = validate_calibration(record)
+        self.save_button.setEnabled(bool(ok) and not busy)
+        self.state_label.setText(describe_calibration(record, self.mode))
+        self.state_label.setStyleSheet(
+            f"color: {COL_GOOD if ok else COL_BAD}; background: transparent;")
+        if problems:
+            self.warning_label.setText("REFUSED: " + "  ".join(problems))
+        levels = calibration_levels(record)
+        self._fill_table(*(levels if levels else (None, None)))
+
+    def _fill_sweep_table(self) -> None:
+        """One row per gesture in the sweep, with how its capture landed."""
+        wanted = self.sweep_gestures()
+        extra = [g for g in self.gesture_blocks if g not in wanted]
+        rows = wanted + sorted(extra)
+        rest_levels = (np.percentile(
+            np.asarray(self.rest_block, dtype=np.float64),
+            CALIBRATION_REST_PERCENTILE, axis=0)
+            if self.rest_block is not None
+            and np.asarray(self.rest_block).size else None)
+
+        keep = self.selected_gesture()
+        self.sweep_table.setRowCount(len(rows))
+        self.sweep_table.setFixedHeight(24 * max(1, len(rows)) + 28)
+        for row, label in enumerate(rows):
+            block = self.gesture_blocks.get(label)
+            if block is None:
+                cells = [label, "--", "--", "not captured"]
+                colour = COL_TEXT_DIM
+            else:
+                q = calibration_capture_quality(block, rest_levels)
+                cells = [label, str(q["n_samples"]),
+                         (f"CH{q['peak_channel']} "
+                          f"{q['contrast']:.1f}x" if q["peak_channel"] else "--"),
+                         "accepted" if q["ok"] else q["reason"]]
+                colour = COL_GOOD if q["ok"] else COL_BAD
+            for col, text in enumerate(cells):
+                item = QtWidgets.QTableWidgetItem(text)
+                if col:
+                    item.setForeground(QtGui.QColor(colour))
+                self.sweep_table.setItem(row, col, item)
+            if label == keep:
+                self.sweep_table.selectRow(row)
+
+    def _fill_table(self, rest, reference) -> None:
+        for row in range(N_CHANNELS):
+            self.table.setItem(row, 0,
+                               QtWidgets.QTableWidgetItem(CHANNEL_NAMES[row]))
+            for col, values in ((1, rest), (2, reference)):
+                text = "--" if values is None else f"{values[row]:.0f}"
+                item = QtWidgets.QTableWidgetItem(text)
+                item.setTextAlignment(QtCore.Qt.AlignRight
+                                      | QtCore.Qt.AlignVCenter)
+                self.table.setItem(row, col, item)
+
+    def _on_mode_changed(self) -> None:
+        self.mode = self.mode_combo.currentData() or "off"
+        self._refresh()
+
+    # -- actions --------------------------------------------------------------
+
+    def _save(self) -> None:
+        record = self.pending_record()
+        if record is None:
+            return
+        try:
+            path = save_calibration(record, self.root, self.person_id)
+        except (ValueError, OSError) as exc:
+            QtWidgets.QMessageBox.warning(self, "Calibration",
+                                          f"Not saved:\n\n{exc}")
+            return
+        self.record = record
+        self.rest_block = self.effort_block = None
+        self.gesture_blocks = {}
+        self.saved = True
+        self.result_path = path
+        self.accept()
+
+    def _clear(self) -> None:
+        answer = QtWidgets.QMessageBox.question(
+            self, "Clear calibration",
+            f"Drop {self.person_id}'s calibration?\n\n"
+            "The full record goes into calibration_log.jsonl first, so the "
+            "measurement is not lost and can be put back by hand.\n\n"
+            "A model that was trained WITH calibration will refuse to "
+            "predict until this wearer has one again.",
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+            QtWidgets.QMessageBox.No)
+        if answer != QtWidgets.QMessageBox.Yes:
+            return
+        clear_calibration(self.root, self.person_id, "cleared from the GUI")
+        self.record = None
+        self.rest_block = self.effort_block = None
+        self.gesture_blocks = {}
+        self.saved = True
+        self.accept()
+
+    def closeEvent(self, event) -> None:                       # pragma: no cover
+        self.tick.stop()
+        super().closeEvent(event)
+
+
 class ModelSpecDialog(QtWidgets.QDialog):
     """
     Which classifiers the sweep trains, with what hyperparameters, and whether
@@ -10338,6 +11824,8 @@ class DecisionPanel:
                 and setup.get("feature_set") == predictor.feature_set
                 and setup.get("representation") == predictor.representation
                 and bool(setup.get("freq_features")) == bool(predictor.freq_features)
+                and (setup.get("calibration_mode", "off")
+                     == predictor.calibration_mode)
                 and int(setup.get("window_samples", -1)) == int(predictor.window_samples))
 
     def stale_reason(self, predictor: "LivePredictor") -> str:
@@ -10354,6 +11842,8 @@ class DecisionPanel:
                  predictor.representation),
                 ("frequency features", bool(setup.get("freq_features")),
                  bool(predictor.freq_features)),
+                ("calibration mode", setup.get("calibration_mode", "off"),
+                 predictor.calibration_mode),
                 ("window samples", int(setup.get("window_samples", -1)),
                  int(predictor.window_samples))):
             if mine != theirs:
@@ -10581,6 +12071,14 @@ class LivePredictor:
         self.representation = "raw"
         self.feature_set = "level"
         self.freq_features = True
+        # The per-wearer calibration this model was FITTED with, and the
+        # resolved calibration of whoever is wearing the band now. If the
+        # model needs one and the wearer has none, `load()` refuses: feeding
+        # device counts to a model fitted on a calibrated scale produces
+        # confident wrong answers, not an error.
+        self.calibration_mode = "off"
+        self.calibration: Optional[dict] = None
+        self.calibration_note = ""
         self.stats: dict = {}
         self.payload_meta: dict = {}
         self.status = "disabled"
@@ -10639,6 +12137,10 @@ class LivePredictor:
         self.loaded_mtime = os.path.getmtime(self.full_path) \
             if os.path.exists(self.full_path) else 0.0
 
+        if not self._load_calibration(payload.get("calibration")):
+            self.model = None
+            return False
+
         n_expected = len(model_feature_names(self.feature_set,
                                              self.freq_features))
         self.status = "ready"
@@ -10654,6 +12156,51 @@ class LivePredictor:
             self.status = (f"model expects different features than "
                            f"{self.feature_set!r} produces ({n_expected}): {exc}")
             return False
+        return True
+
+    def _load_calibration(self, block: dict) -> bool:
+        """
+        Resolve the calibration this model needs for the CURRENT wearer.
+
+        Returns False and sets `status` when the model was fitted on
+        calibrated features and the wearer has no usable calibration. That is
+        a refusal on purpose: the model would still answer, at ~7 Hz, with
+        every amplitude feature off by that wearer's gain, and a confidently
+        wrong label is worse than a panel that says what is missing. Same
+        rule as the decision panel -- a mismatch is refused, not fed.
+
+        A model trained with "off" never looks at a calibration, so a wearer
+        who has one is unaffected by having it.
+        """
+        self.calibration = None
+        self.calibration_note = ""
+        block = block if isinstance(block, dict) else {}
+        mode = block.get("mode", "off") or "off"
+        self.calibration_mode = mode
+        if mode == "off":
+            return True
+
+        record = load_calibration(DATA_FOLDER, PERSON_ID)
+        if record is None:
+            self.status = (
+                f"this model was trained on {mode!r} per-wearer calibration, "
+                f"and {PERSON_ID} has none. Press CALIBRATE, or retrain with "
+                f"calibration off.")
+            return False
+        resolved = resolve_calibration(record, mode)
+        if resolved is None:
+            _ok, problems = validate_calibration(record)
+            self.status = (
+                f"{PERSON_ID}'s calibration cannot be applied in {mode!r} "
+                f"mode: {problems[0] if problems else 'invalid record'}")
+            return False
+        self.calibration = resolved
+        trained_on = list(block.get("subjects") or [])
+        self.calibration_note = (
+            f"{mode} calibration, {PERSON_ID} measured "
+            f"{(record.get('created_iso') or '')[:16].replace('T', ' ')}"
+            + (f" | model trained on: {', '.join(trained_on)}"
+               if trained_on else ""))
         return True
 
     @property
@@ -10673,8 +12220,10 @@ class LivePredictor:
         name = self.stats.get("model_name", "model")
         acc = self.stats.get("recording_vote_accuracy")
         suffix = f", {acc * 100:.0f} % per-gesture CV" if acc else ""
+        cal = (f"  |  {self.calibration_mode} calibration"
+               if self.calibration_mode != "off" else "")
         return (f"{name}  |  {self.window_s * 1000:.0f} ms @ {self.fs:.0f} Hz  |  "
-                f"{self.feature_set} features{suffix}")
+                f"{self.feature_set} features{cal}{suffix}")
 
     def data_status(self, fingerprint: dict = None) -> dict:
         """
@@ -10712,7 +12261,7 @@ class LivePredictor:
         block = resample_uniform(emg, t, self.window_samples)
         features = model_feature_vector(
             block, self.representation, self.feature_set,
-            self.freq_features, self.fs,
+            self.freq_features, self.fs, self.calibration,
         )[None, :]
         self.last_features = features
         self.last_window = block
@@ -11655,6 +13204,31 @@ class MainWindow(QtWidgets.QMainWindow):
         self.spec_summary.setWordWrap(True)
         layout.addWidget(self.spec_summary)
 
+        #  Per-wearer calibration. Optional, and the button says which of the
+        #  two things it would do: measure a first one, or replace the one
+        #  that is in force. A calibration never expires on its own.
+        if CALIBRATION_ENABLED:
+            self.calibration_button = QtWidgets.QPushButton("CALIBRATE...")
+            self.calibration_button.setMinimumHeight(30)
+            self.calibration_button.setToolTip(
+                "Measure this wearer's rest and strong-contraction levels so "
+                "a given number means the same effort on anybody.\n\n"
+                "Six seconds, measured once, valid until you press "
+                "RECALIBRATE. Nothing recorded is modified, and it is applied "
+                "only in the mode you choose -- 'off' leaves the pipeline "
+                "exactly as it was.  Ctrl+Shift+C")
+            self.calibration_button.clicked.connect(self.open_calibration)
+            layout.addWidget(self.calibration_button)
+
+            self.calibration_label = make_label("", FS_SM, True, COL_TEXT_DIM)
+            self.calibration_label.setWordWrap(True)
+            layout.addWidget(self.calibration_label)
+
+            self._calibration_shortcut = QtGui.QShortcut(
+                QtGui.QKeySequence("Ctrl+Shift+C"), self)
+            self._calibration_shortcut.activated.connect(self.open_calibration)
+            self._refresh_calibration_panel()
+
         #  Is a model trained, on what, and is it still current? The detail
         #  goes in the tooltip and in MODEL STATS; this is the headline.
         self.model_status_label = make_label("", FS_SM, True, COL_TEXT_DIM)
@@ -12115,6 +13689,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 and self.take_list.currentItem() is not None
                 and bool(self.take_list.currentItem().data(
                     QtCore.Qt.UserRole + 1)))
+        if CALIBRATION_ENABLED and hasattr(self, "calibration_button"):
+            # Calibrating reads the live signal, so it waits for whatever is
+            # currently recording -- same reason DELETE TAKE(S) does.
+            self.calibration_button.setEnabled(
+                not self.sequence.running and not taking)
         labelling = self.label_mode_button.isChecked()
         self.label_mode_button.setEnabled(not self.sequence.running
                                           or labelling)
@@ -12262,6 +13841,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self._load_session_markers()
         self._refresh_take_history()
         self._refresh_plan_info()
+        # A calibration belongs to the PERSON, so switching subject switches
+        # which calibration is in force -- and can make the loaded model
+        # unusable, if it was trained calibrated and this wearer has none.
+        self._refresh_calibration_panel()
+        if CALIBRATION_ENABLED and self.predictor.calibration_mode != "off":
+            self.predictor.load()
+            self._refresh_prediction_panel()
 
     def _on_metadata_changed(self) -> None:
         self._set_global("HANDEDNESS", self.hand_combo.currentText())
@@ -14090,6 +15676,96 @@ class MainWindow(QtWidgets.QMainWindow):
             self._append_log(
                 "  the loaded model is unchanged -- retrain to apply this.")
 
+    # -- per-wearer calibration ----------------------------------------------
+
+    def open_calibration(self) -> None:
+        """
+        Measure or replace the current wearer's calibration.
+
+        A calibration belongs to the person in the SUBJECT panel, so it is
+        measured for `self.person_id` and stored in that person's folder. It
+        stays in force until this dialog is used again -- there is no expiry
+        and nothing re-estimates it per recording.
+
+        Changing the calibration or its mode does NOT change the loaded
+        model, which was fitted on whatever scale was in force when it was
+        trained. That is recorded inside the payload, so the mismatch is
+        reported rather than silently applied.
+        """
+        if not CALIBRATION_ENABLED:
+            return
+        if self.sequence.running or self.free_capture is not None:
+            self.status.showMessage(
+                "stop the recording first -- calibrating reads the live "
+                "signal", 6000)
+            return
+
+        root = os.path.join(PROJECT_DIR, DATA_FOLDER)
+        before = load_calibration(root, self.person_id)
+        before_mode = CALIBRATION_MODE
+        dialog = CalibrationDialog(self, self.acq, self.person_id, root,
+                                   CALIBRATION_MODE)
+        dialog.exec()
+
+        if dialog.mode != before_mode:
+            self._set_global("CALIBRATION_MODE", dialog.mode)
+            self._append_log(f"Calibration mode: {before_mode} -> "
+                             f"{dialog.mode}.")
+
+        if dialog.saved:
+            after = load_calibration(root, self.person_id)
+            if after is None:
+                self._append_log(
+                    f"Calibration cleared for {self.person_id} "
+                    f"(kept in {CALIBRATION_LOG_NAME}).")
+            else:
+                self._append_log(
+                    f"Calibration {'replaced' if before else 'measured'} for "
+                    f"{self.person_id}: "
+                    f"{describe_calibration(after, CALIBRATION_MODE)}")
+
+        self._refresh_calibration_panel()
+        if dialog.mode != before_mode or dialog.saved:
+            #  The payload records which scale it was fitted on, so a change
+            #  here can make the loaded model unusable. Reload it so the
+            #  panel says that now instead of at the next prediction.
+            self.predictor.load()
+            self._rebuild_prob_bars()
+            self._refresh_prediction_panel()
+            self._refresh_model_status(force=True)
+            if (self.predictor.calibration_mode != CALIBRATION_MODE
+                    and self.predictor.model is not None):
+                self._append_log(
+                    f"  the loaded model was trained with calibration "
+                    f"{self.predictor.calibration_mode!r} -- retrain to use "
+                    f"{CALIBRATION_MODE!r}.")
+
+    def _refresh_calibration_panel(self) -> None:
+        """One line: is this wearer calibrated, and is it being applied?"""
+        if not CALIBRATION_ENABLED or not hasattr(self, "calibration_label"):
+            return
+        root = os.path.join(PROJECT_DIR, DATA_FOLDER)
+        info = calibration_status(root, self.person_id, CALIBRATION_MODE)
+        colour = {"active": COL_GOOD, "stored": COL_WARN,
+                  "invalid": COL_BAD, "none": COL_TEXT_DIM,
+                  "disabled": COL_TEXT_DIM}.get(info["state"], COL_TEXT_DIM)
+        headline = {
+            "active": "CALIBRATED",
+            "stored": "CALIBRATED -- not applied",
+            "invalid": "CALIBRATION REFUSED",
+            "none": "NOT CALIBRATED",
+            "disabled": "CALIBRATION OFF",
+        }[info["state"]]
+        self.calibration_label.setText(f"{headline}  ({info['summary']})")
+        self.calibration_label.setStyleSheet(
+            f"color: {colour}; background: transparent;")
+        self.calibration_button.setText(
+            "RECALIBRATE..." if info["record"] is not None else "CALIBRATE...")
+        tip = info["summary"]
+        if info["problems"]:
+            tip += "\n\n" + "\n".join(info["problems"])
+        self.calibration_label.setToolTip(tip)
+
     # -- model status ---------------------------------------------------------
 
     def _refresh_model_status(self, force: bool = False) -> None:
@@ -14376,7 +16052,11 @@ class MainWindow(QtWidgets.QMainWindow):
         out_dir = os.path.dirname(os.path.abspath(
             self.predictor.full_path)) or PROJECT_DIR
         args = ["-u", script, "--root", root, "--out-dir", out_dir,
-                "--model-path", self.predictor.full_path]
+                "--model-path", self.predictor.full_path,
+                # Same reason as --root and --model-path: the subprocess must
+                # calibrate the way the GUI is set to, not the way its own
+                # module default happens to read.
+                "--calibration", CALIBRATION_MODE]
 
         # Write the spec out first so the subprocess reads exactly what the
         # GUI is showing, even if it was never saved from the dialog.
