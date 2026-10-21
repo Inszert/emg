@@ -17,7 +17,7 @@ The deliverable is a recording tool, not a model. No classifier is trained yet.
 
 | Item | Value |
 |---|---|
-| Device | Thalmic Myo armband, 8 dry EMG pods |
+| Device | Thalmic Myo armband, 8 dry EMG pods. **The channel count is no longer hardcoded** -- it comes from `DEVICE_PROFILES[EMG_DEVICE]`, see §2b. |
 | BLE name | `Myo_TUKE` |
 | Firmware | `1.5.1970.2` (verified on hardware) |
 | Link | Bluegiga BLED112 BLE dongle, USB VID:PID `2458:0001` |
@@ -29,6 +29,62 @@ The deliverable is a recording tool, not a model. No classifier is trained yet.
 
 `myo64.dll` is a leftover from the official Myo SDK. **It is not used** —
 everything goes over the serial protocol in `myo_raw.py`.
+
+## 2b. A second band — what is ready, and what is not
+
+Added 2026-10-19, before the band is known. `N_CHANNELS = 8` used to be a
+bare literal in the middle of the module, used at 44 sites, which made a
+second armband a search-and-replace across all of them. It is now **derived**:
+
+```python
+DEVICE_PROFILES = {"myo": {"channels": 8, ...}, "generic_16": {...}}
+EMG_DEVICE = "myo"
+N_CHANNELS = int(device_profile()["channels"])      # derived
+set_device("generic_16")                            # recomputes the derived globals
+```
+
+**The rule that makes this safe: anything holding real data follows the DATA,
+not the config.** A recording made on an 8-channel band must keep loading
+after `EMG_DEVICE` moves to a wider one — otherwise changing one config line
+would silently make the whole existing dataset unreadable. So:
+
+| Follows the data | Follows the config |
+|---|---|
+| `Recording.n_channels` / `.channel_names` (read off the array) | `SampleRing`, the live plot, the CHANNELS panel |
+| the metadata sidecar's `n_channels` | the feature-name generators' *default* |
+| `csv_header(n_channels)` and the CSV reader (channel columns taken from the **header**, sorted numerically so `ch10` does not land between `ch1` and `ch2`) | |
+| `calibration_levels` / `resolve_calibration` / `apply_calibration` (sized from the record) | |
+| `make_windows`, `model_feature_names(..., n_channels)` | |
+
+**Verified at 4, 8, 12 and 16 channels** while the config still said 8: npz
+and CSV both round-trip bit-identically at every width, the metadata reports
+the real count, `make_windows` returns the right third dimension, and the
+feature vector and its names stay the same length (50/154/104 at 8 channels,
+98/306/208 at 16).
+
+**`apply_calibration` refuses a width mismatch rather than broadcasting.** An
+8-wide map onto a 16-wide window would either raise or — worse — succeed on a
+multiple. It returns the block untouched, which is the same "behave as the
+uncalibrated pipeline" answer an unusable record gets: degrade to no
+calibration, never to a wrong one.
+
+**What is NOT done, and must not be assumed:**
+
+- **acquisition is still Myo-only.** `myo_raw.py` is the working
+  communication layer and §3's rules still apply to it in full. A profile
+  makes the DATA side band-agnostic; it does not make the app talk to
+  anything else. A second band needs its own backend behind the same
+  `MyoAcquisition`-shaped interface.
+- **no cross-band model.** A model trained on 8 channels has 8 channels'
+  worth of features; `LivePredictor` already refuses a feature-count
+  mismatch at load time, so the failure is a refusal rather than nonsense,
+  but there is no channel mapping between bands and inventing one would be
+  guesswork.
+- **`CHANNEL_COLORS` and the plot are built once** at construction, so a
+  `set_device()` call mid-session does not rebuild the GUI. Set the profile
+  before starting.
+- the `generic_16` profile is a **placeholder** showing the shape of an
+  entry. It is not a real band and nothing has been validated against one.
 
 ## 3. Myo connection architecture — DO NOT REPLACE
 
@@ -93,7 +149,11 @@ still run.
 | **`train_model.py`** | **Three-stage** model sweep (screen → shortlist probe → full) + honest validation + saves `models/gesture_model.joblib`. Imports the data layer from `emg_dataset_tool`. Builds its candidates from `models/model_spec.json` when the GUI passes `--spec`. See §8g for the cost controls. |
 | **`how_to_fix_long_training.md`** | **Why the sweep took 3h 16m and what was done about it.** The four issues, the measured regret of shortlisting, and what dedup costs in accuracy. Read it before touching `DEDUPE_WINDOWS` or `A2_SHORTLIST`. See §8g. |
 | **`explain_votes.py`** | Rebuilds `models/gesture_panel.joblib` for the model that is *already* saved, without re-running the sweep. For a model trained before the panel existed, or a panel that was deleted. `--json` also writes `models/reports/decisions.json`. See §8e. |
-| `train_torch.py` | **RETIRED.** The CUDA neural-net experiment (1D-CNN / LSTM / CNN-LSTM). Kept for the record, not part of the workflow: it lost to a plain LDA. Nothing in the app reads its output. See §8b. |
+| **`train_job.py`** | **The background job runner.** Every trainer the GUI starts runs through it, detached, so closing the app does not stop training; also chains ML + NN. Talks to the GUI only through files in `models/jobs/<id>/`. See §8m. |
+| **`train_nn.py`** | **The neural-net trainer (CUDA).** The separate second opinion: sweeps five small sequence architectures under the *same* protocol as `train_model.py` (dedup, subject-grouped folds, calibration, DC-only control) and saves `models/gesture_nn.pt` + a plain-JSON stats sidecar. Its output is **never** fused into the deployed answer. See §8L. |
+| **`nn_arch.py`** | The five architectures, and the only place a layer is defined. Imports **torch and nothing else** — shared by the trainer and the inference worker so a checkpoint cannot be rebuilt onto a differently-wired net. §8L. |
+| **`nn_serve.py`** | **The live inference worker.** The only process that imports torch: loads the checkpoint and answers one window per line on stdin/stdout. This is what lets the net run on CUDA while the recorder keeps its no-torch invariant. §8L. |
+| `train_torch.py` | **RETIRED and SUPERSEDED by `train_nn.py`.** The original CUDA neural-net experiment (1D-CNN / LSTM / CNN-LSTM). Kept for the record only: it lost to a plain LDA and, unlike `train_nn.py`, it had no dedup and no subject-grouped selection, so its numbers are not comparable with anything current. See §8b. |
 | `myo_raw.py` | Myo BLE protocol wrapper. **The working communication layer.** |
 | `common.py` | `pack`/`unpack` helpers used by `myo_raw.py`. |
 | `myo.py` | Original k-NN pose demo. Not part of the tool; kept for reference. |
@@ -108,7 +168,7 @@ still run.
 | `docs/ARCHITECTURE.md` | Threads, buffers, state machine, data flow. |
 | `docs/ML_PIPELINE.md` | From recordings to a validated model. |
 | `requirements.txt` | Dependencies. |
-| `tests/` | Seventeen runnable check scripts (1746 checks total, three need the armband). See `tests/README.md`. |
+| `tests/` | Nineteen runnable check scripts (~2039 checks total, three need the armband). The fifteen that need no hardware were green at **1787/1787** on 2026-10-19. See `tests/README.md`. |
 | `datasets/` | Recorded data (created on first run). Also `<person>/calibration.json` + `calibration_log.jsonl` — the per-wearer calibration, §8k. |
 | `exports/` | Combined ML bundles from the EXPORT button. |
 | `models/` | `gesture_model.joblib` (loaded by the app), `gesture_panel.joblib` (the DECISION TRAIL side file, §8e), timestamped archives, and `reports/` with every sweep's full results. |
@@ -127,9 +187,12 @@ SECTION 4  dataset          Recording, DatasetWriter, loaders, make_windows,
                             Marker + marker log + notes sidecar,
                             free takes (save_take / list_takes)
 SECTION 5  acquisition      SampleRing, Capture, MyoAcquisition  (no Qt)
+SECTION 5b neural engine    nn_stats_path/load_nn_stats, the line protocol,
+                            NeuralPrediction, NeuralEngine  (no Qt, NO torch)
 SECTION 6  sequence         build_plan, SequenceController         (no Qt)
 SECTION 7  GUI              theme, EmgPlotWidget, StatusBanner,
-                            QualityDialog, TrimDialog, MainWindow
+                            QualityDialog, TrimDialog, NeuralStatsDialog,
+                            MainWindow
 SECTION 8  entry point      main()
 ```
 
@@ -259,6 +322,24 @@ from today's config.
 `LABEL_DEFAULT_SELECTION_S` is the single default cut length, shared by
 SELECT LAST n s on the live graph and the cut dialog, and settable in both.
 
+**TAKES ON DISK is scoped to the current subject AND session, and now says
+so.** A take lives in `<person>/<session>/_takes/`, so a take recorded with
+`SESSION_ID = "session_03"` is simply not in the list when the app is reopened
+on the config file's `session_01` — and because every sitting carries the same
+six gesture labels, the list looks populated and correct while the takes you
+just made are missing. That is exactly how it was reported, on 2026-10-19,
+with six takes sitting safely in `Dano/session_03/_takes/`.
+
+Three things now make the scope visible rather than leaving it to be deduced:
+the header reads `TAKES ON DISK -- <person> / <session>`, the empty message
+names the pair instead of saying "this subject/session", and
+`takes_by_session()` (SECTION 4, Qt-free) reports the subject's *other*
+sessions so the panel can name them. It deliberately does **not** switch
+session on its own: `SESSION_ID` decides where the next recording is written,
+so changing it to make a list look right would be the wrong trade. The hint
+points at OPEN FILE(S)... instead, which reaches any take on disk without
+moving where new data goes.
+
 ### Markers and notes
 
 Independent of the cued sequence, and usable at any time while streaming:
@@ -282,6 +363,54 @@ it, never into the data file — `*_raw.*` stays byte-identical, which
 `tests/test_markers.py` checks on both the data layer and through the dialog.
 `MARKER_CUT_ENABLED` (and the checkbox mirroring it) decides whether cutting
 at markers is offered at all.
+
+## 7a. The label set, and recording the same gesture back to back
+
+**`GESTURES` is the set in use; `OPTIONAL_GESTURES` is what else the tool
+knows.** Added 2026-10-19 with `PINCH`, `THUMB_OVER_INDEX` and `POINT`, all
+**off by default**. `GESTURES...` (`Ctrl+Shift+G`) edits the set at runtime
+and writes back to the global, so the folder layout, the plan, every label
+combo and each recording's config snapshot follow it.
+
+Off by default on purpose: every extra class costs recording time from every
+future subject **and makes the problem harder**. Six classes on an 8-pod
+forearm band already collide — §8L measured `OPEN` against `WAVE_RIGHT` at
+**0.978 cosine**, i.e. nearly the same signal — so a seventh is only worth it
+when it is driven by a different muscle group rather than by a
+different-looking hand. `GESTURE_CUES` / `OPTIONAL_GESTURES` carry the
+instruction to show, so a cue can say what to do instead of naming a
+constant.
+
+**Switching a gesture off never touches data already on disk.** The folder
+and its recordings stay and the trainer still finds them, because discovery
+walks the tree rather than this list. A label set is a plan for what to
+record next, not a filter on what has been recorded.
+
+### "Five of the same gesture in a row" — `GESTURE_ORDER = "blocked"`
+
+This already existed and did exactly that; what was missing was that it was
+undiscoverable (the dropdown's tooltip described only "interleaved") and the
+hold length was not adjustable in the GUI. Both fixed.
+
+```
+blocked      REST REST REST REST REST  FIST FIST FIST FIST FIST  OPEN ...
+interleaved  one round of every gesture, shuffled within the round
+random       fully shuffled
+```
+
+**`RECORD_TIME` is 2.5 s** as of 2026-10-19, down from 4.0, and settable per
+session in the PLAN panel. The reason is specific to blocked order: five 4 s
+holds back to back is enough sustained contraction to drive measurable
+fatigue drift (§8f measured FIST losing 59 % of its amplitude across a 52 s
+hold). 2.5 s still yields ~7 windows per repetition at the model's
+0.3 s / 0.5 setting and is close to the 3 s median of the clips already on
+disk.
+
+**Blocked is the comfortable choice; interleaved is the honest one.** In
+blocked order all of a gesture's data comes from one stretch of time, which
+is the §8f confound being created deliberately — one take per gesture per
+sitting. Use blocked to collect comfortably, then collect *more sittings*
+rather than trusting the within-session score.
 
 ## 7b. Model specification
 
@@ -357,61 +486,68 @@ Then the app's LIVE CLASSIFIER panel works: one-shot or continuous mode, the
 prediction drawn over the graph, per-class probability bars, and a MODEL STATS
 dialog showing the cross-validated numbers with their protocol.
 
-**Current state of the model (2026-10-16, two subjects + calibration):** the
-payload on disk is `LDA-shrinkage` on `both` / `raw`, **0.5 s** windows at 0.5
-overlap with frequency features, six labels, trained on **85 recordings from
-two wearers** — `Dano` 44 and `Betka` 41 (935 deduped windows, **154**
-features) — on the **`affine` per-wearer calibrated scale** (§8k).
+**Current state of the model (2026-10-19, THREE subjects).** The payload on
+disk is `SVM-rbf-C10` on `raw` / `both`, 0.5 s windows at 0.5 overlap with
+frequency features, six labels, trained on **128 recordings from three
+wearers** -- `Dano` 44, `Betka` 41, `Barbora` 43 (1313 deduped windows, 154
+features) -- on the **`affine` per-wearer calibrated scale** (§8k).
 
-**It requires a calibration.** Every wearer must calibrate once before the
-classifier will run for them; `LivePredictor` refuses rather than predicting
-on the wrong scale. That is the cost of the +5.3 points below.
+It still **requires a calibration**: every wearer must calibrate once before
+the classifier will run for them, and `LivePredictor` refuses rather than
+predicting on the wrong scale.
 
 | Protocol | Window | Recording vote |
 |---|---|---|
-| **subject-grouped** (the chosen one) | **86.8 % ± 4.5** | 87.1 % |
-| recording-grouped (contrast) | 98.2 % | 98.8 % |
-| DC-only control, subject-grouped | 68.2 % | 62.4 % |
-| majority class | 19.3 % | — |
+| **subject-grouped** (the chosen one) | **64.8 % ± 14.8** | 74.0 % |
+| recording-grouped (contrast) | 94.8 % | 98.4 % |
+| DC-only control, subject-grouped | 61.7 % | 69.3 % |
+| majority class | 19.3 % | -- |
 
-Per wearer, held out: `Betka` 91.3 %, `Dano` 82.4 %. Macro F1 83.2 %.
+Per wearer, held out: `Dano` 76.4 %, `Betka` 74.1 %, **`Barbora` 43.9 %**.
+Macro F1 60.2 %. The neural net (§8L), scored the same way, reads 63.8 % ±
+16.3 per window with the same Barbora asymmetry (38.4 / 72.6 / 78.6).
 
-**The honest gain from calibration is +5.3 points, not +6.6.** The sweep
-derived each wearer's calibration from all of their own recordings, including
-the ones scored in their held-out fold. Re-measured with the calibration
-fitted on a disjoint third of each wearer's recordings — §8k's leak gate —
-calibrated beats uncalibrated **86.5 % against 81.3 %** per window and
-**88.2 % against 80.4 %** on the vote. Quote those.
+### Read the ± before the mean: Barbora is the hard fold
 
-The 11.4-point gap between the subject-grouped and recording-grouped
-protocols **is** the subject-specificity §8h predicted; calibration narrowed
-it from 17.6, which is the only thing that has ever moved it.
+Both models agree to within a few points: holding out Dano or Betka gives
+**73-79 %**, holding out Barbora gives **38-44 %**. That is a consistent
+35-point asymmetry, not noise, and it is the whole of the ± 15.
 
-*(Superseded, kept for the trend: the previous payload was `ExtraTrees-400` on
-`level`/`bandpass`, 0.3 s at 0.75, 3573 windows, 50 features, and scored
-83.3 % subject-grouped against 97.7 % recording-grouped. That was the
-project's first honest number — a second wearer tripped §8h's
-`SELECTION_GROUPING = "auto"` on its own, moving the folds to subject-grouped
-so the winner was chosen on a person it had never seen. Calibration then
-changed which feature family wins, so the setup moved too; §8k explains why.)*
+**Measured, so it is not a guess.** Mean per-gesture profile similarity
+between people: `Betka`/`Dano` 0.933, `Barbora`/`Betka` 0.912,
+`Barbora`/`Dano` **0.884** -- worst on WAVE_LEFT (0.81-0.83) and THUMB_UP
+(0.84). It is **not** amplitude: her active/rest contrast is 6.6x against
+9.7x and 8.8x, and her absolute levels are in line (239 active against 210
+and 181). What differs is the per-channel *pattern*, which is what a
+different band rotation looks like -- the one thing §8h lists as unhandled
+and which calibration explicitly does not fix, because a permutation of the
+channels is not a rescaling of them.
 
-> **The DC-only reporting bug is FIXED (2026-10-16).** `dc_only_control()`
-> used to be passed `groups` — the *recording* ids — so the control was scored
-> **recording-grouped** while the winner was scored **subject-grouped**. It
-> printed a gain of **−14.3 points** and tripped the "adds almost nothing"
-> warning by comparing two different protocols. It now takes `split_groups`
-> and is scored on the winner's own split key, prints which protocol that was,
-> and stores it in the report as `confound.dc_only_control.grouping`.
->
-> With that fixed, on the full sweeps: **uncalibrated** the control reads
-> 54.4 % subject-grouped against the winner's 80.2 %, so the real features are
-> worth **+25.8 points**; **calibrated** (`affine`, what is on disk) it reads
-> 68.2 % against 86.8 %, worth **+18.6**. *Within* a wearer the confound
-> remains total: DC-only 97.6 % against the recording-grouped contrast 97.7 %,
-> **+0.1 points**, as expected while each gesture is one take per person. Every
-> number now carries the protocol that produced it, and §8k adds the rule that
-> a *rising* DC-only score is not good news — the `gain` mode lifted it 20
-> points while leaving the real score flat.
+With three wearers, two cannot span the third. This is what n = 3 looks like
+honestly.
+
+> **The previous entry here (2026-10-16, "two subjects", 86.8 %) was
+> arithmetically fine and factually wrong.** `Barbora/session_01` had been
+> recorded with `PERSON_ID = "Dano"` still in the SUBJECT box, so 43 of her
+> recordings sat inside Dano's fold: the "held-out" person was partly in
+> training, and the calibration derived for Dano pooled two people's signal.
+> Corrected 2026-10-19 -- every clip and take re-saved under `Barbora` with
+> uid, timestamp and samples unchanged (EMG verified bit-identical), the
+> originals archived to `datasets/_corrected_Dano_session_03_to_Barbora/`,
+> and each person re-calibrated from their own signal alone. Dano's
+> calibration came back to exactly its known-good values. **The lesson is
+> that `person_id` is not a caption -- it is the key the folds split on and
+> the key a calibration is stored under, so getting it wrong corrupts the
+> protocol rather than the labelling.**
+
+> **The DC-only control is now the thing to worry about.** On this dataset
+> the winner's 146 non-DC features add only **+3.1 points** over the 8
+> channel means, and the neural net's control came out at **-1.0** -- the
+> identical net with all temporal structure removed scored 64.9 % against
+> 63.8 %. Both models are substantially reading per-channel amplitude
+> levels, which transfer between wearers *because* calibration makes them
+> transfer. That is §8k's warning landing exactly as written: a rising
+> DC-only score is not good news. Gesture shape is not carrying this result.
 
 Retrain after each new sitting and after each new wearer.
 
@@ -422,6 +558,17 @@ weak-contraction problem — `no_activity` is now 8 flags in 308 — and created
 a different one, below.)*
 
 ## 8b. The CUDA path (`train_torch.py`) — RETIRED 2026-10-14
+
+> **SUPERSEDED 2026-10-19 by `train_nn.py` (§8L).** A neural net is back in
+> the project, but not this one: §8L's trainer shares `train_model.py`'s
+> protocol (dedup, subject-grouped folds, calibration, the DC-only control),
+> runs its inference in a subprocess so the recorder still never imports
+> torch, and is kept strictly out of the deployed answer. `train_torch.py`
+> itself is still retired, is still not run, and its numbers are **not**
+> comparable with anything current — it had no window-level dedup and chose
+> its winner on recording-grouped folds. Read §8L for what replaced it; the
+> rest of this section is the record of why it was retired, which §8L's
+> headline result has now confirmed a second time.
 
 > **Not part of the workflow any more.** The project trains only the
 > traditional classifiers in `models/model_spec.json`. `train_torch.py`, its
@@ -543,6 +690,26 @@ the compute badge: the honest answer to an unanswerable question is to say
 it is unanswerable.
 
 ### The GPU/CPU badge in the GUI
+
+> **Two stale-signal bugs fixed 2026-10-19, same family, both found by
+> tests.** `QTimer.singleShot` cannot be cancelled, so a probe that answered
+> in 8 s still had a timeout due at 30 s; when it landed it killed whatever
+> probe was running *then* and reported "the device probe did not answer" --
+> on a machine with a working GPU. The identical flaw existed on the
+> `finished` signal: a killed probe's signal arrives asynchronously and was
+> read as the *replacement* probe answering with empty output. Both handlers
+> are now bound to their own `QProcess` and ignore a signal from any other.
+>
+> Worth remembering as a shape rather than as two fixes: **anything
+> asynchronous that outlives its subject must carry the subject's identity.**
+> `NeuralEngine` (§8L) is not affected -- its start timeout is computed from
+> an elapsed time that `start()` resets, so there is no detached timer to go
+> stale -- but the next `QProcess` added here will have the same trap.
+>
+> They surfaced only because `tests/test_gui.py` grew past the 30 s mark, so
+> the regression check now simulates a stale timer directly instead of
+> relying on the suite happening to be slow.
+
 
 The recorder must never import torch (see §13), so it asks a subprocess:
 `COMPUTE_PROBE_SNIPPET` + `parse_compute_probe()` live in the data layer
@@ -1168,6 +1335,17 @@ hold it harder") and is excluded from the max until it is redone. That is the
 wearer decides when to stop, and the dialog will not pretend a shrug was a
 gesture.
 
+**REST is calibrated too, with its own row and its own gate** (added
+2026-10-21). It is the first row of the sweep table, is judged by
+`calibration_rest_quality()`, and can be redone like any gesture. It is
+rejected if any channel's median exceeds `CALIBRATION_MAX_REST_LEVEL` (50
+counts; measured relaxed rest is 19–26) — a hand left tense would raise the
+floor `affine` subtracts and quietly fail every gesture judged against it.
+A rejected rest builds **nothing**: SAVE stays off until it is redone, and the
+gestures are judged against the hardware floor meanwhile. The median, so one
+twitch does not fail it; and the ceiling sits below the 60-count gesture
+floor, so a rest can never pass as a gesture.
+
 The quick **rest + one squeeze** path is kept, because six seconds is better
 than nothing, and `DERIVE FROM RECORDED DATA` is kept because it needs no
 armband. All three write the same record shape; `source` says which produced
@@ -1454,6 +1632,311 @@ instead of 640.
   a feature space where some people are calibrated and some are not is not one
   scale and its scores mean nothing.
 
+## 8L. The neural network — back, on CUDA, and deliberately NOT in the answer
+
+Added 2026-10-19. The retired experiment (§8b) is back as a **separate second
+opinion**: it has its own trainer, its own checkpoint, its own process, its
+own START button, its own probability bars and its own statistics dialog, and
+its output is never averaged into anything.
+
+```
+nn_arch.py            the five architectures -- torch, and nothing else
+train_nn.py           the sweep: same protocol as train_model.py, own output
+nn_serve.py           the live worker: the ONLY process that imports torch
+emg_dataset_tool.py   SECTION 2   nn_input_block
+                      SECTION 5b  nn_stats_path / load_nn_stats,
+                                  nn_encode_request / nn_parse_line,
+                                  NeuralPrediction, NeuralEngine
+                      SECTION 7   NeuralStatsDialog,
+                                  MainWindow._group_neural / toggle_neural /
+                                  _tick_neural / train_neural_net
+tests/test_nn.py      158 checks, and the first 30 are the separation rule
+```
+
+### The separation rule — three mechanisms, not a promise
+
+**`LivePredictor` never opens the checkpoint, and the net is not a member of
+the DECISION TRAIL's soft vote.** The app's LIVE CLASSIFIER answer is
+bit-identical with the net running, stopped, or never trained. Three
+independent mechanisms enforce it, and `tests/test_nn.py` §1 checks all three
+by reading the code (with comments and strings tokenised out, so a docstring
+explaining the rule cannot be mistaken for a breach):
+
+1. **Different process.** `nn_serve.py` holds the net; the recorder talks to
+   it over stdin/stdout. That is primarily about §13's no-torch invariant, but
+   it also means the net physically cannot reach into the classifier's state.
+2. **Different type.** The engine yields `NeuralPrediction`, never
+   `Prediction`. The two carry nearly the same fields, which is exactly why
+   they are different classes: with one type, a net answer could be appended
+   to `LivePredictor.history`, handed to the decision panel or drawn in the
+   deployed bars by a single misplaced line, and nothing would complain.
+3. **Different everything else.** Its own file, timer, smoothing deque,
+   button and dialog. `_show_nn_prediction` writes only to the net's widgets
+   and deliberately does **not** claim the graph overlay — two labels
+   fighting over one corner of the plot is the exact blurring this section
+   exists to prevent.
+
+The panel does show **where the two disagree**, which is the point of having
+two: "DISAGREES: the classifier says OPEN 71 %, the net says WAVE_RIGHT 64 %.
+The app's answer is the classifier's." A single blended number would hide
+precisely that.
+
+### It really does use CUDA, and the recorder still never imports torch
+
+`NN_DEVICE = "auto"` resolves in the worker. **Measured on this machine
+(2026-10-19):** the worker comes up on `cuda:0`, GTX 1650, torch 2.9.1+cu128,
+and one live window costs **24.3 ms round trip of which 7.7 ms is the forward
+pass**, against the 150 ms `NN_INTERVAL_MS` budget. The panel prints that
+measurement next to the budget rather than claiming it fits.
+
+`tests/test_no_torch.py` still passes **11/11 with the net enabled** — with
+`import torch` blocked outright, the application starts, loads the sklearn
+model and predicts. That is the whole reason for the subprocess, and it is
+the same trick as the GPU/CPU badge (§8c).
+
+**Two device questions, two answers, never conflated.** The badge in LIVE
+CLASSIFIER says what the *hardware* offers and that RETRAIN uses the CPU
+regardless. The chip in the NEURAL NETWORK panel says what the *worker is
+actually running on*, and reads `NN DEVICE --` until the worker reports —
+never a guess in either direction.
+
+### Which architecture, and what the sweep actually said
+
+Five candidates, and the ranking is measured rather than asserted. The
+default — first in the grid, and what `--quick` takes — is **`tcn`**: three
+depthwise-separable dilated conv blocks (dilations 1/2/4, kernel 3) plus
+attention pooling, **3 943 parameters**. The reasoning is that the input is
+18–30 time steps and the dataset is ~1 700 windows from two wearers, so
+reaching across the window should cost parameters logarithmically in its
+length (dilation) rather than linearly in hidden units (recurrence), and
+depthwise separation buys the same receptive field for a third of the weights.
+
+**Attention pooling over time, not `out[:, -1, :]`.** The retired experiment
+fed the last time step to the head, which asks the net to compress a gesture
+into whatever state it holds at an arbitrary window boundary. `AttentionPool`
+learns a weight per step and returns the weighted mean **concatenated with
+the plain mean** — the second half keeping the activation level, because
+removing the level is the mistake §13 records measuring twice.
+`tests/test_nn.py` pins that the output really does change with amplitude.
+`lstm` and `cnn` keep the old last-step / global-average heads on purpose:
+they are the historical baseline and modernising them would destroy the
+comparison.
+
+**Full sweep, 85 recordings, two wearers, `affine` calibration,
+subject-grouped, 433 s on the GTX 1650:**
+
+| arch | window | per window | per gesture | macro F1 | params |
+|---|---|---|---|---|---|
+| **`cnn_gru`** (saved) | 0.50 s | **57.5 % ± 1.9** | 55.3 % | 47.6 % | 6 503 |
+| `tcn` | 0.50 s | 54.3 % | **58.8 %** | 46.4 % | **3 943** |
+| `cnn_gru` | 0.40 s | 55.8 % | 54.1 % | 45.7 % | 6 503 |
+| `gru` | 0.50 s | 47.5 % | 50.6 % | 39.4 % | 4 455 |
+| `lstm` | 0.30 s | 42.9 % | 44.7 % | 31.9 % | 14 022 |
+| `cnn` | 0.50 s | 39.6 % | 34.1 % | 31.6 % | 18 246 |
+
+Majority class 17.6 %. Per wearer held out: `Dano` 59.4 %, `Betka` 53.2 %.
+
+So the prediction was half right: the conv front end matters (both top rows
+have one, and both bare recurrent nets lose to it), but a **GRU on top of it
+beat the pure dilated stack on windows** — 57.5 against 54.3 — while `tcn`
+won the per-recording vote at 1.6× fewer parameters. The sweep saves the
+window winner; `tcn` remains the default *candidate* because that is the
+ordering, not the verdict.
+
+### The headline finding: it loses to the LDA, again
+
+| | per window | per gesture | macro F1 | input |
+|---|---|---|---|---|
+| **LDA-shrinkage (deployed)** | **86.8 %** | **87.1 %** | **83.2 %** | 154 features |
+| NN-cnn_gru (separate) | 57.5 % | 55.3 % | 47.6 % | 30 × 8 raw samples |
+
+Both subject-grouped on the same 85 recordings with the same `affine`
+calibration, so they are comparable. **The net is 29 points worse than a
+linear discriminant with no hyperparameters.** That is §8b's lesson repeating
+itself with a better-specified experiment behind it, and it is the reason the
+net is a diagnostic rather than a deployment: nothing here argues for shipping
+a 200 MB torch dependency to an SBC.
+
+**What is new is that the net is not merely losing — it is losing while
+reading the right thing.** Its DC-only control (the identical net with every
+window flattened to its eight channel means, so all time removed) scores
+**47.3 % against the full input's 57.5 %, so the temporal structure is worth
++10.2 points**. The net genuinely uses how the signal changes in time; it is
+just that eight channels of envelope at 50 Hz do not carry enough of it to
+beat good hand-crafted features on a thousand windows.
+
+**And the recording-grouped contrast is brutal: 95.6 % per window against
+57.5 % subject-grouped — a 38.2-point gap, against the deployed model's
+11.4.** Reading those two together: the net has plenty of capacity for this
+problem and spends it memorising the wearer. That is the one concrete reason
+to expect the net to become interesting later — the gap is what more wearers
+would close, and it is much larger here than for the LDA.
+
+### What is identical to `train_model.py`, and why that matters
+
+`train_nn.py` imports `source_timeline`, `dedupe_windows`,
+`subject_grouping_viable`, `resolve_grouping`, `load_recordings` and
+`person_vector` **from `train_model`** rather than re-implementing them, so
+the two trainers cannot drift into measuring different things. It therefore
+inherits, for free: `MODEL_FS = 60 Hz` resampling of the
+`label_start_index:label_end_index` span, window-level dedup (§8g — the
+retired trainer had none, which is one reason its numbers were higher than
+they should have been), subject-grouped fold selection (§8h), per-wearer
+calibration (§8k), leave-one-subject-out, the majority-class baseline, and
+the `PROGRESS`/`TRAINEVENT` lines — so **one GUI panel and one parser serve
+both trainers**, the only difference being that this one's `device` field can
+say `cuda`.
+
+What is deliberately different: **no shared feature function.**
+`model_feature_vector()` is the contract binding `train_model.py` to
+`LivePredictor`; a net learns its own features and must not be mixed into that
+path. The net's contract is `T.nn_input_block()` — resample, calibrate, cast
+to float32, stop — and `nn_serve.py` calls the same function. Also fold-local
+scaling (`log1p` + per-channel standardise, fitted on the training fold only,
+shipped inside the checkpoint), and no early stopping, because stopping when
+the held-out fold looks best is fitting the test set.
+
+### The statistics sidecar, and why it is not the checkpoint
+
+`train_nn.py` writes `models/gesture_nn.json` beside the `.pt`: everything
+except the weights. **The application cannot read its own net's metrics out
+of the checkpoint, because a `.pt` is a torch pickle and the recorder does not
+import torch.** So NN STATS reads the sidecar, which is what lets the dialog
+work with the net stopped, with no GPU, and on a machine where torch was never
+installed. The running worker reports the same numbers back, and both come
+from one write.
+
+The sidecar also carries the same `data` provenance block both trainers emit,
+so `model_data_status()` answers "is a net trained, on what, and is it
+current?" for the net exactly as it does for the model (§8c).
+
+### The refusals — a wrong answer is never preferred to no answer
+
+Same discipline as §8e's panel and §8k's calibration gate:
+
+- **no checkpoint** → START NN refuses and names `train_nn.py`;
+- **a calibrated net, an uncalibrated wearer** → refused **before a
+  subprocess is spawned**, naming CALIBRATE and `--calibration off`. There is
+  no point attaching a GPU context to discover the wearer has not calibrated;
+- **the worker disagrees with the sidecar about the calibration mode** → the
+  **checkpoint wins** and the engine re-resolves. The weights are the fact;
+  the sidecar is a convenience that can be stale;
+- **a probability vector of the wrong width** → the whole engine is refused,
+  not that one window, because the only other outcome is a confidently
+  mislabelled answer;
+- **a window the worker cannot use** → one `NNERR` with `fatal: false`; the
+  engine keeps going. A transient must not cost a GPU context;
+- **`strict=True` on `load_state_dict`** → a shape or name mismatch raises
+  rather than leaving layers at their initialisation;
+- **a worker that dies before reporting** → the engine goes to `error`
+  carrying the worker's own last words (e.g. the torch ImportError), not a
+  generic failure.
+
+### Two real bugs the tests caught, both worth remembering
+
+1. **The scaler shape bug, which only the inference path could hit.**
+   `fold_scaler` originally returned `mean`/`std` with `keepdims=True`, shape
+   `(1, 1, 8)`. That broadcasts correctly against the trainer's batched
+   `(n, win, 8)` — so every training run passed — but turns a single live
+   `(win, 8)` window into `(1, win, 8)`, which reaches `conv1d` as a 4-D
+   tensor and raises. **No training run can find this.** Both sides now use a
+   per-channel `(8,)` vector, and `nn_serve.py` flattens whatever it finds so
+   earlier checkpoints still load.
+2. **A refusal that resolved the wrong way round.** `_load_calibration()`
+   always re-read the mode from the sidecar, so when `_on_meta` tried to let
+   the worker's checkpoint override it, the sidecar's answer went straight
+   back. The mode is now passed in explicitly.
+
+### Rules this adds
+
+- **The net never votes, and nothing may make it vote.** Not in
+  `LivePredictor`, not in the decision panel's soft vote, not as a tiebreak.
+  If a future version wants a two-model ensemble, that is a new deployed
+  model with its own cross-validated number, not a quiet averaging of these
+  two.
+- **Quote the two models side by side, never a combined figure.** NN STATS →
+  AGAINST THE DEPLOYED MODEL does exactly that, and *refuses to subtract*
+  when the two were scored on different protocols.
+- **A high DC-only score on the net means the same thing it means on the
+  model.** The control is the identical net with time removed; read a small
+  gain as "this did not need to be a sequence model" (§8f, §8k).
+- **One trainer at a time.** RETRAIN and TRAIN NEURAL NET lock each other
+  out, and START NN is disabled while the net trains: the worker holds a CUDA
+  context on the card the trainer wants.
+- **Re-measure the live cost after any architecture change.** The panel
+  prints the round trip against `NN_INTERVAL_MS`, and §12 records what
+  happened the last time something quietly outgrew its budget.
+
+## 8m. Background training, ML + NN in one go, and TEST MODEL (2026-10-21)
+
+### Training survives closing the window
+
+Both trainers used to run as a `QProcess` owned by the window, so closing
+the app killed them. They now run through **`train_job.py`**, started
+**detached** (`start_training_job()`: no console, own process group, broken
+away from the parent's Windows job object where allowed), and the GUI and the
+job talk only through one folder per job:
+
+```
+models/jobs/<stamp>_<kind>_<id>/
+    job.json      what to run: steps [{name, argv}] -- written by the GUI
+    log.txt       every step's merged output + JOBSTEP / JOBSTEPEND lines
+    status.json   state, runner pid, per-step exit codes -- written by the runner
+    cancel        appears when the GUI asks it to stop (kills the step's TREE)
+    seen          the GUI has reported the outcome
+```
+
+`TrainingJobWatcher` replaced the QProcess in `training_process` /
+`nn_training_process`: it tails the log (`JobLogTail` hands out complete lines
+only -- a half-written `TRAINEVENT` is held until its newline), feeds the same
+two line handlers the QProcess pumps did, and each `JOBSTEPEND` calls the same
+finish handlers. On close the app **asks**: keep training (default) or stop.
+On startup `_resume_training_job()` reattaches to a live job and replays its
+log from the start, and reports once any job that finished while no window
+was open.
+
+**Two Windows traps, both pinned by `tests/test_jobs.py`:**
+- `os.kill(pid, 0)` on Windows is not a probe -- it calls TerminateProcess.
+  `pid_alive()` asks the kernel (`OpenProcess` + `GetExitCodeProcess`).
+- `os.replace` onto a file another process has open fails with *Access is
+  denied* -- measured 1712 failures in 2000 writes against a polling reader.
+  The GUI polls `status.json` three times a second, so the unretried runner
+  crashed now and then and left `"running"` behind for ever. `write_status()`
+  retries; the runner's `main()` also writes a terminal status on any crash;
+  and the watcher treats a dead runner pid as finished.
+
+### RETRAIN ML + NEURAL NET
+
+One job, two steps, **strictly in sequence** (the one-trainer-at-a-time rule
+holds inside the chain), and the net only starts if the classifier exited 0.
+The classifier's completion box is suppressed in the chain; the net's box at
+the end carries both results. The button is the chain's cancel button while
+it runs, and so are RETRAIN (during step 1) and TRAIN NEURAL NET (step 2).
+
+### TEST MODEL -- the number cross-validation does not measure
+
+The CV headline is subject-grouped: a person the model never saw. Live use is
+a wearer who usually IS in the training data, judged on a held gesture.
+`ModelTestDialog` measures that directly: it cues every label `rounds` times
+(interleaved, never the same twice in a row), predicts through
+`latest_model_window()` -- the same window PREDICT uses -- skips the first
+`MODEL_TEST_SETTLE_S` of each hold, resets the predictor's smoothing at each
+hold, and reports three numbers, each with a matrix it can be recomputed from
+(`confusion_metrics()`):
+
+| | comparable with |
+|---|---|
+| per trial (majority of a hold's windows) | the trainer's per-recording vote |
+| smoothed (what the panel shows) | what you experience |
+| per window (raw) | the trainer's per-window score |
+
+It **says whether the sitting is in the model's training data** (from the
+payload's `data.sessions`), because a test on a trained-on sitting is
+optimistic in exactly the §8f way: re-don the band and use a new Session id
+for an honest number. Every result is appended to
+`datasets/<person>/model_tests.jsonl` with the model it was measured on;
+nothing is recorded, trained or saved otherwise.
+
 ## 9. Safety / data-preservation rules
 
 These are invariants. Breaking one is a bug, not a trade-off.
@@ -1497,6 +1980,15 @@ These are invariants. Breaking one is a bug, not a trade-off.
     which everywhere means "behave as the uncalibrated pipeline". Clearing
     one writes the full record to the append-only `calibration_log.jsonl`
     before the file goes, so the measurement is never actually lost. §8k.
+13. **The neural net never contributes to the answer.** It is a separate
+    checkpoint, loaded by a separate process, yielding a separate TYPE
+    (`NeuralPrediction`, not `Prediction`). `LivePredictor` never opens it,
+    the DECISION TRAIL's soft vote has no neural member, and the LIVE
+    CLASSIFIER prediction is bit-identical whether the net is running,
+    stopped or has never been trained. Where the two models are shown
+    together they are two independent cross-validated results with their
+    protocols named — never one blended figure, and never a subtraction
+    across different protocols. §8L.
 
 ## 10. How to run
 
@@ -1513,6 +2005,13 @@ python train_model.py --calibration affine            # per-wearer calibration o
 python explain_votes.py                               # rebuild it for the saved model
 python explain_votes.py --json                        # ...and a JSON copy of the trail
 
+python train_nn.py                      # THE NEURAL NET (CUDA) -- separate model, §8L
+python train_nn.py --quick              # the default architecture, one window
+python train_nn.py --device cpu         # no GPU
+python train_nn.py --kind tcn --window 0.5          # restrict the grid
+python train_nn.py --calibration off    # reproduce the uncalibrated numbers
+python nn_serve.py --model models\gesture_nn.pt --device auto   # the worker, by hand
+
 python tests\test_datalayer.py                # 150 checks, no hardware
 python tests\test_gui.py                      # 91 checks, no hardware
 python tests\test_review.py                   # 50 checks, no hardware
@@ -1522,7 +2021,10 @@ python tests\test_free_take.py                # 255 checks, no hardware
 python tests\test_model_spec.py               # 346 checks, no hardware
 python tests\test_predict.py                  # 109 checks, no hardware
 python tests\test_trail.py                    # 103 checks, the DECISION TRAIL
-python tests\test_calibration.py              # 143 checks, per-wearer calibration (§8k)
+python tests\test_calibration.py              # 157 checks, per-wearer calibration (§8k)
+python tests\test_jobs.py                     # 48 checks, background training + TEST MODEL (§8m)
+python tests\test_nn.py                       # 158 checks, the neural net and the SEPARATION rule (§8L)
+python tests\test_device.py                # 104 checks, device profile / channel count (§2b), gestures (§7a)
 python tests\test_sweep_cost.py               # 48 checks, the sweep cost controls (§8g)
 python tests\test_filters.py                  # 52 checks, the band-pass (§8i) + FEATURE SPACE (§8j)
 python tests\test_no_torch.py                 # 11 checks, proves the app needs no torch
@@ -1538,22 +2040,26 @@ or the live tests.
 ## 11. Dependencies
 
 Required: `pyserial`, `numpy`, `PySide6`, `pyqtgraph`.
+`torch` is also what `train_nn.py`, `nn_serve.py`, `nn_arch.py` and
+`tests/test_nn.py` need (§8L) — still only in subprocesses, still never in
+the recorder.
 Recommended: `pandas` (DataFrames/parquet), `scipy`.
 Optional: `scikit-learn` + `joblib` (training, live classifier),
 `pyarrow` (only if `SAVE_PARQUET = True`),
 `torch` (only `train_torch.py` and `tests/test_torch.py`).
 
 `torch` is deliberately **not** installable from `requirements.txt`: pip's
-default index serves the CPU-only build, which `train_torch.py` refuses
-rather than silently running twenty times slower. Install it explicitly:
+default index serves the CPU-only build, which `train_nn.py` refuses rather
+than silently running twenty times slower. Install it explicitly:
 
 ```powershell
 python -m pip install torch==2.9.1+cu128 --index-url https://download.pytorch.org/whl/cu128
 ```
 
 The recorder never imports torch. It asks a subprocess whether a GPU exists
-(§8b), so the application starts, records and predicts exactly the same with
-torch absent.
+(§8b) and runs the neural net in another one (§8L), so the application
+starts, records and predicts exactly the same with torch absent —
+`tests/test_no_torch.py` proves it with the net enabled.
 
 The data layer degrades gracefully: without pandas you lose
 `to_dataframe()`/parquet, nothing else.
@@ -1624,6 +2130,18 @@ The data layer degrades gracefully: without pandas you lose
   and retrain. The same refusal appears if the mode is changed without
   retraining; the panel reloads the model the moment the mode or the wearer
   changes, so the message arrives then rather than at the next PREDICT.
+- **The neural net is 29 points worse than the deployed LDA, and that is the
+  result, not a bug.** 57.5 % against 86.8 % per window, both subject-grouped
+  on the same 85 recordings (§8L). Do not read a running NEURAL NETWORK panel
+  as a second chance at the answer — where it disagrees with the classifier,
+  the classifier is right about four times out of five. It is a diagnostic,
+  and the useful number in it is the 38.2-point recording-vs-subject gap,
+  which says the net is spending its capacity on memorising the wearer.
+- **START NN takes a few seconds**, and the panel says `STARTING` while it
+  does. The worker has to import torch (~7 s cold) and build a CUDA context
+  before it can answer; that cost is exactly why it is a subprocess. If it
+  has not reported within `NN_START_TIMEOUT_S` (40 s) the panel gives up with
+  the worker's own last words.
 - **`MAX_RECORDINGS = 0`** means unlimited, not zero.
 - **The `dropped` counter is approximate.** The dongle delivers 2–4 buffered
   packets at once, so the inter-sample interval is bursty and the heuristic
@@ -1646,6 +2164,18 @@ The data layer degrades gracefully: without pandas you lose
   for a second card.
 - Windows only, in practice: the COM-port handling and `detect_tty()` have not
   been tried elsewhere in this project.
+- **Windows display scaling shrinks the screen Qt lays out on.** Qt 6 works
+  in logical pixels, so a 1920x1080 panel is 1536x826 at 125 % and 1280x688
+  at 150 %. Checked 2026-10-21 at 100/125/150/175 % with `QT_SCALE_FACTOR`:
+  the calibration dialog (950 px of content) and MODEL SPEC (~700 px) used to
+  run off the bottom; both now go through `scroll_dialog_body()` with the
+  button row pinned, and every window's minimum fits at 175 %. Tables are
+  sized by `fit_table_height()` from their real row height, not 24 px; the
+  banner drops to 64 px on a screen under 800 logical px; and the plot lanes
+  no longer add pyqtgraph's "(x0.001)" to the channel name, which overlapped
+  at ~40 px per lane. **Re-check with `QT_SCALE_FACTOR=1.5` after adding a
+  tall dialog** — a layout minimum taller than the screen is something
+  `fit_to_screen` cannot shrink.
 
 ## 13. Design decisions
 
@@ -1724,6 +2254,13 @@ The data layer degrades gracefully: without pandas you lose
   real `predict_proba()`. A model whose feature count disagrees with its
   declared `feature_set` is rejected at load time with an explanation rather
   than producing nonsense at 7 Hz.
+- **Two models, never one blended number.** The neural net is a second
+  opinion with its own button, not a member of an ensemble (§8L). Averaging
+  two models whose accuracies differ by 29 points would make the worse one
+  invisible and the better one worse; showing them side by side with their
+  protocols named makes a disagreement informative. The separation is
+  enforced by a different process, a different TYPE and different widgets
+  rather than by discipline — safety rule 13.
 - **No torch in the recorder, and the GPU question answered honestly.**
   `train_torch.py` is a separate process with a separate output file; the app
   learns whether CUDA exists by running `COMPUTE_PROBE_SNIPPET` in a

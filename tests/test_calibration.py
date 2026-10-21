@@ -220,6 +220,26 @@ check("describe_calibration says REFUSED for a bad record",
 check("describe_calibration says NOT APPLIED when the mode is off",
       "NOT APPLIED" in T.describe_calibration(rec, "off"))
 
+#  The REST capture is judged as it lands, like every gesture.
+relaxed = T.calibration_rest_quality(np.full((150, 8), 21.0))
+check("a relaxed rest is accepted", relaxed["ok"], relaxed["reason"])
+tense = np.full((150, 8), 21.0)
+tense[:, 3] = 80.0
+q = T.calibration_rest_quality(tense)
+check("a rest with one channel still tense is rejected, naming the channel",
+      not q["ok"] and q["loud_channel"] == 4 and "CH4" in q["reason"],
+      q["reason"])
+twitch = np.full((150, 8), 21.0)
+twitch[:20, :] = 400.0
+check("one twitch does not fail a rest -- it is judged on the median",
+      T.calibration_rest_quality(twitch)["ok"])
+check("a stub rest is rejected for its sample count",
+      not T.calibration_rest_quality(np.full((5, 8), 21.0))["ok"])
+check("no rest at all is rejected, not raised",
+      not T.calibration_rest_quality(None)["ok"])
+check("a rest can never be loud enough to pass as a gesture",
+      T.CALIBRATION_MAX_REST_LEVEL < T.CALIBRATION_MIN_GESTURE_LEVEL)
+
 
 # ==============================================================================
 section("3. storage -- per wearer, append-only, fingerprint-neutral")
@@ -761,16 +781,53 @@ check("a ONE-GESTURE reference under-scales most channels badly -- the "
       float(np.max(ratio)) > 2.0 and int((ratio > 1.5).sum()) >= 5,
       f"sweep/single = {np.round(ratio, 2)}")
 
-check("the table shows a row per gesture with its verdict",
-      sweep.sweep_table.rowCount() == len(PROFILES))
+check("the table shows REST plus a row per gesture, each with its verdict",
+      sweep.sweep_table.rowCount() == len(PROFILES) + 1)
 verdicts = {sweep.sweep_table.item(r, 0).text():
             sweep.sweep_table.item(r, 3).text()
             for r in range(sweep.sweep_table.rowCount())}
+check("REST is the first row, and a relaxed rest reads as accepted",
+      sweep.sweep_table.item(0, 0).text() == "REST"
+      and verdicts.get("REST") == "accepted", verdicts.get("REST"))
 check("and the shrug's row says what to do about it",
       "hold it harder" in verdicts.get("THUMB_UP", ""),
       verdicts.get("THUMB_UP"))
 check("while a good capture reads as accepted",
       verdicts.get("FIST") == "accepted", verdicts.get("FIST"))
+
+#  REST is calibrated too: a tense rest is rejected, blocks the record, and
+#  can be redone from its own row.
+good_rest = sweep.rest_block
+sweep.rest_block = np.full((150, 8), 75.0)
+sweep._refresh()
+rest_verdict = sweep.sweep_table.item(0, 3).text()
+check("a TENSE rest is rejected on its row, with what to do about it",
+      "let the hand go limp" in rest_verdict, rest_verdict)
+check("and nothing is built on it -- it is the floor affine subtracts",
+      sweep.pending_record() is None or sweep.pending_record().get("source")
+      != "live_gesture_sweep")
+check("so SAVE is off and the dialog says REST must be redone",
+      not sweep.save_button.isEnabled()
+      and "REST" in sweep.warning_label.text(),
+      sweep.warning_label.text())
+sweep.sweep_table.selectRow(0)
+check("selecting the REST row offers it for a redo",
+      sweep.selected_gesture() == "REST")
+sweep.redo_selected()
+check("and REDO on it re-captures the rest, not a gesture called REST",
+      sweep._target == "rest" and "REST" not in sweep.gesture_blocks,
+      sweep._target)
+acq.ring.level = np.full(8, 21.0)
+for _ in range(2):
+    sweep._deadline = 0.0
+    sweep._on_tick()
+check("the redone rest lands and is accepted",
+      sweep.phase == sweep.IDLE and T.calibration_rest_quality(
+          sweep.rest_block)["ok"])
+check("and the sweep record is buildable again",
+      sweep.pending_record()["source"] == "live_gesture_sweep")
+sweep.rest_block = good_rest
+sweep._refresh()
 
 #  Losing the stream mid-capture must abandon it, not store a stub.
 sweep.gesture_blocks.pop("FIST")

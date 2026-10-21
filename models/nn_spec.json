@@ -1,0 +1,22 @@
+{
+  "kinds": [
+    "tcn",
+    "cnn_gru",
+    "gru",
+    "lstm",
+    "cnn"
+  ],
+  "windows": [
+    0.3,
+    0.4,
+    0.5
+  ],
+  "overlap": 0.75,
+  "epochs": 60,
+  "hidden": 32,
+  "dropout": 0.25,
+  "learning_rate": 0.003,
+  "weight_decay": 0.001,
+  "batch_size": 64,
+  "label_smoothing": 0.05
+}

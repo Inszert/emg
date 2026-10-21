@@ -41,6 +41,7 @@ python tests\test_review.py              # 50 checks, no armband needed
 python tests\test_label_on_graph.py         # 48 checks, no armband needed
 python tests\test_predict.py             # 109 checks, no armband needed
 python tests\test_trail.py               # 103 checks, the DECISION TRAIL
+python tests\test_nn.py                  # 158 checks, the neural net (and that it stays separate)
 python tests\test_no_torch.py            # 11 checks, proves no PyTorch is needed
 python tests\test_live.py                # 35 checks, NEEDS the armband
 python tests\test_live_gui.py            # 25 checks, NEEDS the armband
@@ -78,9 +79,12 @@ the port, close `test_myo.py` (and Myo Connect, if installed) first.
 | `docs/ARCHITECTURE.md` | Threads, buffers, state machine, rendering. |
 | **`train_model.py`** | Trains the gesture model: sweeps models and settings, validates honestly, saves `models/gesture_model.joblib`. **This is the one the app loads.** Runs on the CPU. |
 | **`explain_votes.py`** | Builds the DECISION TRAIL file for the model you already have, without re-running a three-hour sweep. Use it if MODEL STATS says there is no decision panel. |
-| `train_torch.py` | **Retired experiment.** The GPU neural-net trainer. Not part of the workflow -- it lost to a plain LDA. Kept for the record; the app never reads its output and never needed PyTorch. |
+| **`train_nn.py`** | **Trains the NEURAL NETWORK** -- the separate second opinion behind the NEURAL NETWORK panel. Sweeps five small sequence architectures on the GPU and saves `models/gesture_nn.pt`. It does **not** touch the model the app predicts with. |
+| `nn_arch.py` | The five architectures. Shared by the trainer and the live worker, so a saved net is always rebuilt the way it was trained. |
+| `nn_serve.py` | The neural net's live worker. The only file that imports PyTorch while the app is running -- it runs as a separate process, which is how the net can use CUDA without the recorder ever loading torch. |
+| `train_torch.py` | **Retired experiment, replaced by `train_nn.py`.** The original GPU neural-net trainer. Not run any more -- it lost to a plain LDA and had none of the validation the current one shares with `train_model.py`. Kept for the record. |
 | `docs/ML_PIPELINE.md` | How to turn the data into a validated model, which features matter and why, and the route to a wearer-independent model. |
-| `tests/` | Fourteen scripts that verify the tool. Run them after changing config — see `tests/README.md`. |
+| `tests/` | Nineteen scripts that verify the tool. Run them after changing config — see `tests/README.md`. |
 
 ## Files that make the armband work — do not touch
 
@@ -752,16 +756,81 @@ What *did* make it faster is in `CLAUDE.md` §8d — mainly skipping SVM
 probability calibration during scoring, which is 5.7× faster and provably
 changes no result.
 
-### The neural-network experiment (retired)
+## NEURAL NETWORK — the second opinion, on the GPU
 
-`train_torch.py` trained CNN / LSTM / CNN-LSTM models on the GPU. **It is no
-longer part of the workflow.** It was never better than the simple models:
-99.2% per recording against 100% for a plain LDA, on a task a single
-amplitude threshold already solves 98.3% of the time.
+The panel under LIVE CLASSIFIER runs a completely different model on the same
+signal: a small sequence network that looks at how the muscle signal *changes*
+across the window, instead of boiling the window down to statistics first.
 
-The file, its checkpoints and its reports are kept so the experiment stays on
-the record. Nothing in the application reads them, and the app has never
-needed PyTorch installed.
+**It is not part of the app's answer, and that is on purpose.** Whatever it
+says, the prediction in LIVE CLASSIFIER comes from the scikit-learn model
+alone. The two are never averaged. What the panel adds is the ability to see
+them *disagree* — "the classifier says OPEN 71 %, the net says WAVE_RIGHT
+64 %" — which a single blended number would hide.
+
+### Using it
+
+| Button | What it does |
+|---|---|
+| **START NN** (Ctrl+Shift+N) | Starts the net on the live signal. It runs in its own process, so it can use the GPU without slowing the recorder down. Takes a few seconds — the panel says `STARTING` while it loads. |
+| **NN STATS** | Its own cross-validated numbers, every architecture the sweep tried, and a side-by-side against the deployed model. Works with the net stopped. |
+| **TRAIN NEURAL NET** | Sweeps the architectures on every recording on disk and saves its own checkpoint. Does not touch the deployed model. |
+
+Both models can run at once. The chip under the buttons says what the net is
+**really** running on (`NN ON GPU -- NVIDIA GeForce GTX 1650`) — which is a
+different question from the COMPUTE badge above, that one being about what
+hardware exists. Below it, the measured cost per window against its budget.
+
+Like the classifier, **a new wearer must CALIBRATE before the net will run
+for them**, and it says so rather than answering on the wrong scale.
+
+### What it is worth, measured
+
+| | per window | per gesture | input |
+|---|---|---|---|
+| **LDA (the deployed classifier)** | **86.8 %** | **87.1 %** | 154 features |
+| Neural net (separate) | 57.5 % | 55.3 % | 30 × 8 raw samples |
+
+Both measured the same way, on the same 85 recordings from two wearers, with
+the held-out person never in training. **The net loses by 29 points**, which
+repeats what the retired 2026-10-14 experiment found and is why it is a
+diagnostic rather than the thing that ships.
+
+Two numbers in NN STATS are worth reading anyway:
+
+- **the DC-only control**: the same net with all time removed scores 47.3 %
+  against 57.5 %, so the temporal structure really is worth **+10 points**.
+  The net is reading the right thing — there just is not enough of it in eight
+  channels of envelope at 50 Hz to beat good hand-crafted features on a
+  thousand windows;
+- **the gap between protocols**: 95.6 % when folds are split by recording
+  against 57.5 % when they are split by *person*. A 38-point gap means the net
+  is spending its capacity memorising the wearer. More wearers is what would
+  close it — which is the one concrete reason to look at this again later.
+
+### Train it yourself
+
+```powershell
+python train_nn.py                 # the full sweep on the GPU, ~7 minutes
+python train_nn.py --quick         # one architecture, one window
+python train_nn.py --device cpu    # no GPU
+```
+
+It writes `models/gesture_nn.pt` plus `models/gesture_nn.json` — the second
+one holds the statistics in plain JSON, because the application cannot read a
+PyTorch checkpoint (it never imports PyTorch at all).
+
+To switch the whole thing off, set `ENABLE_NEURAL_NET = False`: the panel
+disappears and nothing else changes.
+
+### The original neural-network experiment (retired)
+
+`train_torch.py` trained CNN / LSTM / CNN-LSTM models on the GPU and was
+retired on 2026-10-14. **It is not run any more** — `train_nn.py` above
+replaced it, with the same validation protocol as the main trainer, which the
+old one did not have. Its numbers (99.2 % per recording against 100 % for a
+plain LDA, on a task a single amplitude threshold solves 98.3 % of the time)
+are kept so the experiment stays on the record.
 
 ### If the accuracy is low, fix the DATA first
 

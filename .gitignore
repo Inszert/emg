@@ -12,3 +12,11 @@ desktop.ini
 # OneDrive conflict copies
 *-Copy.*
 *(1).*
+
+# DECISION TRAIL side file: a desktop diagnostic, rebuildable with
+# `python explain_votes.py`, and 116 MB with kNN members in the spec --
+# over GitHub's 100 MB hard limit. (CLAUDE.md section 12.)
+models/gesture_panel.joblib
+
+# Background training jobs: per-run logs and status (CLAUDE.md section 8m).
+models/jobs/

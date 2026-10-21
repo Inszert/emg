@@ -192,6 +192,77 @@ window.reps_spin.setValue(2)
 window.order_combo.setCurrentText("blocked")
 window._refresh_plan_info()
 
+# ---- the PLAN panel's new controls -----------------------------------------
+check("the hold-time spin exists", hasattr(window, "hold_spin"))
+check("it starts at the configured hold time",
+      abs(window.hold_spin.value() - T.RECORD_TIME) < 1e-9,
+      str(window.hold_spin.value()))
+window.hold_spin.setValue(2.0)
+window._refresh_plan_info()
+check("editing it mirrors into the config, so the stored metadata matches",
+      abs(T.RECORD_TIME - 2.0) < 1e-9, str(T.RECORD_TIME))
+window.hold_spin.setValue(2.5)
+window._refresh_plan_info()
+
+check("all three orders are offered",
+      {window.order_combo.itemText(i)
+       for i in range(window.order_combo.count())}
+      == {"interleaved", "blocked", "random"})
+tip = window.order_combo.toolTip()
+check("the tooltip explains BLOCKED, not only the default",
+      "blocked" in tip.lower() and "back to back" in tip.lower())
+check("...and says why interleaved is the honest one",
+      "drift" in tip.lower() or "fatigue" in tip.lower())
+
+# ---- the gesture set -------------------------------------------------------
+check("the GESTURES button exists", hasattr(window, "gestures_button"))
+dialog = T.GestureSetupDialog(window, selected=list(T.GESTURES))
+check("the dialog offers the optional gestures as well as the ones in use",
+      set(dialog.boxes) >= set(T.GESTURES) | set(T.OPTIONAL_GESTURES),
+      ", ".join(dialog.boxes))
+check("only the in-use ones start checked",
+      dialog.selected() == list(T.GESTURES), ", ".join(dialog.selected()))
+dialog.boxes["PINCH"].setChecked(True)
+check("ticking an optional one adds it", "PINCH" in dialog.selected())
+dialog.custom_edit.setText("wrist flex")
+dialog._add_custom()
+check("a custom name is accepted and slugged to upper case",
+      "WRIST_FLEX" in dialog.selected(), ", ".join(dialog.selected()[-2:]))
+for name in list(dialog.boxes):
+    dialog.boxes[name].setChecked(name == "FIST")
+dialog._accept()
+check("fewer than two gestures is refused, with a reason",
+      dialog.isVisible() is False or "at least two" in dialog.warning.text(),
+      dialog.warning.text()[:60])
+dialog.deleteLater()
+
+#  Applying a new set has to reach every combo that hands out a label, or
+#  they would keep offering labels the plan no longer contains.
+before_gestures = list(T.GESTURES)
+window._set_global("GESTURES", before_gestures + ["PINCH"])
+for combo in (window.gesture_combo, window.label_gesture_combo,
+              window.take_gesture_combo):
+    combo.clear()
+    combo.addItems(T.GESTURES)
+window._refresh_plan_info()
+check("the manual-gesture combo follows the label set",
+      "PINCH" in [window.gesture_combo.itemText(i)
+                  for i in range(window.gesture_combo.count())])
+#  Counted from the set actually in force -- an earlier section of this
+#  suite narrows GESTURES, so a hardcoded number here would be asserting
+#  the test order rather than the behaviour.
+check("the plan line counts the new gesture",
+      "%d gestures" % len(T.GESTURES) in window.plan_label.text(),
+      window.plan_label.text()[:50])
+window._set_global("GESTURES", before_gestures)
+for combo in (window.gesture_combo, window.label_gesture_combo,
+              window.take_gesture_combo):
+    combo.clear()
+    combo.addItems(T.GESTURES)
+window._refresh_plan_info()
+check("and switching it back off restores the set",
+      list(T.GESTURES) == before_gestures)
+
 seen_states = set()
 
 
@@ -408,6 +479,37 @@ while window.compute_process is not None and time.perf_counter() < deadline:
 probed = window.compute_process is None
 check("the probe answers within a minute", probed,
       str(window.compute_info))
+#  A stale timeout must not kill a LATER probe. singleShot cannot be
+#  cancelled, so a probe that answered in 8 s still has a timer due at 30 s;
+#  without an identity check it killed whichever probe was running when that
+#  landed and reported "did not answer" on a machine with a working GPU.
+#  Simulated directly rather than by waiting 30 s.
+good = dict(window.compute_info)
+window.start_compute_probe()
+live = window.compute_process
+window._compute_probe_timeout(object())          # a timer from an old probe
+check("a stale probe timeout does not kill the current probe",
+      window.compute_process is live, str(window.compute_info.get("reason")))
+deadline = time.perf_counter() + 60
+while window.compute_process is not None and time.perf_counter() < deadline:
+    pump(0.2)
+check("...and that probe still answers for itself",
+      window.compute_info.get("probed") is True,
+      str(window.compute_info.get("reason")))
+check("the probe's OWN timeout still fires when it is the current one",
+      (window.start_compute_probe(),
+       window._compute_probe_timeout(window.compute_process),
+       window.compute_info.get("failed") is True)[2],
+      str(window.compute_info.get("reason")))
+deadline = time.perf_counter() + 30
+while window.compute_process is not None and time.perf_counter() < deadline:
+    pump(0.2)
+window.start_compute_probe()
+deadline = time.perf_counter() + 60
+while window.compute_process is not None and time.perf_counter() < deadline:
+    pump(0.2)
+probed = window.compute_process is None
+
 if probed:
     expected = T.detect_compute_device()
     check("the badge agrees with a direct probe",

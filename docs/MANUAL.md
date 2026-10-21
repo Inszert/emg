@@ -30,6 +30,7 @@ with the training and validation pipeline that goes with it.**
 6. [The interface](#6-the-interface)
 7. [Recording workflows](#7-recording-workflows)
 8. [From recordings to a model](#8-from-recordings-to-a-model)
+8a. [The neural network — the separate second opinion](#8a-the-neural-network--the-separate-second-opinion)
 9. [The honesty machinery](#9-the-honesty-machinery)
 
 **Part III — The engineering record**
@@ -332,6 +333,14 @@ and scrolling past the one you want is this UI's most common irritation.
 - **LIVE CLASSIFIER** — four provenance states, never a guess:
   `NO MODEL TRAINED` · `TRAINED on <date>` (no data block) · `UP TO DATE` ·
   `OUT OF DATE`.
+- **NEURAL NETWORK (separate opinion)** — a second model with its own
+  **START NN** (`Ctrl+Shift+N`), its own probability bars, its own
+  **NN STATS** dialog and its own **TRAIN NEURAL NET** button (§8a). It runs
+  in a separate process and really does use CUDA; the chip in the panel says
+  what the worker is running on, which is a different question from the
+  COMPUTE badge's "what hardware exists". **Its output is never part of the
+  LIVE CLASSIFIER answer** — what it adds is showing where the two models
+  disagree, naming which one the app actually answers with.
 - **CALIBRATE… / RECALIBRATE…** (`Ctrl+Shift+C`) — on since 2026-10-16; the
   saved model requires it (§9.1a). **START SWEEP** cues REST and then each
   gesture, judging every capture as it lands and marking any that did not
@@ -594,6 +603,176 @@ exactly windowing each source timeline once.
 the windows. They go to the report under `screen`, and `cost_controls` records
 how the sweep was cut down, so a fast run cannot be mistaken for an exhaustive
 one.
+
+---
+
+## 8a. The neural network — the separate second opinion
+
+Added 2026-10-19. A small sequence network, trained on the GPU, that reads how
+the envelope **changes** across the window instead of summarising it into
+statistics. It has its own trainer, checkpoint, process, START button,
+probability bars and statistics dialog — and its output never reaches the
+app's answer.
+
+```
+nn_arch.py     five architectures; imports torch and nothing else
+train_nn.py    the sweep -- train_model.py's protocol, its own output
+nn_serve.py    the live worker; the only process that imports torch
+```
+
+### Why it is kept separate
+
+Two independently validated models that disagree are informative. One blended
+number that hides which half was wrong is not. So the separation is enforced
+three ways rather than promised:
+
+1. **a different process** — `nn_serve.py` holds the net, and the recorder
+   talks to it one JSON line at a time over stdin/stdout. That is primarily
+   about the no-torch invariant (§5), but it also means the net cannot reach
+   into the classifier's state;
+2. **a different type** — the engine yields `NeuralPrediction`, never
+   `Prediction`. The two carry nearly the same fields, which is exactly why
+   they are different classes: with one type a net answer could be appended to
+   the classifier's smoothing history or drawn in its bars by a single
+   misplaced line;
+3. **different everything else** — its own file, timer, smoothing window,
+   button and dialog. The net deliberately does *not* claim the graph overlay,
+   because two labels fighting over one corner of the plot is the exact
+   blurring this design prevents.
+
+The panel does show where the two **disagree**, naming which one the app
+actually answers with. `tests/test_nn.py` spends its first thirty checks on
+exactly these properties, reading the code with comments and string literals
+tokenised out so that a docstring explaining the rule cannot be mistaken for a
+breach of it.
+
+### It uses CUDA; the recorder still never imports torch
+
+`NN_DEVICE = "auto"` resolves inside the worker. Measured on this machine: the
+worker comes up on `cuda:0` (GTX 1650, torch 2.9.1+cu128) and one live window
+costs **24.3 ms round trip, of which 7.7 ms is the forward pass**, against a
+150 ms budget — and the panel prints that measurement next to the budget
+rather than asserting it fits. `tests/test_no_torch.py` still passes 11/11
+with the net enabled.
+
+The net's device chip answers a different question from the COMPUTE badge: the
+badge says what hardware exists, the chip says what the worker is really
+running on, and it reads `NN DEVICE --` until the worker reports.
+
+### The architectures
+
+Five candidates; the ranking is measured, not asserted. The default — first in
+the grid, and what `--quick` takes — is `tcn`: three depthwise-separable
+dilated conv blocks (dilations 1/2/4) plus attention pooling, **3 943
+parameters**. The input is 18–30 time steps and the dataset is ~1 700 windows
+from two wearers, so reaching across the window should cost parameters
+logarithmically in its length rather than linearly in hidden units, and
+depthwise separation buys the same receptive field for a third of the weights.
+
+**Attention pooling, not the last time step.** The retired experiment fed
+`out[:, -1, :]` to the head, which asks the net to compress a gesture into
+whatever state it happens to hold at an arbitrary window boundary. The pool
+learns a weight per step and returns the weighted mean *concatenated with the
+plain mean*, the second half keeping the activation level — removing the level
+is the mistake this project has measured twice. `lstm` and `cnn` keep the old
+heads deliberately, as the historical baseline.
+
+| arch | window | per window | per gesture | params |
+|---|---|---|---|---|
+| **`cnn_gru`** (saved) | 0.50 s | **57.5 % ± 1.9** | 55.3 % | 6 503 |
+| `tcn` | 0.50 s | 54.3 % | **58.8 %** | **3 943** |
+| `gru` | 0.50 s | 47.5 % | 50.6 % | 4 455 |
+| `lstm` | 0.30 s | 42.9 % | 44.7 % | 14 022 |
+| `cnn` | 0.50 s | 39.6 % | 34.1 % | 18 246 |
+
+Subject-grouped, 85 recordings, two wearers, `affine` calibration, 433 s on
+the GPU. Majority class 17.6 %. The conv front end matters — both top rows
+have one, and both bare recurrent nets lose to it — but a GRU on top of it
+beat the pure dilated stack on windows, while `tcn` won the per-recording vote
+with 1.6× fewer parameters.
+
+### The result: it loses to the LDA by 29 points
+
+| | per window | per gesture | macro F1 | input |
+|---|---|---|---|---|
+| **LDA-shrinkage (deployed)** | **86.8 %** | **87.1 %** | **83.2 %** | 154 features |
+| NN-cnn_gru (separate) | 57.5 % | 55.3 % | 47.6 % | 30 × 8 samples |
+
+Both subject-grouped on the same recordings with the same calibration, so they
+are comparable. This repeats the 2026-10-14 finding with a better-specified
+experiment behind it, and it is why the net is a diagnostic rather than a
+deployment: nothing here argues for shipping a 200 MB torch dependency to an
+SBC.
+
+Two numbers in NN STATS are worth reading anyway:
+
+- **the DC-only control** — the identical net with every window flattened to
+  its eight channel means scores 47.3 % against 57.5 %, so the temporal
+  structure is worth **+10.2 points**. The net is reading the right thing;
+  there simply is not enough of it in eight channels of envelope at 50 Hz to
+  beat good hand-crafted features on a thousand windows;
+- **the protocol gap** — 95.6 % recording-grouped against 57.5 %
+  subject-grouped, a **38.2-point** gap where the deployed model's is 11.4.
+  The net has ample capacity for this problem and spends it memorising the
+  wearer. More wearers is what would close that, and it is the one concrete
+  reason to revisit this later.
+
+### Sharing the protocol, and not sharing the features
+
+`train_nn.py` imports `source_timeline`, `dedupe_windows`,
+`subject_grouping_viable`, `resolve_grouping`, `load_recordings` and
+`person_vector` **from `train_model`**, so the two trainers cannot drift into
+measuring different things. It inherits window-level dedup, subject-grouped
+fold selection, per-wearer calibration, leave-one-subject-out, the
+majority-class baseline and the `PROGRESS`/`TRAINEVENT` lines — so one GUI
+panel and one parser serve both trainers.
+
+What is deliberately *not* shared is the feature function.
+`model_feature_vector()` is the contract binding `train_model.py` to
+`LivePredictor`; a net learns its own features and must not be mixed into that
+path. The net's contract is `nn_input_block()` — resample, calibrate, cast to
+float32, stop — and the worker calls the same function. Scaling (`log1p` +
+per-channel standardise) is fitted on the training fold only and ships inside
+the checkpoint, because at inference the scaler is part of the model.
+
+### The statistics sidecar
+
+`train_nn.py` writes `models/gesture_nn.json` beside the checkpoint:
+everything except the weights. The application **cannot** read its own net's
+metrics out of the `.pt`, because that is a torch pickle and the recorder does
+not import torch. So NN STATS reads the sidecar, which is what lets the dialog
+work with the net stopped, with no GPU, and on a machine where torch was never
+installed. The sidecar carries the same `data` provenance block both trainers
+emit, so the net answers "trained on what, and is it current?" exactly as the
+model does.
+
+### The refusals
+
+No checkpoint → START NN refuses and names `train_nn.py`. A calibrated net
+with an uncalibrated wearer → refused **before a subprocess is spawned**,
+because there is no point attaching a GPU context to discover the wearer has
+not calibrated. The worker disagreeing with the sidecar about the calibration
+mode → the checkpoint wins, because the weights are the fact and the sidecar
+is a convenience that can be stale. A probability vector of the wrong width →
+the whole engine is refused rather than one window mislabelled. A window the
+worker cannot use → one error line with `fatal: false`, and the engine keeps
+going. `load_state_dict(strict=True)` → a shape mismatch raises rather than
+leaving layers at their initialisation.
+
+### Two bugs worth remembering
+
+**The scaler shape bug that only the inference path could hit.**
+`fold_scaler` returned `mean`/`std` with `keepdims=True`, shape `(1, 1, 8)`.
+That broadcasts correctly against the trainer's batched `(n, win, 8)` — so
+every training run passed — but turns a single live `(win, 8)` window into
+`(1, win, 8)`, which reaches `conv1d` as a 4-D tensor and raises. No training
+run can find it. Both sides now use a per-channel `(8,)` vector, and the
+worker flattens whatever it finds so earlier checkpoints still load.
+
+**A refusal that resolved the wrong way round.** `_load_calibration()` always
+re-read the mode from the sidecar, so when the worker's checkpoint tried to
+override it, the sidecar's answer went straight back. The mode is now passed
+in explicitly.
 
 ---
 
@@ -1015,6 +1194,10 @@ That is the fix working, not breaking.
   once a second wearer exists.
 - **`gesture_panel.joblib` is ~12 MB** and is a desktop diagnostic — do not
   copy it to the robot.
+- **The neural net loses to the LDA by 29 points** (57.5 % against 86.8 % per
+  window, both subject-grouped). That is the measured result, not a bug — see
+  §8a. Do not read a running NEURAL NETWORK panel as a second chance at the
+  answer.
 
 ---
 
@@ -1030,6 +1213,10 @@ python train_model.py --quick --spec models\model_spec.json
 python train_model.py --no-panel                       # skip the DECISION TRAIL file
 python explain_votes.py                                # rebuild it without a sweep
 python explain_votes.py --json                         # ...and a JSON copy
+python train_nn.py                                     # the NEURAL NET (CUDA)
+python train_nn.py --quick                             # one architecture
+python train_nn.py --device cpu                        # no GPU
+python train_nn.py --calibration off                   # uncalibrated numbers
 python tools\make_ui_guide.py . docs\images            # regenerate screenshots
 python test_myo.py                                     # reference monitor
 ```
@@ -1041,6 +1228,7 @@ python test_myo.py                                     # reference monitor
 | `Ctrl+Shift+R` | START / STOP free take |
 | `Ctrl+Space` | EXTRACT CLIP · ADD SELECTION |
 | `Ctrl+Right` / `Ctrl+Left` | step one clip length forward / back |
+| `Ctrl+Shift+N` | START / STOP the neural net |
 | `Ctrl+M` | add a note marker |
 | `Ctrl+B` | add a break marker |
 | `Ctrl+Shift+Space` | CUT SINCE LAST MARKER |

@@ -185,6 +185,11 @@ SELECTION_GROUPING = "auto"
 # machine -- the GUI runs the sweep as a subprocess while still streaming EMG.
 FOLD_WORKERS = max(1, (os.cpu_count() or 2) - 1)
 
+# A progress event every this many candidates. Was 5, which on the expensive
+# stages is minutes of silence between lines and made the GUI's readout lag; a
+# line is a few hundred bytes, so there is no reason to thin them out.
+PROGRESS_EVERY = 1
+
 
 def emit_progress(done: int, total: int, phase: str = "sweep", **detail) -> None:
     """
@@ -602,10 +607,23 @@ def resolve_spec(path: str = None):
 # ==============================================================================
 
 
-def load_recordings(root, persons=None, sessions=None, exclude_codes=()):
+def select_recordings(recs, include):
+    """
+    Keep only the recordings in the spec's `data.include` list of
+    "person/session" pairs. An empty list keeps everything.
+    """
+    if not include:
+        return list(recs)
+    wanted = set(include)
+    return [r for r in recs if f"{r.person_id}/{r.session_id}" in wanted]
+
+
+def load_recordings(root, persons=None, sessions=None, exclude_codes=(),
+                    include=None):
     """Load recordings, dropping the ones whose quality codes are excluded."""
-    recs = T.load_dataset(root, persons=persons, sessions=sessions,
-                          stage="prefer_trimmed", prefer="npz")
+    recs = select_recordings(
+        T.load_dataset(root, persons=persons, sessions=sessions,
+                       stage="prefer_trimmed", prefer="npz"), include)
     kept, dropped = [], []
     for rec in recs:
         codes = {i.code for i in rec.issues}
@@ -1496,11 +1514,22 @@ def main(argv=None):
     print("=" * 78)
 
     # ---- data ---------------------------------------------------------------
-    all_recs = T.load_dataset(args.root, persons=args.person,
-                              stage="prefer_trimmed", prefer="npz")
+    # The spec is read first because it also says WHICH data to train on and
+    # whether calibration is applied to it.
+    spec, spec_source = resolve_spec(args.spec)
+    data_sel = spec.get("data") or T.default_data_selection()
+    include = data_sel["include"]
+
+    all_recs = select_recordings(
+        T.load_dataset(args.root, persons=args.person,
+                       stage="prefer_trimmed", prefer="npz"), include)
     if not all_recs:
-        print(f"\nNo recordings found under {args.root}.")
+        print(f"\nNo recordings found under {args.root}"
+              + (f" for the selected data {include}." if include else "."))
         return 1
+    if include:
+        print(f"\nTraining data  : {len(include)} selected folder(s) -- "
+              f"{', '.join(include)}")
 
     people = sorted({r.person_id for r in all_recs})
     sessions = sorted({(r.person_id, r.session_id) for r in all_recs})
@@ -1528,8 +1557,17 @@ def main(argv=None):
     # calibration stays uncalibrated: borrowing another person's gain would
     # be worse than applying none.
     cal_requested = args.calibration or T.CALIBRATION_MODE or "off"
+    if data_sel["calibration"] != T.DATA_CALIBRATION_DEFAULT:
+        # The spec's own choice beats the app-wide setting the GUI passes.
+        cal_requested = data_sel["calibration"]
+        print(f"\nCalibration    : set by the model spec ({cal_requested})")
     cal_table = T.calibration_table(args.root, cal_requested)
     cal_records = T.load_calibrations(args.root)
+    #  Training wearers with no calibration get a base one (derived from their
+    #  own signal, else the mean of the others) instead of staying in device
+    #  counts, so the feature space is one scale. In memory only.
+    cal_table, cal_filled = T.fill_missing_calibrations(
+        cal_table, all_recs, people, cal_requested, cal_records)
     cal_missing = [p for p in people if p not in cal_table]
     #  The payload must record what was DONE, not what was asked for. With a
     #  mode set but no usable calibration for anybody, nothing is applied --
@@ -1556,6 +1594,9 @@ def main(argv=None):
             elif record is None:
                 print(f"                 {person:<10} NO CALIBRATION -- "
                       f"left in device counts")
+            if person in cal_filled:
+                print(f"                 {person:<10} no saved calibration: "
+                      f"{cal_filled[person]}")
             else:
                 _ok, _why = T.validate_calibration(record)
                 print(f"                 {person:<10} REFUSED -- "
@@ -1609,7 +1650,6 @@ def main(argv=None):
               "untouched.")
         return 2
 
-    spec, spec_source = resolve_spec(args.spec)
     print(f"\nModel spec     : {spec_source}")
     print(f"                 {T.describe_model_spec(spec)}")
     # for_scoring: inside the sweep only predict() is used, so the SVMs skip
@@ -1625,7 +1665,8 @@ def main(argv=None):
     collapsed_excludes = {}
     _seen_recordings = {}
     for exclude_name, codes in exclude_sets.items():
-        recs_f, dropped_f = load_recordings(args.root, args.person, None, codes)
+        recs_f, dropped_f = load_recordings(args.root, args.person, None, codes,
+                                            include=include)
         if len(recs_f) < 12:
             print(f"  [{exclude_name}] only {len(recs_f)} recordings left, "
                   f"skipping")
@@ -1685,6 +1726,13 @@ def main(argv=None):
                    + stage_b_total + tail_total)
     emit_progress(0, grand_total, "starting", status="running",
                   n_candidates=grand_total, n_folds=CV_SPLITS,
+                  # The stages in order, with how many units each holds. The
+                  # GUI times each stage on its own, because a unit costs very
+                  # different amounts in different stages.
+                  phases=[["stage A1 screen", stage_a_total],
+                          ["stage A2 probe", n_short * n_probes],
+                          ["stage B", stage_b_total],
+                          ["tail", tail_total]],
                   message=(f"{len(models)} candidates x "
                            f"{total // max(1, len(models))} setups"))
 
@@ -1849,7 +1897,7 @@ def main(argv=None):
                                     dedup_report.get("windows_after"),
                                 **scores,
                             })
-                            if done % 5 == 0 or done == grand_total:
+                            if done % PROGRESS_EVERY == 0 or done == grand_total:
                                 emit_progress(
                                     done, grand_total, "stage A1 screen",
                                     model=model_name,
@@ -1964,7 +2012,7 @@ def main(argv=None):
                 "n_recordings": len(recs_for),
                 **scores,
             })
-            if done % 5 == 0 or done == grand_total:
+            if done % PROGRESS_EVERY == 0 or done == grand_total:
                 emit_progress(
                     done, grand_total, "stage A2 probe",
                     model=model_name, candidate=done,
@@ -2020,7 +2068,7 @@ def main(argv=None):
             if scores is None:
                 continue
             done += 1
-            if done % 5 == 0 or done == grand_total:
+            if done % PROGRESS_EVERY == 0 or done == grand_total:
                 emit_progress(
                     done, grand_total, "stage B",
                     model=model_name,

@@ -191,7 +191,9 @@ def main(argv=None):
     print(f"  spec         : {spec_source}")
 
     exclude = TM.EXCLUDE_SETS.get(best["exclude"], ())
-    recs, dropped = TM.load_recordings(root, exclude_codes=exclude)
+    recs, dropped = TM.load_recordings(
+        root, exclude_codes=exclude,
+        include=(spec.get("data") or {}).get("include"))
     print(f"  recordings   : {len(recs)} kept, {len(dropped)} dropped")
 
     # The calibration mode comes from the PAYLOAD, not from the current

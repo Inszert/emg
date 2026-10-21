@@ -27,15 +27,30 @@ scikit-learn>=1.3
 joblib>=1.3
 pyarrow>=14.0
 
-# --- NOT required: PyTorch -------------------------------------------------
-# The neural-network experiment (train_torch.py) was retired on 2026-10-14:
-# it never beat the simple models (99.2 % per recording against 100 % for a
-# plain LDA). The application has never imported torch, and the live
-# classifier runs on the CPU from models/gesture_model.joblib.
+# --- OPTIONAL: PyTorch, for the NEURAL NETWORK only ------------------------
+# The application itself NEVER imports torch, and that is a standing
+# invariant: the import costs seconds and attaches a GPU context to the
+# process whose job is not to drop EMG samples. tests/test_no_torch.py proves
+# it by blocking the import outright and then recording and predicting.
 #
-# Nothing here needs it. Install it only to re-run that retired experiment:
+# torch is needed only by the separate neural-net model (CLAUDE.md section
+# 8L), which lives entirely in subprocesses:
+#     train_nn.py    the trainer          nn_serve.py   the live worker
+#     nn_arch.py     the architectures    tests/test_nn.py
+# Without it, the NEURAL NETWORK panel says what is missing and everything
+# else works exactly as before. That model is a second opinion and is never
+# part of the app's answer -- what ships is models/gesture_model.joblib, a
+# ~209 KB scikit-learn payload that runs on the CPU.
+#
+# It is deliberately NOT listed as a dependency: pip's default index serves
+# the CPU-only build, which train_nn.py refuses rather than silently running
+# twenty times slower. Install it explicitly:
 #   python -m pip install torch==2.9.1+cu128 --index-url https://download.pytorch.org/whl/cu128
 #
+# Also kept, not run: train_torch.py, the original neural-net experiment,
+# retired 2026-10-14 and superseded by train_nn.py.
+#
 # Note: scikit-learn has no GPU backend, and RAPIDS cuML (which does) has no
-# Windows build and none for Python 3.14 -- so training is CPU work here no
-# matter what is installed. See CLAUDE.md section 8d.
+# Windows build and none for Python 3.14 -- so the RETRAIN sweep is CPU work
+# no matter what is installed. train_nn.py is the one trainer here that
+# really uses CUDA. See CLAUDE.md sections 8d and 8L.

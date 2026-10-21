@@ -9,6 +9,15 @@
     "enabled": false,
     "max_per_model": 8
   },
+  "data": {
+    "include": [
+      "Barbora/session_01",
+      "Betka/session_01",
+      "Bruno/session_01",
+      "Dano/session_01"
+    ],
+    "calibration": "default"
+  },
   "models": [
     {
       "name": "LDA-shrinkage",

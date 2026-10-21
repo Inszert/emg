@@ -169,6 +169,75 @@ def test_data_layer():
         check("damaged sidecar tolerated", len(listed) == 2, str(len(listed)))
         check("label falls back to the filename",
               any(i["label"] == "OPEN" for i in listed))
+
+        # -- takes_by_session: WHERE a subject's takes actually are -----------
+        #  The take list is scoped to one subject AND session, and that
+        #  scoping used to be invisible: takes recorded under one SESSION_ID
+        #  are simply absent when the app is reopened under another, which
+        #  looks exactly like a take that never got saved. This is the lookup
+        #  the panel uses to say where they went instead of leaving the
+        #  operator to guess. Its own root, so the counts above stay intact.
+        root2 = tempfile.mkdtemp(prefix="emg_takeloc_")
+        try:
+            def put(person, session, label, number, seed=3):
+                writer = T.DatasetWriter(root2, person, session)
+                emg, times = synth_take(6.0, seed=seed)
+                rec = T.Recording(emg=emg, timestamps=time.time() + times,
+                                  label=label, person_id=person,
+                                  session_id=session, repetition=0,
+                                  stage=T.STAGE_RAW,
+                                  meta={"capture_style": "free_take"})
+                writer.save_take(rec, number)
+                return writer
+
+            check("no takes anywhere yet",
+                  T.takes_by_session(root2, "p1") == {},
+                  str(T.takes_by_session(root2, "p1")))
+
+            put("p1", "s1", "FIST", 1)
+            check("the current session is counted",
+                  T.takes_by_session(root2, "p1") == {"s1": 1},
+                  str(T.takes_by_session(root2, "p1")))
+            check("one take counts ONCE, not once per file format",
+                  T.takes_by_session(root2, "p1")["s1"] == 1)
+
+            put("p1", "s9", "OPEN", 1, seed=4)
+            put("p1", "s9", "REST", 2, seed=5)
+            counts = T.takes_by_session(root2, "p1")
+            check("a second session is found and counted separately",
+                  counts == {"s1": 1, "s9": 2}, str(counts))
+
+            put("p2", "s1", "FIST", 1, seed=6)
+            check("another SUBJECT's takes are not mixed in",
+                  T.takes_by_session(root2, "p1") == {"s1": 1, "s9": 2},
+                  str(T.takes_by_session(root2, "p1")))
+            check("...and that subject has their own count",
+                  T.takes_by_session(root2, "p2") == {"s1": 1},
+                  str(T.takes_by_session(root2, "p2")))
+            check("an unknown subject is empty, not an error",
+                  T.takes_by_session(root2, "nobody_here") == {})
+            check("a missing root is empty, not an error",
+                  T.takes_by_session(os.path.join(root2, "gone"), "p1") == {})
+
+            #  A deleted take must stop being advertised, or the panel would
+            #  point at a session whose takes are all in _deleted/.
+            p2 = T.DatasetWriter(root2, "p2", "s1")
+            p2.delete_take(p2.list_takes()[0]["stem"])
+            check("a deleted take is no longer counted",
+                  T.takes_by_session(root2, "p2") == {},
+                  str(T.takes_by_session(root2, "p2")))
+
+            #  Underscore folders are not sessions -- the same rule
+            #  discover_recordings() applies.
+            os.makedirs(os.path.join(root2, "p1", "_archive_old",
+                                     T.FREE_TAKE_FOLDER), exist_ok=True)
+            open(os.path.join(root2, "p1", "_archive_old", T.FREE_TAKE_FOLDER,
+                              "FIST_take001_x_y_take.npz"), "wb").close()
+            check("an underscore folder is not reported as a session",
+                  "_archive_old" not in T.takes_by_session(root2, "p1"),
+                  str(T.takes_by_session(root2, "p1")))
+        finally:
+            shutil.rmtree(root2, ignore_errors=True)
     finally:
         shutil.rmtree(root, ignore_errors=True)
 
@@ -206,6 +275,14 @@ def test_gui():
         check("status says idle", "idle" in w.free_take_status.text())
         check("history says there are none",
               "no takes" in w.take_list.item(0).text())
+        check("the header counts the takes shown against all on disk",
+              "0 of 0" in w.take_list_header.text(),
+              w.take_list_header.text())
+        check("the list is not scoped to one subject or session",
+              w.take_person_filter.currentText() == "All persons"
+              and w.take_date_filter.currentText() == "All dates")
+        check("with takes nowhere else, no hint is shown",
+              w.take_elsewhere.text() == "", w.take_elsewhere.text())
 
         # -- the default cut length is settable -------------------------------
         check("cut length spin built", hasattr(w, "cut_length_spin"))

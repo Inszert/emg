@@ -67,8 +67,10 @@ SUBJECT_NOTES = ""              # free text, editable in the GUI
 # GESTURES / LABELS
 # ------------------------------------------------------------------------------
 
-# The label set. Add or remove gestures here -- the GUI, the folder structure
-# and the automatic recording sequence all follow this list.
+# The label set IN USE. Add or remove gestures here -- the GUI, the folder
+# structure and the automatic recording sequence all follow this list. It is
+# also editable at runtime through GESTURES... (Ctrl+Shift+G), which writes
+# back to this global so the metadata on disk matches what was recorded.
 GESTURES = [
     "REST",
     "FIST",
@@ -77,6 +79,64 @@ GESTURES = [
     "WAVE_LEFT",
     "WAVE_RIGHT",
 ]
+
+# Gestures the tool KNOWS but does not record unless you switch them on, in
+# GESTURES... or by moving one into the list above.
+#
+# They are off by default on purpose. Every extra class costs recording time
+# from every future subject AND makes the problem harder -- six classes on an
+# 8-pod forearm band already collide (CLAUDE.md 8L measured OPEN against
+# WAVE_RIGHT at 0.978 cosine, i.e. nearly the same signal), so a seventh is
+# only worth it if it is driven by a different muscle group rather than by a
+# different-looking hand.
+#
+# The value is the cue shown during PREPARE, so it can say what to do rather
+# than just naming a constant.
+OPTIONAL_GESTURES = {
+    # Thumb folded across the index finger. Driven by the thumb adductor and
+    # flexor pollicis, which sit deeper and more medially than the finger
+    # flexors FIST uses -- so it should separate from FIST rather than being
+    # a weaker version of it.
+    "THUMB_OVER_INDEX": "thumb folded flat across the index finger",
+    # Thumb and index fingertips together, the other fingers relaxed. The
+    # classic prosthetics precision grip.
+    "PINCH": "thumb and index fingertips together, other fingers loose",
+    # Index extended, the rest closed. Mixes extensor indicis with the
+    # flexors holding the other fingers down, so it is not simply OPEN or
+    # FIST at half effort.
+    "POINT": "index finger extended, the other fingers closed",
+}
+
+# Cues for the built-in six, same idea. A gesture with no entry here is cued
+# by its own name.
+GESTURE_CUES = {
+    "REST": "relax the hand completely",
+    "FIST": "close the hand firmly",
+    "OPEN": "spread the fingers wide",
+    "THUMB_UP": "thumb up, other fingers closed",
+    "WAVE_LEFT": "bend the wrist towards the thumb",
+    "WAVE_RIGHT": "bend the wrist towards the little finger",
+}
+
+
+def known_gestures():
+    """
+    Every gesture the tool can record: the ones in use plus the optional ones.
+
+    Order matters for the GUI list -- the ones in use come first, in their
+    configured order, so the list reads as "what you are recording" followed
+    by "what else is available".
+    """
+    out = list(GESTURES)
+    for name in OPTIONAL_GESTURES:
+        if name not in out:
+            out.append(name)
+    return out
+
+
+def gesture_cue(name: str) -> str:
+    """The instruction shown while cueing `name`, or the name itself."""
+    return (GESTURE_CUES.get(name) or OPTIONAL_GESTURES.get(name) or "")
 
 # How many repetitions of EACH gesture the automatic session should collect.
 REPETITIONS = 6
@@ -102,7 +162,15 @@ MAX_RECORDINGS = 0
 REST_TIME = 2.0          # relax / return-to-neutral time before each repetition
 PREPARE_TIME = 0.8       # "GET READY: FIST" announcement before the countdown
 COUNTDOWN_TIME = 3.0     # length of the 3-2-1 countdown (3.0 = three ticks)
-RECORD_TIME = 4.0        # onset -> settle -> RELAXED HOLD -> release (CLAUDE.md 8f R4)
+# onset -> settle -> RELAXED HOLD -> release (CLAUDE.md 8f R4).
+# 2.5 s, set 2026-10-19: with "blocked" order the subject does every
+# repetition of one gesture back to back, and 4 s holds x 5 reps is enough
+# sustained contraction to drive measurable fatigue drift (CLAUDE.md 8f
+# measured FIST losing 59 % of its amplitude across a 52 s hold). 2.5 s still
+# yields ~7 windows per repetition at 0.3 s / 0.5 overlap, and it matches the
+# 3 s median of the clips already in the dataset closely enough to compare.
+# Adjustable per session in the PLAN panel.
+RECORD_TIME = 2.5
 PAUSE_TIME = 1.0         # short pause after the recording (save + breathe)
 
 # Extra signal kept AROUND the labeled record window. It is captured into the
@@ -645,6 +713,71 @@ ONE_SHOT_DELAY_S = 0.8
 ONE_SHOT_HOLD_S = 3.0            # how long the result stays on screen
 
 # ------------------------------------------------------------------------------
+# NEURAL NETWORK  (a SECOND, SEPARATE opinion -- never part of the answer above)
+# ------------------------------------------------------------------------------
+# The panel above is the deployed classifier: one scikit-learn estimator, no
+# torch, no CUDA, destined for an SBC on a robot. This section is a different
+# model entirely -- a small sequence net that reads how the envelope CHANGES
+# across the window instead of summarising it into statistics.
+#
+# IT IS DELIBERATELY NOT FUSED WITH IT. Separate file, separate START button,
+# separate probability bars, separate statistics dialog. `LivePredictor` never
+# opens the checkpoint, the net is not a member of the DECISION TRAIL's soft
+# vote, and turning it on changes nothing about what LIVE CLASSIFIER answers.
+# Two independently validated models that disagree tell you something; one
+# blended number that hides which half was wrong does not.
+#
+# Train it with:   python train_nn.py            (CUDA; --device cpu to force)
+ENABLE_NEURAL_NET = True
+NN_MODEL_PATH = "models/gesture_nn.pt"
+
+# THE RECORDER NEVER IMPORTS TORCH, and that is not negotiable (section 13):
+# the import costs ~7 s and attaches a GPU context to the process whose one
+# job is to not drop EMG samples. So inference runs in a subprocess --
+# `nn_serve.py` -- which the app talks to over stdin/stdout, exactly the way
+# the GPU/CPU badge is probed. `tests/test_no_torch.py` still passes with the
+# net enabled, because nothing here imports it.
+NN_WORKER_SCRIPT = "nn_serve.py"
+
+# "cuda" asks the worker for the GPU and lets it FAIL rather than fall back:
+# a silent CPU fallback looks identical to a working run. The panel then says
+# why, in words, instead of quietly running slower.
+#   "cuda" -> require CUDA,  "cpu" -> force CPU,  "auto" -> CUDA if present
+NN_DEVICE = "auto"
+
+# How long to wait for the worker to load torch and the checkpoint before
+# giving up on it. The torch import alone is several seconds on a cold cache.
+NN_START_TIMEOUT_S = 40.0
+
+# How often the net classifies a window while running (ms). Its own timer,
+# independent of PREDICTION_INTERVAL_MS, so the two models can run at
+# different cadences -- or one of them alone.
+NN_INTERVAL_MS = 150
+
+# Soft-vote smoothing over this many consecutive windows, like the sklearn
+# panel's. 1 disables it. Kept separate so a change here cannot alter what
+# the deployed classifier displays.
+NN_SMOOTHING = 5
+
+# A stand-in for the model grid until a checkpoint says what it really is.
+# Both trainers resample to 60 Hz (train_model.MODEL_FS), but THAT number is
+# authoritative and arrives in the payload -- this is only what the engine
+# reports before it has loaded one, so that the field is never empty.
+NN_MODEL_FS_FALLBACK = 60.0
+
+# Drop a request if the worker has not answered the previous one. The net is
+# a diagnostic, not a recorder: skipping a window is better than queueing up
+# a backlog that answers questions about the past.
+NN_MAX_IN_FLIGHT = 1
+
+# ...and give up on a request the worker never answered after this long.
+# Without it, one lost reply would hold the single in-flight slot forever and
+# the panel would freeze on its last answer while looking perfectly healthy.
+# Generous against a measured ~25 ms round trip: this is a stuck-request
+# valve, not a latency budget.
+NN_RESPONSE_TIMEOUT_S = 5.0
+
+# ------------------------------------------------------------------------------
 # PER-WEARER CALIBRATION  (optional; off until you press CALIBRATE)
 # ------------------------------------------------------------------------------
 # The armband reads a different number on every wearer for the same effort:
@@ -669,6 +802,14 @@ ONE_SHOT_HOLD_S = 3.0            # how long the result stays on screen
 # measures a new one; nothing expires on its own, nothing is re-estimated per
 # recording, and a stored calibration survives restarts because it lives in
 # the dataset next to the wearer's data.
+#  False = every side panel starts folded; click a header to open it.
+#  True restores the old defaults (SUBJECT, FREE TAKE, LABEL, RECORDINGS open).
+SIDE_PANELS_START_OPEN = False
+#  Side panels not shown at all (keys: subject, free_take, label, markers,
+#  plan, channels, recordings, prediction, neural, training, log). They are
+#  still built, so shortcuts and everything else keep working; remove a key
+#  here to bring its panel back.
+SIDE_PANELS_HIDDEN = {"label", "markers"}
 CALIBRATION_ENABLED = True
 
 # How a calibration is applied, if one exists:
@@ -785,6 +926,15 @@ CALIBRATION_MIN_GESTURE_CONTRAST = 2.0
 # whole record: a calibration capture is a deliberate strong contraction, not
 # the relaxed hold the recording protocol asks for.
 CALIBRATION_MIN_GESTURE_LEVEL = 60.0
+
+# The REST capture is judged too, because it is the floor everything else is
+# measured against: `affine` subtracts it from every sample, and every
+# gesture's contrast is a ratio over it. A "rest" held with the hand still
+# tense would raise that floor and quietly fail the gestures after it. Measured
+# relaxed levels on this hardware are 19-26 counts per channel (median), so 50
+# is twice that while staying under CALIBRATION_MIN_GESTURE_LEVEL -- a rest
+# must never be loud enough to pass as a gesture.
+CALIBRATION_MAX_REST_LEVEL = 50.0
 
 # No sample for this long and the dialog treats the stream as down. It is
 # checked against the newest SAMPLE's age rather than the link state, because
@@ -1144,7 +1294,7 @@ import threading
 import time
 import traceback
 import uuid
-from collections import deque
+from collections import Counter, deque
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from typing import Callable, Dict, Iterable, List, Optional, Sequence, Tuple
@@ -1160,9 +1310,95 @@ import numpy as np
 
 APP_NAME = "Myo EMG Dataset Tool"
 APP_VERSION = "1.0.0"
-N_CHANNELS = 8
-CHANNEL_NAMES = [f"CH{i + 1}" for i in range(N_CHANNELS)]
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# ------------------------------------------------------------------------------
+# DEVICE PROFILE  --  how many channels, and what they are called
+# ------------------------------------------------------------------------------
+# `N_CHANNELS` used to be a bare 8 sitting in the middle of the module, which
+# made a second armband a search-and-replace across 44 sites. It is now
+# DERIVED from the active profile, so a different band is a new entry here
+# plus `EMG_DEVICE`.
+#
+# What a profile does NOT do is make the app talk to that band: acquisition
+# still goes through `myo_raw.py`, which is Myo-specific and must stay
+# working (CLAUDE.md section 3). A profile makes the DATA side -- the stored
+# schema, the loaders, the features, the calibration, the quality checks and
+# the plot -- stop assuming eight. That is the half that would otherwise make
+# the existing dataset unreadable the moment a second band arrived.
+#
+# To add a band: add a profile, set EMG_DEVICE, and write its acquisition
+# backend. Everything below this block follows the profile.
+DEVICE_PROFILES = {
+    "myo": {
+        "label": "Thalmic Myo armband",
+        "channels": 8,
+        # Names are per profile because a band with a different geometry
+        # should not be forced to call its pods CH1..CHn if it names them
+        # something meaningful. None = CH1..CHn.
+        "channel_names": None,
+        "ble_name": "Myo_TUKE",
+    },
+    # Example of what a second band looks like. Unused until EMG_DEVICE
+    # names it; kept here so the shape of a profile is obvious rather than
+    # having to be inferred from the one entry.
+    "generic_16": {
+        "label": "generic 16-channel EMG band (placeholder)",
+        "channels": 16,
+        "channel_names": None,
+        "ble_name": None,
+    },
+}
+
+EMG_DEVICE = "myo"
+
+
+def device_profile(name: str = None) -> dict:
+    """The active profile, or a named one. Unknown names fall back to myo."""
+    return DEVICE_PROFILES.get(name or EMG_DEVICE, DEVICE_PROFILES["myo"])
+
+
+def set_device(name: str) -> dict:
+    """
+    Switch the active device profile and recompute what derives from it.
+
+    The derived globals (`N_CHANNELS`, `CHANNEL_NAMES`) are recomputed rather
+    than recalculated at every use, because they are read on hot paths --
+    per-window feature naming, per-frame plotting. Anything that can instead
+    follow the DATA's own width does that already, so a recording made on one
+    band still loads correctly after switching to another.
+    """
+    global EMG_DEVICE, N_CHANNELS, CHANNEL_NAMES
+    if name not in DEVICE_PROFILES:
+        raise ValueError(f"unknown device {name!r}; known: "
+                         f"{', '.join(sorted(DEVICE_PROFILES))}")
+    EMG_DEVICE = name
+    profile = DEVICE_PROFILES[name]
+    N_CHANNELS = int(profile["channels"])
+    names = profile.get("channel_names")
+    CHANNEL_NAMES = (list(names) if names
+                     else [f"CH{i + 1}" for i in range(N_CHANNELS)])
+    return profile
+
+
+def channel_names_for(n: int) -> List[str]:
+    """
+    Names for an array that is `n` channels wide, whatever the config says.
+
+    Used by anything that has real data in hand: a file recorded on an
+    8-channel band must keep reading as eight channels after the config moves
+    to a sixteen-channel one. Falls back to CH1..CHn beyond the profile's own
+    names rather than raising -- a name is a caption, and refusing to load a
+    recording over a caption would be the wrong trade.
+    """
+    n = int(n)
+    if n == len(CHANNEL_NAMES):
+        return list(CHANNEL_NAMES)
+    return [f"CH{i + 1}" for i in range(n)]
+
+
+N_CHANNELS = int(device_profile()["channels"])
+CHANNEL_NAMES = [f"CH{i + 1}" for i in range(N_CHANNELS)]
 
 # Optional dependencies -- the data layer works without Qt so that the dataset
 # functions can be imported from a training script or a notebook.
@@ -1563,7 +1799,11 @@ def calibration_levels(record: dict):
         ref = np.asarray(record["reference"], dtype=np.float64).ravel()
     except (KeyError, TypeError, ValueError):
         return None
-    if rest.size != N_CHANNELS or ref.size != N_CHANNELS:
+    #  The record's own width, matched against itself rather than against
+    #  the active profile. A calibration measured on an 8-channel band stays
+    #  readable after EMG_DEVICE moves on -- it simply will not APPLY to a
+    #  wider window, which `apply_calibration` catches by comparing shapes.
+    if rest.size == 0 or rest.size != ref.size:
         return None
     if not (np.all(np.isfinite(rest)) and np.all(np.isfinite(ref))):
         return None
@@ -1583,8 +1823,8 @@ def validate_calibration(record: dict):
     problems: List[str] = []
     levels = calibration_levels(record)
     if levels is None:
-        return False, [f"no usable rest/reference pair of {N_CHANNELS} "
-                       f"finite values"]
+        return False, ["no usable rest/reference pair -- the two level "
+                       "vectors must be the same length and all finite"]
     rest, ref = levels
 
     if np.any(rest < 0) or np.any(ref < 0):
@@ -1605,7 +1845,8 @@ def validate_calibration(record: dict):
             f"CALIBRATION_MIN_CONTRAST ({CALIBRATION_MIN_CONTRAST:.2f}) -- "
             f"the two captures did not measure two different things")
     if np.any(ref <= rest):
-        quiet = [CHANNEL_NAMES[i] for i in range(N_CHANNELS) if ref[i] <= rest[i]]
+        names = channel_names_for(rest.size)
+        quiet = [names[i] for i in range(rest.size) if ref[i] <= rest[i]]
         problems.append("reference is not above rest on " + ", ".join(quiet))
 
     for key, floor in (("n_rest_samples", CALIBRATION_MIN_SAMPLES),
@@ -1637,14 +1878,17 @@ def resolve_calibration(record: dict, mode: str = None,
     rest, ref = calibration_levels(record)
     target = float(CALIBRATION_TARGET_LEVEL if target is None else target)
 
+    #  Sized from the RECORD, so the resolved map is as wide as the
+    #  calibration that produced it rather than as wide as the config.
+    width = int(rest.size)
     if mode == "gain":
-        #  ONE divisor for all eight channels, so every ratio between
-        #  channels -- the spatial profile the gestures actually differ in --
-        #  comes out of this unchanged.
-        offset = np.zeros(N_CHANNELS, dtype=np.float64)
-        scale = np.full(N_CHANNELS, float(np.mean(ref)), dtype=np.float64)
+        #  ONE divisor for every channel, so every ratio between channels --
+        #  the spatial profile the gestures actually differ in -- comes out of
+        #  this unchanged.
+        offset = np.zeros(width, dtype=np.float64)
+        scale = np.full(width, float(np.mean(ref)), dtype=np.float64)
     elif mode == "per_channel":
-        offset = np.zeros(N_CHANNELS, dtype=np.float64)
+        offset = np.zeros(width, dtype=np.float64)
         scale = np.asarray(ref, dtype=np.float64).copy()
     else:                                                      # "affine"
         offset = np.asarray(rest, dtype=np.float64).copy()
@@ -1683,10 +1927,40 @@ def apply_calibration(block: np.ndarray, cal: dict) -> np.ndarray:
     if not cal:
         return block
     x = np.asarray(block, dtype=np.float64)
-    if x.ndim != 2 or x.shape[1] != N_CHANNELS:
+    #  The window must match the CALIBRATION's width, not the config's. A
+    #  mismatch returns the block untouched, which is the same "behave as the
+    #  uncalibrated pipeline" answer `resolve_calibration` gives for an
+    #  unusable record -- degrading to no calibration rather than to a wrong
+    #  one. Broadcasting an 8-wide map onto a 16-wide window would otherwise
+    #  either raise here or, worse, succeed on a multiple.
+    if x.ndim != 2 or x.shape[1] != np.size(cal["offset"]):
         return block
     out = (x - cal["offset"]) * (float(cal["target"]) / cal["scale"])
     return np.maximum(out, 0.0)
+
+
+def nn_input_block(block: np.ndarray, cal: dict = None) -> np.ndarray:
+    """
+    The NEURAL NET's whole input contract: resampled window -> net input.
+
+    Calibrate (if the wearer has one), cast to float32, and stop. No feature
+    extraction, no representation, no normalisation -- a sequence net learns
+    its own features from the `(win, 8)` block, which is the entire reason it
+    is a separate model rather than another candidate in the sweep.
+
+    This function exists so that `train_nn.py` and `nn_serve.py` cannot drift
+    apart, for the same reason `model_feature_vector()` exists for the
+    scikit-learn pair. The two contracts are deliberately SEPARATE functions:
+    mixing a net into the feature path is how a conv net ends up being fed a
+    statistics vector, or the deployed model a raw block.
+
+    The `log1p` + standardisation step is NOT here. That scaler is fitted on
+    the training fold and travels inside the checkpoint, so it belongs to the
+    model, not to the input contract.
+    """
+    out = apply_calibration(np.asarray(block, dtype=np.float64), cal) \
+        if cal else block
+    return np.ascontiguousarray(out, dtype=np.float32)
 
 
 def calibration_record(rest_levels, effort_levels, person_id: str = "",
@@ -1859,6 +2133,44 @@ def calibration_capture_quality(block: np.ndarray, rest_levels=None) -> dict:
         info["reason"] = (f"peak only {levels[peak]:.0f} counts, need "
                           f"{CALIBRATION_MIN_GESTURE_LEVEL:.0f} -- "
                           f"hold it harder")
+    return info
+
+
+def calibration_rest_quality(block: np.ndarray) -> dict:
+    """
+    Judge the REST capture the way `calibration_capture_quality` judges a
+    gesture: as it lands, so a rest that was not relaxed can be redone.
+
+        ok            enough samples, and quiet on every channel
+        n_samples     how much signal arrived
+        levels        the per-channel levels at REST percentile
+        loud_channel  the loudest channel, 1-based
+        level         that channel's level
+        reason        why not, when ok is False
+    """
+    x = np.asarray(block, dtype=np.float64) if block is not None else None
+    if x is None or x.ndim != 2 or x.shape[0] == 0:
+        return {"ok": False, "n_samples": 0, "levels": None,
+                "loud_channel": 0, "level": 0.0,
+                "reason": "nothing was captured"}
+    n = int(x.shape[0])
+    levels = np.percentile(x, CALIBRATION_REST_PERCENTILE, axis=0)
+    loud = int(np.argmax(levels))
+    info = {"ok": True, "n_samples": n, "levels": levels,
+            "loud_channel": loud + 1, "level": float(levels[loud]),
+            "reason": ""}
+    if n < CALIBRATION_MIN_SAMPLES:
+        info["ok"] = False
+        info["reason"] = (f"only {n} samples, need "
+                          f"{CALIBRATION_MIN_SAMPLES}")
+    elif float(levels[loud]) > CALIBRATION_MAX_REST_LEVEL:
+        #  The median, so one twitch does not fail it -- this is a hand that
+        #  stayed tense for most of the capture.
+        info["ok"] = False
+        info["reason"] = (f"CH{loud + 1} at {levels[loud]:.0f} counts, "
+                          f"relaxed is under "
+                          f"{CALIBRATION_MAX_REST_LEVEL:.0f} -- let the "
+                          f"hand go limp")
     return info
 
 
@@ -2104,11 +2416,23 @@ TIME_FEATURES = [
 FREQ_FEATURES = ["mnf", "mdf"]
 
 
-def feature_names(include_freq: bool = True) -> List[str]:
-    """Flat feature names, matching the extract_features() output order."""
+def feature_names(include_freq: bool = True,
+                  n_channels: int = None) -> List[str]:
+    """
+    Flat feature names, matching the extract_features() output order.
+
+    `n_channels` defaults to the active profile. It is a parameter because
+    the EXTRACTORS already follow the data -- they are axis-0 reductions, so
+    they return one value per column of whatever window they are handed --
+    and only the names were pinned to the config. Passing the real width is
+    what keeps a feature vector and its names the same length on a band that
+    is not eight channels wide.
+    """
     names = []
+    channels = channel_names_for(n_channels if n_channels is not None
+                                 else N_CHANNELS)
     for feat in TIME_FEATURES + (FREQ_FEATURES if include_freq else []):
-        names.extend(f"{ch}_{feat}" for ch in CHANNEL_NAMES)
+        names.extend(f"{ch}_{feat}" for ch in channels)
     return names
 
 
@@ -2177,10 +2501,12 @@ LEVEL_FEATURES = ["mean", "median", "p90", "std", "share", "log_mean"]
 LEVEL_GLOBAL_FEATURES = ["total_log", "focality"]
 
 
-def level_feature_names() -> List[str]:
+def level_feature_names(n_channels: int = None) -> List[str]:
     names = []
+    channels = channel_names_for(n_channels if n_channels is not None
+                                 else N_CHANNELS)
     for feat in LEVEL_FEATURES:
-        names.extend(f"{ch}_{feat}" for ch in CHANNEL_NAMES)
+        names.extend(f"{ch}_{feat}" for ch in channels)
     names.extend(LEVEL_GLOBAL_FEATURES)
     return names
 
@@ -2242,8 +2568,10 @@ def extract_all_features(window: np.ndarray, fs: float = None,
     ])
 
 
-def all_feature_names(include_freq: bool = True) -> List[str]:
-    return feature_names(include_freq) + level_feature_names()
+def all_feature_names(include_freq: bool = True,
+                      n_channels: int = None) -> List[str]:
+    return (feature_names(include_freq, n_channels)
+            + level_feature_names(n_channels))
 
 
 # ------------------------------------------------------------------------------
@@ -2295,12 +2623,21 @@ def model_feature_vector(window: np.ndarray, representation: str = "raw",
 
 
 def model_feature_names(feature_set: str = "level",
-                        include_freq: bool = True) -> List[str]:
+                        include_freq: bool = True,
+                        n_channels: int = None) -> List[str]:
+    """
+    The names of what `model_feature_vector()` returns, in order.
+
+    This is half of the contract between training and inference: the trainer
+    stores these in the payload and `LivePredictor` checks its own feature
+    count against them, which is what turns a channel-count mismatch into a
+    refusal at load time instead of confident nonsense at 7 Hz.
+    """
     if feature_set == "level":
-        return level_feature_names()
+        return level_feature_names(n_channels)
     if feature_set == "both":
-        return all_feature_names(include_freq)
-    return feature_names(include_freq)
+        return all_feature_names(include_freq, n_channels)
+    return feature_names(include_freq, n_channels)
 
 
 def _spectral_features(x: np.ndarray, fs: float) -> Tuple[np.ndarray, np.ndarray]:
@@ -2744,6 +3081,46 @@ def recording_config_snapshot() -> dict:
 
 MODEL_SPEC_VERSION = 1
 
+# Which recordings a training run uses, and whether the wearers' calibration is
+# applied to them. Part of the spec because both change what the model IS: a
+# model trained on two wearers is a different model from one trained on five,
+# and a calibrated model refuses to run for a wearer who has not calibrated.
+#
+#   "include":     ["Dano/session_01", ...]  -- person/session pairs. EMPTY
+#                  means everything on disk (the old behaviour).
+#   "calibration": "default" follows CALIBRATION_MODE / --calibration; any of
+#                  CALIBRATION_MODES overrides it for training. "off" is the
+#                  one that lets a wearer with no calibration use the model.
+DATA_CALIBRATION_DEFAULT = "default"
+
+
+def default_data_selection() -> dict:
+    return {"include": [], "calibration": DATA_CALIBRATION_DEFAULT}
+
+
+def validate_data_selection(raw, problems: list) -> dict:
+    """The spec's `data` block, cleaned. Unknown values fall back, never raise."""
+    raw = raw if isinstance(raw, dict) else {}
+    include = raw.get("include")
+    if isinstance(include, str):
+        include = [include]
+    include = include if isinstance(include, (list, tuple)) else []
+    clean = []
+    for item in include:
+        text = str(item).strip().replace("\\", "/")
+        if text.count("/") != 1 or not all(text.split("/")):
+            problems.append(f"data.include: {item!r} is not 'person/session'; "
+                            "dropped")
+            continue
+        if text not in clean:
+            clean.append(text)
+    mode = str(raw.get("calibration", DATA_CALIBRATION_DEFAULT))
+    if mode != DATA_CALIBRATION_DEFAULT and mode not in CALIBRATION_MODES:
+        problems.append(f"data.calibration {mode!r} is not 'default' or one of "
+                        f"{list(CALIBRATION_MODES)}; using 'default'")
+        mode = DATA_CALIBRATION_DEFAULT
+    return {"include": clean, "calibration": mode}
+
 
 def default_model_spec() -> dict:
     """The roster the sweep has always run, as a spec."""
@@ -2758,6 +3135,7 @@ def default_model_spec() -> dict:
             "enabled": bool(MODEL_AUTO_ENABLED),
             "max_per_model": int(MODEL_AUTO_MAX_PER_MODEL),
         },
+        "data": default_data_selection(),
         "models": [
             {"name": name, "kind": kind, "enabled": bool(enabled),
              "scaler": scaler, "params": dict(params)}
@@ -2952,14 +3330,18 @@ def validate_model_spec(spec: dict):
 
     if not models:
         problems.append("no usable models in the spec; using the defaults")
-        return default_model_spec(), problems
+        fallback = default_model_spec()
+        fallback["data"] = validate_data_selection(spec.get("data"), problems)
+        return fallback, problems
     if not any(m["enabled"] for m in models):
         problems.append("every model was switched off; enabling the first one "
                         "so there is something to train")
         models[0]["enabled"] = True
 
     return {"version": MODEL_SPEC_VERSION, "voting": voting,
-            "auto": auto, "models": models}, problems
+            "auto": auto,
+            "data": validate_data_selection(spec.get("data"), problems),
+            "models": models}, problems
 
 
 def model_search_space(kind: str) -> dict:
@@ -3199,7 +3581,11 @@ def compute_badge(info: dict) -> tuple:
         if info.get("failed"):
             return ("DEVICE UNKNOWN",
                     f"{info.get('reason') or 'the probe failed'}.\n"
-                    "Run `python train_torch.py --quick --no-save` in a "
+                    #  train_nn.py, not train_torch.py: the latter is
+                    #  retired (section 8b) and pointing a diagnostic
+                    #  at a file nobody runs any more wastes the one
+                    #  moment the operator is looking for an answer.
+                    "Run `python train_nn.py --quick --no-save` in a "
                     "terminal to see what the GPU situation is.",
                     "warn")
         return ("checking compute device...", info.get("reason", ""), "dim")
@@ -3503,7 +3889,7 @@ def model_report_html(predictor, stats: dict) -> str:
     parts.append(section("WHAT GOES IN", (
         f'<table cellspacing="0">'
         + row("Window", f"{stats.get('window_s', 0) * 1000:.0f} ms of all "
-                        f"{N_CHANNELS} channels")
+                        f"{stats.get('n_channels', N_CHANNELS)} channels")
         + row("Resampled to", f"{stats.get('fs', predictor.fs):g} Hz")
         + row("Features", f"{stats.get('n_features', '?')} "
                           f"({stats.get('feature_set', '?')} set, "
@@ -3591,17 +3977,29 @@ class Recording:
     """
     One labeled EMG recording held in memory.
 
-    `emg` is the untouched device signal: (n_samples, 8) integer counts exactly
-    as the armband reported them. Nothing in this class mutates it -- every
-    derived view and every trim returns a new array or a new Recording.
+    `emg` is the untouched device signal: `(n_samples, n_channels)` integer
+    counts exactly as the band reported them. Nothing in this class mutates
+    it -- every derived view and every trim returns a new array or a new
+    Recording.
+
+    **The channel count comes from the DATA, not from the config.** A 2-D
+    array keeps its own width, so a recording made on an 8-channel band still
+    loads as eight channels after `EMG_DEVICE` moves to a wider one. Only a
+    flat array has to be told how to fold, and then the config is the only
+    thing that can say.
     """
 
     def __init__(self, emg, timestamps, label, person_id, session_id,
                  repetition=0, stage=STAGE_RAW, uid=None, created_unix=None,
                  label_start_index=0, label_end_index=None, meta=None,
-                 source=None):
+                 source=None, n_channels=None):
+        incoming = np.asarray(emg, dtype=np.int32)
+        if incoming.ndim >= 2 and incoming.shape[-1] > 0:
+            width = int(incoming.shape[-1])
+        else:
+            width = int(n_channels or N_CHANNELS)
         self.emg = np.ascontiguousarray(
-            np.asarray(emg, dtype=np.int32).reshape(-1, N_CHANNELS)
+            incoming.reshape(-1, width)
         )
         self.timestamps = np.asarray(timestamps, dtype=np.float64).reshape(-1)
         if self.timestamps.size != self.emg.shape[0]:
@@ -3662,6 +4060,22 @@ class Recording:
     @property
     def n_samples(self) -> int:
         return int(self.emg.shape[0])
+
+    @property
+    def n_channels(self) -> int:
+        """
+        How wide THIS recording is -- read off the array, never the config.
+
+        Everything that writes or describes a recording uses this, so a file
+        recorded on one band keeps reporting its own channel count after the
+        config has moved to another.
+        """
+        return int(self.emg.shape[1])
+
+    @property
+    def channel_names(self) -> List[str]:
+        """Captions sized to this recording, not to the active profile."""
+        return channel_names_for(self.n_channels)
 
     @property
     def fs(self) -> float:
@@ -3786,8 +4200,11 @@ class Recording:
             "session_id": self.session_id,
             "repetition": self.repetition,
             "n_samples": self.n_samples,
-            "n_channels": N_CHANNELS,
-            "channel_names": list(CHANNEL_NAMES),
+            # Read off this recording, not off the active profile: a file
+            # recorded on one band must keep describing itself correctly
+            # after the config moves to another.
+            "n_channels": self.n_channels,
+            "channel_names": self.channel_names,
             "duration_s": round(self.duration, 6),
             "sample_rate_measured": round(self.fs, 3),
             "created_unix": self.created_unix,
@@ -3817,7 +4234,7 @@ class Recording:
             "t_rel_s": self.t_rel.astype(np.float64),
             "t_unix": self.timestamps,
         }
-        for c, name in enumerate(CHANNEL_NAMES):
+        for c, name in enumerate(self.channel_names):
             data[name.lower()] = self.emg[:, c]
         if CSV_INCLUDE_LABEL_COLUMNS:
             idx = np.arange(self.n_samples)
@@ -3836,8 +4253,18 @@ class Recording:
 # ------------------------------------------------------------------------------
 
 
-def csv_header():
-    cols = ["sample_index", "t_rel_s", "t_unix"] + [c.lower() for c in CHANNEL_NAMES]
+def csv_header(n_channels: int = None):
+    """
+    The CSV column list for an `n_channels`-wide recording.
+
+    Parameterised rather than global so a recording writes the columns IT
+    has. A header that claimed eight channels for a sixteen-channel
+    recording would produce a file whose rows and header disagree, which
+    `load_recording_csv` has no way to detect.
+    """
+    names = channel_names_for(n_channels if n_channels is not None
+                              else N_CHANNELS)
+    cols = ["sample_index", "t_rel_s", "t_unix"] + [c.lower() for c in names]
     if CSV_INCLUDE_LABEL_COLUMNS:
         cols += ["in_label_window", "gesture", "person_id", "session_id", "repetition"]
     return cols
@@ -3857,7 +4284,7 @@ def write_recording_csv(rec: Recording, path: str) -> str:
 
     with open(path, "w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
-        writer.writerow(csv_header())
+        writer.writerow(csv_header(rec.n_channels))
         tail = ([rec.label, rec.person_id, rec.session_id, rec.repetition]
                 if CSV_INCLUDE_LABEL_COLUMNS else [])
         for i in range(rec.n_samples):
@@ -3883,7 +4310,7 @@ def write_recording_npz(rec: Recording, path: str) -> str:
         person_id=np.array(rec.person_id),
         session_id=np.array(rec.session_id),
         repetition=np.array(rec.repetition),
-        channel_names=np.array(CHANNEL_NAMES),
+        channel_names=np.array(rec.channel_names),
         metadata_json=np.array(json.dumps(rec.metadata_dict(), default=str)),
     )
     return path
@@ -4694,6 +5121,52 @@ def calibration_table(root: str = None, mode: str = None,
     return out
 
 
+def fill_missing_calibrations(table: Dict[str, dict], recordings, people,
+                              mode: str, records: Dict[str, dict] = None):
+    """
+    Give every TRAINING wearer without a usable calibration a base one, so the
+    feature space is a single scale instead of a mixed one.
+
+    In order of preference, per missing wearer:
+      1. derived from their own recorded signal, labels unused
+         (`calibration_from_recordings`);
+      2. the mean of the other wearers' calibrations (the shared base).
+    Nothing is written to disk: the stored `calibration.json` stays the
+    wearer's own measurement, and a live wearer still has to calibrate.
+
+    Returns (table, notes) with `notes[person]` saying which route was used.
+    """
+    table = dict(table)
+    notes: Dict[str, str] = {}
+    if (mode or "off") == "off":
+        return table, notes
+    records = records or {}
+    for person in people:
+        if person in table:
+            continue
+        derived = calibration_from_recordings(recordings, person)
+        resolved = resolve_calibration(derived, mode) if derived else None
+        if resolved is not None:
+            table[person] = resolved
+            notes[person] = "derived from their own recordings (labels unused)"
+    missing = [p for p in people if p not in table]
+    if missing:
+        base = [r for r in records.values() if r and validate_calibration(r)[0]]
+        if base:
+            rest = np.mean([np.asarray(r["rest"], float) for r in base], axis=0)
+            ref = np.mean([np.asarray(r["reference"], float) for r in base],
+                          axis=0)
+            shared = resolve_calibration(
+                calibration_record(rest, ref, person_id="base",
+                                   source="mean_of_other_wearers"), mode)
+            if shared is not None:
+                for person in missing:
+                    table[person] = shared
+                    notes[person] = (f"base: mean of {len(base)} other "
+                                     f"wearer(s)' calibrations")
+    return table, notes
+
+
 def calibration_status(root: str = None, person_id: str = None,
                        mode: str = None) -> dict:
     """
@@ -4771,13 +5244,25 @@ def load_recording_csv(path: str) -> Recording:
     Load a recording from CSV. Used as the fallback when NPZ is disabled, and
     as the canonical reader for hand-edited files.
     """
-    cols = [c.lower() for c in CHANNEL_NAMES]
     with open(path, "r", newline="", encoding="utf-8") as fh:
         reader = csv.DictReader(fh)
         header = reader.fieldnames or []
-        missing = [c for c in cols if c not in header]
-        if missing:
-            raise ValueError(f"{path}: missing channel columns {missing}")
+        #  Take the channel columns from the HEADER, in file order, rather
+        #  than from the active profile. The file knows how wide it is, and a
+        #  recording made on an 8-channel band has to keep loading after
+        #  EMG_DEVICE moves to a wider one -- otherwise changing the config
+        #  would silently make the existing dataset unreadable. Sorted
+        #  numerically so ch10 does not land between ch1 and ch2.
+        cols = sorted((c for c in header
+                       if re.fullmatch(r"ch\d+", (c or "").strip().lower())),
+                      key=lambda c: int(c.strip().lower()[2:]))
+        if not cols:
+            #  No chN columns at all: fall back to the profile's names, which
+            #  is what a hand-written file with custom captions would need.
+            cols = [c.lower() for c in CHANNEL_NAMES]
+            missing = [c for c in cols if c not in header]
+            if missing:
+                raise ValueError(f"{path}: missing channel columns {missing}")
 
         emg, times = [], []
         label = session = person = ""
@@ -4889,6 +5374,105 @@ def _parse_path_identity(path: str):
     person = parts[-4] if len(parts) >= 4 else ""
     match = re.search(r"_rep(\d+)_", os.path.basename(path))
     return label, person, session, int(match.group(1)) if match else 0
+
+
+def dataset_person_sessions(root: str = None) -> Dict[str, int]:
+    """
+    `{"Dano/session_01": 44, ...}` -- how many recordings each subject/session
+    holds, as discovery would count them (prefer_trimmed, underscore folders
+    skipped). What the MODEL SPEC dialog offers as "train on these".
+    """
+    counts: Dict[str, int] = {}
+    for path in discover_recordings(root, stage="prefer_trimmed"):
+        _label, person, session, _rep = _parse_path_identity(path)
+        key = f"{person}/{session}"
+        counts[key] = counts.get(key, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def list_all_takes(root: str = None) -> List[dict]:
+    """
+    Every free take under the dataset root, across ALL subjects and sessions,
+    newest first. Each entry is what `DatasetWriter.list_takes()` returns plus
+    `person_id` and `session_id` (the folders it was found in), so a list can
+    be filtered by either and an entry can be opened or deleted through a
+    writer for its own subject/session rather than the current one.
+
+    Underscore folders are skipped at both levels, the same rule discovery
+    uses. Nothing is created: a missing root is simply an empty list.
+    """
+    root = root or DATA_FOLDER
+    if not os.path.isabs(root):
+        root = os.path.join(PROJECT_DIR, root)
+    if not os.path.isdir(root):
+        return []
+
+    found: List[dict] = []
+    for person in sorted(os.listdir(root)):
+        person_dir = os.path.join(root, person)
+        if person.startswith("_") or not os.path.isdir(person_dir):
+            continue
+        for session in sorted(os.listdir(person_dir)):
+            folder = os.path.join(person_dir, session, FREE_TAKE_FOLDER)
+            if session.startswith("_") or not os.path.isdir(folder):
+                continue
+            for info in DatasetWriter(root, person, session).list_takes():
+                info["person_id"] = person
+                info["session_id"] = session
+                found.append(info)
+    found.sort(key=lambda t: t["created_unix"], reverse=True)
+    return found
+
+
+def takes_by_session(root: str = None, person_id: str = None) -> Dict[str, int]:
+    """
+    One subject's take COUNT per session: `{"session_01": 6, ...}`.
+
+    Only sessions that actually hold takes appear, and a session with none is
+    simply absent.
+
+    This exists because TAKES ON DISK is scoped to the current subject AND
+    session, and that scoping was invisible: a take recorded under one
+    `SESSION_ID` is not in the list when the app is reopened under another,
+    which looks exactly like a take that was never saved. The panel uses this
+    to say where the others are instead of leaving the operator to guess.
+
+    It counts file stems rather than reading the metadata sidecars -- the
+    answer is "are there takes elsewhere", so one `listdir` per session is
+    enough and the panel can afford to ask on every refresh.
+    """
+    root = root or DATA_FOLDER
+    if not os.path.isabs(root):
+        root = os.path.join(PROJECT_DIR, root)
+    person = safe_slug(person_id or PERSON_ID, "person")
+    person_dir = os.path.join(root, person)
+    if not os.path.isdir(person_dir):
+        return {}
+
+    found: Dict[str, int] = {}
+    for session in sorted(os.listdir(person_dir)):
+        #  Same rule discovery uses: an underscore folder is not a session.
+        if session.startswith("_"):
+            continue
+        folder = os.path.join(person_dir, session, FREE_TAKE_FOLDER)
+        if not os.path.isdir(folder):
+            continue
+        stems = set()
+        try:
+            names = os.listdir(folder)
+        except OSError:
+            continue
+        for name in names:
+            stem, ext = os.path.splitext(name)
+            if ext.lower().lstrip(".") not in ("npz", "csv", "parquet"):
+                continue
+            if stem.endswith("_meta"):
+                continue
+            if _stage_from_filename(name) == STAGE_TAKE:
+                stems.add(stem)
+        if stems:
+            found[session] = len(stems)
+    return found
 
 
 def discover_recordings(root: str = None, persons=None, sessions=None,
@@ -5009,6 +5593,9 @@ def make_windows(recordings, window_ms: float = None, overlap: float = None,
     if not recordings:
         return (np.empty((0, 0, N_CHANNELS), np.float32), np.empty(0, int),
                 np.empty(0, object), {"labels": [], "window_samples": 0})
+    #  Width comes from the recordings themselves. With nothing to go on
+    #  above, the active profile is the only available answer.
+    n_channels = int(recordings[0].n_channels)
 
     labels = list(labels) if labels else sorted({r.label for r in recordings})
     label_to_index = {name: i for i, name in enumerate(labels)}
@@ -5049,7 +5636,7 @@ def make_windows(recordings, window_ms: float = None, overlap: float = None,
         } for w in range(windows.shape[0]))
 
     if not xs:
-        return (np.empty((0, win, N_CHANNELS), np.float32), np.empty(0, int),
+        return (np.empty((0, win, n_channels), np.float32), np.empty(0, int),
                 np.empty(0, object), {"labels": labels, "window_samples": win})
 
     meta = {
@@ -6092,6 +6679,1000 @@ class MyoAcquisition(threading.Thread):
 
 
 # ==============================================================================
+# SECTION 5b -- NEURAL NETWORK ENGINE  (subprocess; no Qt, no torch)
+#
+# The second opinion, kept at arm's length from the first one in three
+# separate ways:
+#
+#   1. DIFFERENT PROCESS.  The recorder never imports torch (section 13): the
+#      import costs seconds and attaches a GPU context to the process whose
+#      one job is not to drop EMG samples. `nn_serve.py` holds the net, and
+#      this class talks to it over stdin/stdout with one JSON object per
+#      line. `tests/test_no_torch.py` still passes with the net enabled.
+#   2. DIFFERENT TYPE.  The engine yields `NeuralPrediction`, never
+#      `Prediction`. Nothing can pass one where the other is expected, so the
+#      net's output cannot reach `LivePredictor`, the smoothing history or
+#      the DECISION TRAIL's soft vote by accident.
+#   3. DIFFERENT EVERYTHING ELSE.  Its own checkpoint, its own smoothing
+#      window, its own timer in the GUI, its own START button, its own
+#      statistics dialog.
+#
+# GUI PULLS, THE READER THREAD PUSHES -- the same division as
+# MyoAcquisition (section 13). A background thread drains the subprocess's
+# stdout into a deque; the GUI calls `poll()` on its own timer. Per-answer Qt
+# signals at 7 Hz would be harmless, but the symmetry means this class stays
+# Qt-free and therefore testable headless, with a fake worker script and no
+# torch at all.
+# ==============================================================================
+
+#  Line prefixes. The worker's stdout also carries whatever torch or a driver
+#  decides to print, so the protocol is prefix-tagged and everything else is
+#  kept as diagnostic text rather than being parsed or dropped silently.
+NN_META_PREFIX = "NNMETA "
+NN_OUT_PREFIX = "NNOUT "
+NN_ERR_PREFIX = "NNERR "
+NN_BYE_PREFIX = "NNBYE"
+
+
+# ---- neural-net setup (what TRAIN NEURAL NET sweeps) -------------------------
+#  Mirrors nn_arch.KINDS. Not imported from there: nn_arch imports torch and
+#  the recorder must not (section 13).
+NN_KINDS = {
+    "tcn":     "dilated depthwise convs + attention pooling (smallest, default)",
+    "cnn_gru": "conv front end + GRU (best per-window in the last sweep)",
+    "gru":     "plain GRU",
+    "lstm":    "plain LSTM (historical baseline)",
+    "cnn":     "plain 1D CNN (historical baseline)",
+}
+NN_SPEC_DEFAULTS = {
+    "kinds": ["tcn", "gru", "cnn_gru", "lstm", "cnn"],
+    "windows": [0.30, 0.40, 0.50],
+    "overlap": 0.75,
+    "epochs": 80,
+    "hidden": 32,
+    "dropout": 0.25,
+    "learning_rate": 3e-3,
+    "weight_decay": 1e-3,
+    "batch_size": 64,
+    "label_smoothing": 0.05,
+}
+
+
+def nn_spec_path(model_path: str = None) -> str:
+    """`nn_spec.json` beside the checkpoint."""
+    path = model_path or NN_MODEL_PATH
+    if not os.path.isabs(path):
+        path = os.path.join(PROJECT_DIR, path)
+    return os.path.join(os.path.dirname(path), "nn_spec.json")
+
+
+def validate_nn_spec(spec: dict):
+    """
+    Clamp and complete a net setup. Never raises; returns (spec, problems).
+    Same stance as validate_model_spec: a hand-edited file cannot crash a
+    sweep that is twenty minutes in.
+    """
+    problems: List[str] = []
+    src = dict(spec) if isinstance(spec, dict) else {}
+    out = dict(NN_SPEC_DEFAULTS)
+
+    kinds = [k for k in (src.get("kinds") or []) if k in NN_KINDS]
+    if src.get("kinds") is not None and len(kinds) != len(src["kinds"]):
+        problems.append("unknown architecture(s) dropped")
+    out["kinds"] = list(dict.fromkeys(kinds)) or list(NN_SPEC_DEFAULTS["kinds"])
+    if src.get("kinds") is not None and not kinds:
+        problems.append("no architecture selected -- all switched back on")
+
+    wins = []
+    for w in (src.get("windows") or []):
+        try:
+            w = round(float(w), 3)
+        except (TypeError, ValueError):
+            continue
+        if 0.1 <= w <= 2.0:
+            wins.append(w)
+    out["windows"] = sorted(set(wins)) or list(NN_SPEC_DEFAULTS["windows"])
+    if src.get("windows") is not None and not wins:
+        problems.append("no usable window length (0.1-2.0 s) -- defaults used")
+
+    ranges = {"overlap": (0.0, 0.9, float), "epochs": (5, 500, int),
+              "hidden": (8, 256, int), "dropout": (0.0, 0.8, float),
+              "learning_rate": (1e-5, 1e-1, float),
+              "weight_decay": (0.0, 1e-1, float),
+              "batch_size": (8, 512, int),
+              "label_smoothing": (0.0, 0.5, float)}
+    for key, (lo, hi, cast) in ranges.items():
+        if key not in src:
+            continue
+        try:
+            value = cast(src[key])
+        except (TypeError, ValueError):
+            problems.append(f"{key}: not a number -- default kept")
+            continue
+        clamped = min(hi, max(lo, value))
+        if clamped != value:
+            problems.append(f"{key}: {value} clamped to {clamped}")
+        out[key] = clamped
+    return out, problems
+
+
+def load_nn_spec(path: str = None):
+    path = path or nn_spec_path()
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            return validate_nn_spec(json.load(handle))
+    except (OSError, ValueError):
+        return validate_nn_spec({})
+
+
+def save_nn_spec(spec: dict, path: str = None) -> str:
+    path = path or nn_spec_path()
+    clean, _ = validate_nn_spec(spec)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(clean, handle, indent=2)
+    return path
+
+
+def nn_spec_args(spec: dict) -> List[str]:
+    """The train_nn.py flags that express a (validated) setup."""
+    s, _ = validate_nn_spec(spec)
+    args: List[str] = []
+    for k in s["kinds"]:
+        args += ["--kind", k]
+    for w in s["windows"]:
+        args += ["--window", f"{w:g}"]
+    args += ["--overlap", f"{s['overlap']:g}", "--epochs", str(s["epochs"]),
+             "--hidden", str(s["hidden"]), "--dropout", f"{s['dropout']:g}",
+             "--lr", f"{s['learning_rate']:g}",
+             "--weight-decay", f"{s['weight_decay']:g}",
+             "--batch-size", str(s["batch_size"]),
+             "--label-smoothing", f"{s['label_smoothing']:g}"]
+    return args
+
+
+def describe_nn_spec(spec: dict) -> str:
+    s, _ = validate_nn_spec(spec)
+    return (f"{len(s['kinds'])} architecture(s) x {len(s['windows'])} "
+            f"window(s), {s['epochs']} epochs, hidden {s['hidden']}, "
+            f"dropout {s['dropout']:g}")
+
+
+def nn_stats_path(model_path: str = None) -> str:
+    """
+    The plain-JSON sidecar beside a checkpoint: everything but the weights.
+
+    A `.pt` is a torch pickle, so the application -- which must not import
+    torch -- cannot read its own net's metrics out of it. `train_nn.py`
+    therefore writes this next to the checkpoint, and NN STATS reads it. That
+    is what lets the dialog work with the worker stopped, with no GPU, and on
+    a machine where torch was never installed.
+    """
+    path = model_path or NN_MODEL_PATH
+    return os.path.splitext(path)[0] + ".json"
+
+
+def load_nn_stats(model_path: str = None) -> Optional[dict]:
+    """The sidecar, or None. Never raises: a missing net is a normal state."""
+    path = nn_stats_path(model_path)
+    if not os.path.isabs(path):
+        path = os.path.join(PROJECT_DIR, path)
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            found = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    return found if isinstance(found, dict) else None
+
+
+def nn_encode_request(request_id: int, window: np.ndarray) -> str:
+    """One request as a single JSON line. `window` is (win, 8) float."""
+    block = np.asarray(window, dtype=np.float32)
+    return json.dumps({"id": int(request_id),
+                       "window": [[round(float(v), 4) for v in row]
+                                  for row in block]}) + "\n"
+
+
+def nn_parse_line(line: str):
+    """
+    One line of the worker's stdout -> `(kind, payload)`.
+
+    `kind` is "meta", "out", "err", "bye" or "text"; "text" carries anything
+    the worker or its dependencies printed that is not protocol, which is
+    kept rather than discarded because it is the only clue when torch itself
+    is what failed. Never raises -- a malformed protocol line comes back as
+    "err" with the raw text, because a parser that throws inside a reader
+    thread kills the reader.
+    """
+    text = (line or "").rstrip("\r\n")
+    for prefix, kind in ((NN_META_PREFIX, "meta"), (NN_OUT_PREFIX, "out"),
+                         (NN_ERR_PREFIX, "err")):
+        if text.startswith(prefix):
+            try:
+                found = json.loads(text[len(prefix):])
+            except (ValueError, TypeError):
+                return "err", {"error": f"unparseable {kind} line: "
+                                        f"{text[:160]}"}
+            if not isinstance(found, dict):
+                return "err", {"error": f"unexpected {kind} payload"}
+            return kind, found
+    if text.strip() == NN_BYE_PREFIX:
+        return "bye", {}
+    return "text", {"text": text}
+
+
+@dataclass
+class NeuralPrediction:
+    """
+    One neural-net output.
+
+    A SEPARATE type from `Prediction` on purpose. The two carry nearly the
+    same fields, and that is exactly why they must not be the same class:
+    with one type a net answer could be appended to `LivePredictor.history`,
+    handed to the decision panel or drawn in the deployed classifier's
+    probability bars by a single misplaced line, and nothing would complain.
+    The type system is the cheapest place to enforce section 8L's separation
+    rule.
+
+    Nothing here is invented: every probability came out of a real
+    `softmax(model(window))` in the worker process.
+    """
+    label: str
+    confidence: float
+    raw_label: str
+    raw_confidence: float
+    probabilities: List[float]        # smoothed, per class
+    raw_probabilities: List[float]    # this window alone
+    labels: List[str]
+    n_samples: int                    # samples the window was built from
+    smoothed_over: int
+    latency_ms: float                 # worker round trip, measured
+    infer_ms: float                   # the forward pass itself, measured
+    device: str
+    unix_time: float
+
+    @property
+    def percent(self) -> str:
+        if math.isnan(self.confidence):
+            return "--"
+        return f"{self.confidence * 100:.0f} %"
+
+    @property
+    def certain(self) -> bool:
+        if math.isnan(self.confidence) or PREDICTION_MIN_CONFIDENCE <= 0:
+            return True
+        return self.confidence >= PREDICTION_MIN_CONFIDENCE
+
+
+class NeuralEngine:
+    """
+    Drives `nn_serve.py` and turns windows into `NeuralPrediction`s.
+
+    States, and exactly one is true at a time:
+
+        "stopped"   nothing running; `status` says why if it was a failure
+        "starting"  the subprocess is up, loading torch and the checkpoint
+        "ready"     the worker has reported its metadata and is answering
+        "error"     it failed; `status` carries the reason and the worker's
+                    own last words
+
+    Never guesses. Until the worker reports `NNMETA`, the device is unknown
+    and is shown as unknown -- the same rule as the GPU/CPU badge (section
+    8c): the honest answer to an unanswerable question is that it cannot be
+    answered yet.
+    """
+
+    def __init__(self, model_path: str = None, script: str = None,
+                 device: str = None, smoothing: int = None,
+                 python_executable: str = None):
+        self.model_path = model_path or NN_MODEL_PATH
+        self.script = script or NN_WORKER_SCRIPT
+        self.device = device or NN_DEVICE
+        self.python = python_executable or sys.executable
+        self.state = "stopped"
+        self.status = "not started"
+        self.meta: dict = {}
+        self.labels: List[str] = []
+        self.win_samples = 0
+        self.model_fs = float(NN_MODEL_FS_FALLBACK)
+        self.window_s = 0.0
+        #  The wearer's calibration, resolved for the mode the CHECKPOINT was
+        #  fitted with. A net trained on calibrated features and then fed
+        #  device counts does not break -- it answers confidently on the wrong
+        #  scale, which is worse. Same refusal as LivePredictor.load().
+        self.calibration_mode = "off"
+        self.calibration: Optional[dict] = None
+        self.calibration_note = ""
+        self.last: Optional[NeuralPrediction] = None
+        self.last_window: Optional[np.ndarray] = None
+
+        self._process = None
+        self._reader = None
+        self._lock = threading.Lock()
+        self._inbox = deque(maxlen=64)          # parsed lines from the worker
+        self._ready = deque(maxlen=16)          # finished NeuralPredictions
+        self._noise = deque(maxlen=40)          # non-protocol worker output
+        self._pending: Dict[int, float] = {}    # request id -> send time
+        self._next_id = 1
+        self._started_at = 0.0
+        self._history = deque(maxlen=max(1, smoothing or NN_SMOOTHING))
+        self.counters = {"sent": 0, "answered": 0, "dropped": 0,
+                         "errors": 0, "stale": 0}
+        self.latency_ms = float("nan")
+        self.infer_ms = float("nan")
+
+    # -- paths ---------------------------------------------------------------
+
+    @property
+    def full_model_path(self) -> str:
+        return (self.model_path if os.path.isabs(self.model_path)
+                else os.path.join(PROJECT_DIR, self.model_path))
+
+    @property
+    def full_script_path(self) -> str:
+        return (self.script if os.path.isabs(self.script)
+                else os.path.join(PROJECT_DIR, self.script))
+
+    @property
+    def ready(self) -> bool:
+        return self.state == "ready"
+
+    @property
+    def running(self) -> bool:
+        return self.state in ("starting", "ready")
+
+    def trained(self) -> bool:
+        """Is there a checkpoint at all? Answerable without the worker."""
+        return os.path.exists(self.full_model_path)
+
+    # -- lifecycle -----------------------------------------------------------
+
+    def start(self) -> bool:
+        """
+        Spawn the worker. Returns False and explains itself on any refusal.
+
+        Deliberately cheap to call: every precondition is checked here rather
+        than left to fail inside the subprocess, because a message in the
+        panel is more use than an exit code.
+        """
+        if self.running:
+            return True
+        if not ENABLE_NEURAL_NET:
+            self.state, self.status = "stopped", \
+                "disabled in the configuration (ENABLE_NEURAL_NET = False)"
+            return False
+        if not self.trained():
+            self.state = "stopped"
+            self.status = (f"no checkpoint at {self.model_path} -- train one "
+                           f"with:  python train_nn.py")
+            return False
+        if not os.path.exists(self.full_script_path):
+            self.state = "stopped"
+            self.status = f"worker script missing: {self.script}"
+            return False
+        if not self._load_calibration():
+            self.state = "stopped"
+            return False
+
+        args = [self.python, "-u", self.full_script_path,
+                "--model", self.full_model_path, "--device", self.device]
+        try:
+            #  stderr merged in: the interesting failures (a CPU-only torch
+            #  build, a missing DLL, a CUDA driver mismatch) arrive there, and
+            #  the protocol is prefix-tagged so mixing the two is safe.
+            self._process = subprocess.Popen(
+                args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT, cwd=PROJECT_DIR, text=True,
+                encoding="utf-8", errors="replace", bufsize=1)
+        except OSError as exc:
+            self._process = None
+            self.state, self.status = "error", f"could not start the worker: {exc}"
+            return False
+
+        self._inbox.clear()
+        self._ready.clear()
+        self._noise.clear()
+        self._pending.clear()
+        self._history.clear()
+        self.counters = {k: 0 for k in self.counters}
+        self.latency_ms = self.infer_ms = float("nan")
+        self._started_at = time.perf_counter()
+        self.state = "starting"
+        self.status = "starting the worker (loading torch)..."
+        self._reader = threading.Thread(target=self._read_loop,
+                                        name="nn-reader", daemon=True)
+        self._reader.start()
+        return True
+
+    def stop(self) -> None:
+        """Ask the worker to quit, then make sure it did."""
+        process, self._process = self._process, None
+        self._reader = None
+        if process is not None:
+            try:
+                if process.stdin and not process.stdin.closed:
+                    process.stdin.write(json.dumps({"cmd": "quit"}) + "\n")
+                    process.stdin.flush()
+                    process.stdin.close()
+            except (OSError, ValueError):
+                pass
+            try:
+                process.wait(timeout=2.0)
+            except Exception:
+                try:
+                    process.kill()
+                except OSError:
+                    pass
+        if self.state != "error":
+            self.state, self.status = "stopped", "stopped"
+        self._pending.clear()
+        self._history.clear()
+        self.last = None
+
+    def _load_calibration(self, mode: str = None) -> bool:
+        """
+        Resolve the current wearer's calibration for the net's own mode.
+
+        With no `mode` the mode comes from the SIDECAR, so the refusal can
+        happen before a subprocess is spawned and before torch is imported --
+        there is no point attaching a GPU context to discover the wearer has
+        not calibrated.
+
+        `mode` is passed explicitly when the WORKER has reported what the
+        checkpoint really says. It must override, not merely be compared:
+        re-reading the sidecar here would put the sidecar's answer straight
+        back and the disagreement would resolve the wrong way round. The
+        weights are the fact; the sidecar is a convenience that can be stale
+        or missing.
+        """
+        self.calibration = None
+        self.calibration_note = ""
+        if mode is None:
+            sidecar = load_nn_stats(self.model_path) or {}
+            block = sidecar.get("calibration")
+            block = block if isinstance(block, dict) else {}
+            mode = block.get("mode", "off") or "off"
+        self.calibration_mode = mode
+        if mode == "off":
+            return True
+
+        record = load_calibration(DATA_FOLDER, PERSON_ID)
+        if record is None:
+            self.status = (
+                f"this net was trained on {mode!r} per-wearer calibration, "
+                f"and {PERSON_ID} has none. Press CALIBRATE, or retrain the "
+                f"net with:  python train_nn.py --calibration off")
+            return False
+        resolved = resolve_calibration(record, mode)
+        if resolved is None:
+            _ok, problems = validate_calibration(record)
+            self.status = (
+                f"{PERSON_ID}'s calibration cannot be applied in {mode!r} "
+                f"mode: {problems[0] if problems else 'invalid record'}")
+            return False
+        self.calibration = resolved
+        self.calibration_note = (
+            f"{mode} calibration, {PERSON_ID} measured "
+            f"{(record.get('created_iso') or '')[:16].replace('T', ' ')}")
+        return True
+
+    # -- the reader thread ---------------------------------------------------
+
+    def _read_loop(self) -> None:
+        """
+        Drain the worker's stdout until it closes.
+
+        Parsing happens here and the results go into a deque; interpreting
+        them happens in `poll()` on the GUI's thread. That split is what
+        keeps the shared state to two bounded deques behind one lock instead
+        of a protocol spread across two threads.
+        """
+        process = self._process
+        if process is None or process.stdout is None:
+            return
+        try:
+            for line in process.stdout:
+                kind, payload = nn_parse_line(line)
+                with self._lock:
+                    if kind == "text":
+                        if payload.get("text", "").strip():
+                            self._noise.append(payload["text"])
+                    else:
+                        self._inbox.append((kind, payload))
+                if process is not self._process:
+                    return                     # stopped under us
+        except (OSError, ValueError):
+            pass
+        with self._lock:
+            self._inbox.append(("closed", {}))
+
+    # -- sending -------------------------------------------------------------
+
+    def submit(self, emg: np.ndarray, t: np.ndarray) -> bool:
+        """
+        Resample one live window onto the net's grid and send it.
+
+        Returns False when nothing was sent, which is a normal outcome:
+        not ready yet, too few samples, or the previous request has not come
+        back. Dropping a window is the right answer for a diagnostic -- the
+        alternative is a queue that answers questions about the past.
+        """
+        if not self.ready or self.win_samples <= 0:
+            return False
+        emg = np.asarray(emg)
+        t = np.asarray(t, dtype=np.float64)
+        if emg.ndim != 2 or emg.shape[0] < 4 or t.size != emg.shape[0]:
+            return False
+        if len(self._pending) >= max(1, NN_MAX_IN_FLIGHT):
+            self.counters["dropped"] += 1
+            return False
+
+        block = resample_uniform(emg, t, self.win_samples)
+        block = nn_input_block(block, self.calibration)
+        self.last_window = block
+
+        process = self._process
+        if process is None or process.stdin is None:
+            return False
+        request_id = self._next_id
+        self._next_id += 1
+        try:
+            process.stdin.write(nn_encode_request(request_id, block))
+            process.stdin.flush()
+        except (OSError, ValueError) as exc:
+            self.state = "error"
+            self.status = f"the worker stopped accepting windows: {exc}"
+            return False
+        self._pending[request_id] = time.perf_counter()
+        self.counters["sent"] += 1
+        return True
+
+    # -- receiving -----------------------------------------------------------
+
+    def poll(self) -> List[NeuralPrediction]:
+        """
+        Called from the GUI timer. Drains the inbox and returns new answers.
+
+        Also enforces the start timeout: a worker that never reports its
+        metadata is an error with a reason, not a panel that says "starting"
+        forever.
+        """
+        with self._lock:
+            items = list(self._inbox)
+            self._inbox.clear()
+            noise = list(self._noise)
+
+        produced = []
+        for kind, payload in items:
+            if kind == "meta":
+                self._on_meta(payload)
+            elif kind == "out":
+                made = self._on_out(payload)
+                if made is not None:
+                    produced.append(made)
+            elif kind == "err":
+                self.counters["errors"] += 1
+                reason = str(payload.get("error", "unknown error"))
+                if payload.get("fatal") or not self.ready:
+                    self.state, self.status = "error", reason
+                else:
+                    self.status = f"last window failed: {reason}"
+                self._pending.pop(payload.get("id"), None)
+            elif kind in ("bye", "closed"):
+                if self.state == "starting":
+                    tail = " | ".join(noise[-3:])
+                    self.state = "error"
+                    self.status = ("the worker exited before it was ready"
+                                   + (f": {tail}" if tail else ""))
+                elif self.state == "ready":
+                    self.state, self.status = "stopped", "the worker exited"
+                #  Reap it rather than just forgetting the handle. The worker
+                #  has already said goodbye or closed its pipe, so this
+                #  returns at once; dropping the reference instead would
+                #  leave the child unwaited.
+                gone, self._process = self._process, None
+                if gone is not None:
+                    try:
+                        gone.wait(timeout=0.5)
+                    except Exception:
+                        pass
+                self._pending.clear()
+
+        #  Give up on a request the worker never answered. One lost reply
+        #  would otherwise hold the single in-flight slot for good, and the
+        #  panel would sit on its last answer looking perfectly healthy --
+        #  the quietest possible failure.
+        if self._pending:
+            now = time.perf_counter()
+            expired = [key for key, sent in self._pending.items()
+                       if now - sent > NN_RESPONSE_TIMEOUT_S]
+            for key in expired:
+                self._pending.pop(key, None)
+                self.counters["stale"] += 1
+            if expired and self.ready:
+                self.status = (f"{len(expired)} window(s) went unanswered for "
+                               f"over {NN_RESPONSE_TIMEOUT_S:.0f} s")
+
+        if self.state == "starting" and \
+                (time.perf_counter() - self._started_at) > NN_START_TIMEOUT_S:
+            tail = " | ".join(noise[-3:])
+            self.state = "error"
+            self.status = (f"the worker did not become ready within "
+                           f"{NN_START_TIMEOUT_S:.0f} s"
+                           + (f": {tail}" if tail else ""))
+            self.stop_quietly()
+        return produced
+
+    def stop_quietly(self) -> None:
+        """Kill the subprocess without overwriting an error already set."""
+        state, status = self.state, self.status
+        self.stop()
+        self.state, self.status = state, status
+
+    def _on_meta(self, payload: dict) -> None:
+        if not payload.get("ok", False):
+            self.state = "error"
+            self.status = str(payload.get("error", "the worker refused the "
+                                                   "checkpoint"))
+            return
+        self.meta = dict(payload)
+        self.labels = [str(x) for x in payload.get("labels", [])]
+        self.win_samples = int(payload.get("win_samples", 0) or 0)
+        self.model_fs = float(payload.get("model_fs", NN_MODEL_FS_FALLBACK) or
+                              NN_MODEL_FS_FALLBACK)
+        self.window_s = float(payload.get("window_s", 0.0) or 0.0)
+
+        #  The worker reports the mode the CHECKPOINT carries. If the sidecar
+        #  said something else, the checkpoint wins and the engine refuses
+        #  rather than predicting on a scale it cannot reproduce -- the
+        #  sidecar is a convenience, the weights are the fact.
+        worker_mode = str((payload.get("calibration") or {}).get("mode",
+                                                                 "off"))
+        if worker_mode != self.calibration_mode:
+            if not self._load_calibration(worker_mode):
+                self.state = "error"
+                self.stop_quietly()
+                return
+        if not self.labels or self.win_samples <= 0:
+            self.state = "error"
+            self.status = "the worker reported no labels or no window size"
+            return
+        self.state = "ready"
+        device = (payload.get("device") or {}).get("device", "?")
+        self.status = f"ready on {device}"
+
+    def _on_out(self, payload: dict) -> Optional[NeuralPrediction]:
+        request_id = payload.get("id")
+        sent_at = self._pending.pop(request_id, None)
+        probabilities = payload.get("probs")
+        if not isinstance(probabilities, list) or not probabilities:
+            self.counters["errors"] += 1
+            return None
+        if len(probabilities) != len(self.labels):
+            #  A width mismatch means the worker and this engine disagree
+            #  about the label set, which can only end in a mislabelled
+            #  answer. Refuse the whole engine rather than this one window.
+            self.state = "error"
+            self.status = (f"the worker returned {len(probabilities)} "
+                           f"probabilities for {len(self.labels)} labels")
+            return None
+
+        raw = np.asarray(probabilities, dtype=float)
+        index = int(np.argmax(raw))
+        self._history.append(raw)
+        smoothed = np.mean(np.vstack(self._history), axis=0)
+        best = int(np.argmax(smoothed))
+
+        now = time.perf_counter()
+        self.latency_ms = ((now - sent_at) * 1000.0 if sent_at is not None
+                           else float("nan"))
+        try:
+            self.infer_ms = float(payload.get("ms", float("nan")))
+        except (TypeError, ValueError):
+            self.infer_ms = float("nan")
+        self.counters["answered"] += 1
+
+        prediction = NeuralPrediction(
+            label=self._name(best),
+            confidence=float(smoothed[best]),
+            raw_label=self._name(index),
+            raw_confidence=float(raw[index]),
+            probabilities=[float(p) for p in smoothed],
+            raw_probabilities=[float(p) for p in raw],
+            labels=list(self.labels),
+            n_samples=int(self.win_samples),
+            smoothed_over=len(self._history),
+            latency_ms=self.latency_ms,
+            infer_ms=self.infer_ms,
+            device=str((self.meta.get("device") or {}).get("device", "?")),
+            unix_time=time.time(),
+        )
+        self.last = prediction
+        return prediction
+
+    def _name(self, index: int) -> str:
+        return (self.labels[index] if 0 <= index < len(self.labels)
+                else str(index))
+
+    def reset(self) -> None:
+        """Forget the smoothing history, keep the worker."""
+        self._history.clear()
+        self.last = None
+
+    # -- reporting -----------------------------------------------------------
+
+    def device_badge(self) -> tuple:
+        """
+        `(headline, detail, severity)` for the net's own device chip.
+
+        Reports what the WORKER is really using, which is the only honest
+        source: the main process cannot import torch to find out, and the
+        hardware probe in section 8c answers a different question ("is a GPU
+        installed") from this one ("is the net running on it").
+        """
+        if not self.running:
+            return ("NN DEVICE --", "the net is not running", "dim")
+        info = self.meta.get("device") or {}
+        if not info:
+            return ("NN DEVICE ...", "waiting for the worker", "dim")
+        if str(info.get("device", "cpu")).startswith("cuda"):
+            return (f"NN ON GPU -- {info.get('gpu', 'CUDA device')}",
+                    f"CUDA {info.get('cuda_runtime')} | torch "
+                    f"{info.get('torch')} | {info.get('total_memory_mb')} MB",
+                    "good")
+        reason = info.get("reason") or ""
+        return ("NN ON CPU",
+                f"torch {info.get('torch')}"
+                + (f" | {reason}" if reason else ""), "warn")
+
+    def describe(self) -> str:
+        """One line: what this net is."""
+        stats = self.meta.get("stats") or load_nn_stats(self.model_path) \
+            or {}
+        kind = self.meta.get("kind") or stats.get("kind") or "net"
+        params = self.meta.get("n_parameters") or stats.get("n_parameters")
+        acc = stats.get("window_accuracy")
+        cal = (f"  |  {self.calibration_mode} calibration"
+               if self.calibration_mode != "off" else "")
+        return (f"NN-{kind}  |  {self.window_s * 1000:.0f} ms @ "
+                f"{self.model_fs:.0f} Hz  |  "
+                + (f"{params} parameters" if params else "")
+                + cal
+                + (f"  |  {acc * 100:.0f} % per window, "
+                   f"{stats.get('grouping', '?')}-grouped" if acc else ""))
+
+    def stats_summary(self) -> dict:
+        """Counters and measured latency, for the panel."""
+        return {"state": self.state, "status": self.status,
+                "latency_ms": self.latency_ms, "infer_ms": self.infer_ms,
+                "in_flight": len(self._pending), **self.counters}
+
+    def worker_output(self, n: int = 12) -> List[str]:
+        """The worker's last non-protocol lines -- the diagnostics."""
+        with self._lock:
+            return list(self._noise)[-n:]
+
+    def data_status(self, fingerprint: dict = None) -> dict:
+        """
+        Is a net trained, on what, and is that still what is on disk?
+
+        Delegates to `model_data_status()` so the net answers the question
+        the same way the sklearn model does -- the sidecar carries the same
+        `data` block both trainers write.
+        """
+        sidecar = load_nn_stats(self.model_path)
+        if sidecar is None:
+            return model_data_status(None)
+        return model_data_status(sidecar, fingerprint)
+
+
+# ------------------------------------------------------------------------------
+# Background training jobs  (outlive the window that started them)
+# ------------------------------------------------------------------------------
+# A QProcess child dies with the window that owns it, so a sweep started from
+# the GUI used to stop the moment the GUI closed. Training now runs through
+# `train_job.py`, started DETACHED, and the GUI and the job only ever talk
+# through files in one folder per job:
+#
+#     <models>/jobs/<id>/job.json     what to run (written here)
+#                       /log.txt      merged trainer output + JOBSTEP lines
+#                       /status.json  written by the runner, polled here
+#                       /cancel       appears when the GUI asks it to stop
+#                       /seen         the GUI has reported the outcome
+#
+# A window opened later finds a running job with `active_training_job()` and
+# reads the log from the start, so its progress panel catches up exactly as if
+# it had been open all along.
+
+TRAINING_JOBS_DIRNAME = "jobs"
+TRAINING_JOB_SCRIPT = "train_job.py"
+
+
+def training_jobs_dir(models_dir: str) -> str:
+    return os.path.join(models_dir, TRAINING_JOBS_DIRNAME)
+
+
+def pid_alive(pid) -> bool:
+    """
+    Is that process still running? Never signals it.
+
+    `os.kill(pid, 0)` is the POSIX idiom and on Windows it is a bug: there it
+    calls TerminateProcess with exit code 0, i.e. it KILLS the process it was
+    asked about. So Windows asks the kernel instead.
+    """
+    try:
+        pid = int(pid)
+    except (TypeError, ValueError):
+        return False
+    if pid <= 0:
+        return False
+    if os.name == "nt":
+        import ctypes
+        kernel = ctypes.windll.kernel32
+        handle = kernel.OpenProcess(0x1000, False, pid)  # QUERY_LIMITED_INFO
+        if not handle:
+            return False
+        try:
+            code = ctypes.c_ulong()
+            if not kernel.GetExitCodeProcess(handle, ctypes.byref(code)):
+                return False
+            return code.value == 259                        # STILL_ACTIVE
+        finally:
+            kernel.CloseHandle(handle)
+    try:                                                    # pragma: no cover
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def read_job_status(job_dir: str) -> Optional[dict]:
+    """status.json, or None while the runner has not written it yet."""
+    try:
+        with open(os.path.join(job_dir, "status.json"), encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
+def job_is_live(job_dir: str) -> bool:
+    """Running according to its status AND its runner still exists. A runner
+    killed from Task Manager leaves "running" behind forever otherwise."""
+    status = read_job_status(job_dir)
+    return bool(status and status.get("state") == "running"
+                and pid_alive(status.get("pid")))
+
+
+def start_training_job(models_dir: str, kind: str, steps: List[dict],
+                       cwd: str = None, python: str = None) -> str:
+    """
+    Write a job and start `train_job.py` on it, detached. Returns the job
+    folder. `steps` is `[{"name": "ml"|"nn", "argv": [...]}, ...]`, run in
+    order, stopping at the first that fails.
+
+    Detached means: no console, its own process group, and -- where the
+    parent is inside a Windows job object, as it is under some terminals --
+    broken away from that job, because a job object set to kill-on-close
+    would otherwise take the trainer down with the window anyway.
+    """
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    job_dir = os.path.join(training_jobs_dir(models_dir),
+                           f"{stamp}_{kind}_{uuid.uuid4().hex[:6]}")
+    os.makedirs(job_dir, exist_ok=True)
+    job = {"id": os.path.basename(job_dir), "kind": kind,
+           "created_unix": time.time(), "cwd": cwd or PROJECT_DIR,
+           "steps": steps}
+    with open(os.path.join(job_dir, "job.json"), "w", encoding="utf-8") as fh:
+        json.dump(job, fh, indent=2)
+
+    python = python or sys.executable
+    #  pythonw.exe has no stdout at all; the runner redirects its children
+    #  into the log, so it can be either -- but a GUI started with pythonw
+    #  must not hand the runner a console it then flashes on screen.
+    argv = [python, "-u", os.path.join(PROJECT_DIR, TRAINING_JOB_SCRIPT),
+            "--job", os.path.join(job_dir, "job.json")]
+    kwargs = dict(cwd=cwd or PROJECT_DIR, stdin=subprocess.DEVNULL,
+                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                  close_fds=True)
+    if os.name == "nt":
+        base = (subprocess.DETACHED_PROCESS
+                | subprocess.CREATE_NEW_PROCESS_GROUP)
+        try:
+            subprocess.Popen(argv, creationflags=base
+                             | subprocess.CREATE_BREAKAWAY_FROM_JOB, **kwargs)
+        except OSError:
+            #  The enclosing job does not allow breakaway. Still detached
+            #  from the window; only a kill-on-close job could stop it now.
+            subprocess.Popen(argv, creationflags=base, **kwargs)
+    else:                                                   # pragma: no cover
+        subprocess.Popen(argv, start_new_session=True, **kwargs)
+    return job_dir
+
+
+def cancel_training_job(job_dir: str) -> None:
+    """Ask the runner to stop. It kills the current step's process tree."""
+    try:
+        with open(os.path.join(job_dir, "cancel"), "w", encoding="utf-8") as fh:
+            fh.write(str(time.time()))
+    except OSError:                                         # pragma: no cover
+        pass
+
+
+def list_training_jobs(models_dir: str) -> List[str]:
+    """Job folders, newest first."""
+    root = training_jobs_dir(models_dir)
+    try:
+        names = sorted((n for n in os.listdir(root)
+                        if os.path.isdir(os.path.join(root, n))), reverse=True)
+    except OSError:
+        return []
+    return [os.path.join(root, n) for n in names]
+
+
+def active_training_job(models_dir: str) -> Optional[str]:
+    """The job a freshly opened window should reattach to, if any."""
+    for job_dir in list_training_jobs(models_dir):
+        if job_is_live(job_dir):
+            return job_dir
+    return None
+
+
+def unseen_finished_jobs(models_dir: str) -> List[str]:
+    """Jobs that finished while no window was watching, oldest first."""
+    out = []
+    for job_dir in list_training_jobs(models_dir):
+        status = read_job_status(job_dir)
+        if (status and status.get("state") in ("finished", "cancelled")
+                and not os.path.exists(os.path.join(job_dir, "seen"))):
+            out.append(job_dir)
+    return out[::-1]
+
+
+def mark_job_seen(job_dir: str) -> None:
+    try:
+        with open(os.path.join(job_dir, "seen"), "w", encoding="utf-8") as fh:
+            fh.write(str(time.time()))
+    except OSError:                                         # pragma: no cover
+        pass
+
+
+class JobLogTail:
+    """
+    Read a job's log incrementally, handing out COMPLETE lines only.
+
+    The runner writes the log while this reads it, so a read can end half
+    way through a `PROGRESS` or `TRAINEVENT` line; parsing that half would
+    lose the event. The partial line is held until its newline arrives.
+    """
+
+    def __init__(self, path: str):
+        self.path = path
+        self.offset = 0
+        self._partial = b""
+
+    def read_lines(self, final: bool = False) -> List[str]:
+        try:
+            with open(self.path, "rb") as fh:
+                fh.seek(self.offset)
+                chunk = fh.read()
+        except OSError:
+            chunk = b""
+        self.offset += len(chunk)
+        data = self._partial + chunk
+        if final:
+            complete, self._partial = data, b""
+        else:
+            cut = data.rfind(b"\n")
+            complete, self._partial = ((data[:cut + 1], data[cut + 1:])
+                                       if cut >= 0 else (b"", data))
+        return [line.rstrip("\r")
+                for line in complete.decode("utf-8", errors="replace")
+                .split("\n") if line.strip()]
+
+
+# ==============================================================================
 # SECTION 6 -- AUTOMATIC RECORDING SEQUENCE (state machine)
 #
 # Pure logic, no Qt and no timers of its own: the GUI calls tick() and the
@@ -6500,6 +8081,230 @@ class SequenceController:
         self._on_capture_discard(capture, item[0], item[1])
 
 
+# ------------------------------------------------------------------------------
+# TEST MODEL -- a live, cued score of the SAVED model on whoever is wearing it
+# ------------------------------------------------------------------------------
+# Cross-validation answers "how well would a model trained without these
+# recordings do on them". What someone using the app wants to know is
+# different: "the model on disk, on me, today -- how often is it right?".
+# Nothing measured that. This does: cue each gesture, let the deployed model
+# predict through the very path LIVE CLASSIFIER uses, and count.
+#
+# Three numbers, because they answer three questions:
+#   per window   every raw window the model classified (comparable with the
+#                trainer's per-window score)
+#   smoothed     what the panel actually SHOWS -- the soft vote over recent
+#                windows (closest to what you experience)
+#   per trial    one answer per cued hold, by majority of its windows
+#                (comparable with the trainer's per-recording vote)
+#
+# Honest only if the sitting is NOT one the model trained on: test after
+# taking the band off and putting it back on, or on another day. The dialog
+# says so, and every result is appended to <person>/model_tests.jsonl with
+# the model it was measured on, so the history survives retrains.
+
+MODEL_TEST_ROUNDS = 3          # every gesture this many times, interleaved
+MODEL_TEST_PREPARE_S = 1.5     # "GET READY: FIST"
+MODEL_TEST_HOLD_S = 3.0        # hold the gesture this long
+MODEL_TEST_SETTLE_S = 1.0      # ...and do not score the first second of it:
+                               # reaction time plus the onset would count
+                               # every slow start as a model error
+MODEL_TEST_LOG_NAME = "model_tests.jsonl"
+
+
+def confusion_metrics(matrix, labels) -> dict:
+    """
+    Accuracy, per-class recall/precision/F1 and macro F1, all from ONE
+    matrix (rows = truth, columns = predicted), so the numbers shown next to
+    a confusion matrix can always be recomputed from it. Macro F1 averages
+    only the classes that occur (support > 0).
+    """
+    m = np.asarray(matrix, dtype=float)
+    total = float(m.sum())
+    per = {}
+    f1s = []
+    for i, name in enumerate(labels):
+        support = float(m[i].sum())
+        column = float(m[:, i].sum())
+        recall = m[i, i] / support if support else float("nan")
+        precision = m[i, i] / column if column else float("nan")
+        f1 = (2 * recall * precision / (recall + precision)
+              if support and column and (recall + precision) > 0
+              else (0.0 if support else float("nan")))
+        per[name] = {"recall": recall, "precision": precision, "f1": f1,
+                     "support": int(support)}
+        if support:
+            f1s.append(f1)
+    return {"accuracy": float(np.trace(m) / total) if total else float("nan"),
+            "macro_f1": float(np.mean(f1s)) if f1s else float("nan"),
+            "per_class": per, "n": int(total)}
+
+
+class ModelTestSession:
+    """
+    The cued test, as a wall-clock state machine with no Qt (same pattern as
+    SequenceController). The dialog calls `tick(now)` on a timer, asks
+    `scoring(now)` before each prediction, and hands predictions to `add()`.
+    """
+
+    IDLE, PREPARE, HOLD, DONE = "idle", "prepare", "hold", "done"
+
+    def __init__(self, gestures, labels, rounds: int = None, seed=None,
+                 prepare_s: float = None, hold_s: float = None,
+                 settle_s: float = None):
+        self.labels = list(labels)
+        wanted = [g for g in (gestures or self.labels) if g in self.labels]
+        self.gestures = wanted or list(self.labels)
+        self.rounds = int(rounds or MODEL_TEST_ROUNDS)
+        self.prepare_s = float(MODEL_TEST_PREPARE_S if prepare_s is None
+                               else prepare_s)
+        self.hold_s = float(MODEL_TEST_HOLD_S if hold_s is None else hold_s)
+        self.settle_s = float(MODEL_TEST_SETTLE_S if settle_s is None
+                              else settle_s)
+        rng = random.Random(seed)
+        plan = []
+        for _ in range(self.rounds):
+            block = list(self.gestures)
+            rng.shuffle(block)
+            #  Never the same gesture twice in a row across a round boundary:
+            #  a hold that simply continues is not a new trial.
+            if plan and len(block) > 1 and block[0] == plan[-1]:
+                block[0], block[1] = block[1], block[0]
+            plan.extend(block)
+        self.plan = plan
+        self.index = -1
+        self.state = self.IDLE
+        self.deadline = 0.0
+        self.hold_started = 0.0
+        #  (trial index, truth, raw label, smoothed label)
+        self.records: List[tuple] = []
+
+    @property
+    def current(self) -> str:
+        return self.plan[self.index] if 0 <= self.index < len(self.plan) else ""
+
+    @property
+    def finished(self) -> bool:
+        return self.state == self.DONE
+
+    def start(self, now: float) -> None:
+        self.records = []
+        self.index = 0
+        self.state = self.PREPARE
+        self.deadline = now + self.prepare_s
+
+    def stop(self) -> None:
+        """End early. What was scored so far still counts."""
+        self.state = self.DONE
+
+    def tick(self, now: float) -> bool:
+        """Advance. Returns True when a NEW trial's hold has just begun -- the
+        caller resets the predictor's smoothing there, so one trial's
+        history never votes in the next."""
+        if self.state == self.PREPARE and now >= self.deadline:
+            self.state = self.HOLD
+            self.hold_started = now
+            self.deadline = now + self.hold_s
+            return True
+        if self.state == self.HOLD and now >= self.deadline:
+            self.index += 1
+            if self.index >= len(self.plan):
+                self.state = self.DONE
+            else:
+                self.state = self.PREPARE
+                self.deadline = now + self.prepare_s
+        return False
+
+    def scoring(self, now: float) -> bool:
+        return (self.state == self.HOLD
+                and now >= self.hold_started + self.settle_s)
+
+    def remaining(self, now: float) -> float:
+        return max(0.0, self.deadline - now)
+
+    def add(self, raw_label: str, label: str) -> None:
+        self.records.append((self.index, self.current, raw_label, label))
+
+    def _matrix(self, pairs) -> np.ndarray:
+        k = len(self.labels)
+        m = np.zeros((k, k), dtype=int)
+        where = {name: i for i, name in enumerate(self.labels)}
+        for truth, guess in pairs:
+            if truth in where and guess in where:
+                m[where[truth], where[guess]] += 1
+        return m
+
+    def summary(self) -> dict:
+        raw = self._matrix((r[1], r[2]) for r in self.records)
+        smooth = self._matrix((r[1], r[3]) for r in self.records)
+        votes, truth_of = {}, {}
+        for trial, truth, raw_label, _ in self.records:
+            votes.setdefault(trial, []).append(raw_label)
+            truth_of[trial] = truth
+        trial_pairs = [(truth_of[t], Counter(v).most_common(1)[0][0])
+                       for t, v in sorted(votes.items())]
+        trials = self._matrix(trial_pairs)
+        planned = min(len(self.plan), max(0, self.index + 1))
+        return {
+            "labels": list(self.labels),
+            "gestures": list(self.gestures),
+            "rounds": self.rounds,
+            "trials_planned": len(self.plan),
+            "trials_scored": len(votes),
+            "trials_reached": planned,
+            "windows": int(raw.sum()),
+            "per_window": confusion_metrics(raw, self.labels),
+            "smoothed": confusion_metrics(smooth, self.labels),
+            "per_trial": confusion_metrics(trials, self.labels),
+            "confusion_window": raw.tolist(),
+            "confusion_smoothed": smooth.tolist(),
+            "confusion_trial": trials.tolist(),
+            "timing": {"prepare_s": self.prepare_s, "hold_s": self.hold_s,
+                       "settle_s": self.settle_s},
+        }
+
+
+def model_test_log_path(root: str, person_id: str) -> str:
+    return os.path.join(root, safe_slug(person_id, "person"),
+                        MODEL_TEST_LOG_NAME)
+
+
+def save_model_test(root: str, person_id: str, result: dict) -> str:
+    """Append one test to the wearer's append-only history. Never rewrites."""
+    path = model_test_log_path(root, person_id)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "a", encoding="utf-8") as fh:
+        fh.write(json.dumps(_json_safe(result)) + "\n")
+    return path
+
+
+def load_model_tests(root: str, person_id: str) -> List[dict]:
+    out = []
+    try:
+        with open(model_test_log_path(root, person_id), encoding="utf-8") as fh:
+            for line in fh:
+                try:
+                    out.append(json.loads(line))
+                except ValueError:
+                    continue
+    except OSError:
+        pass
+    return out
+
+
+def _json_safe(value):
+    """NaN is not JSON; a class with no support has an undefined recall."""
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    if isinstance(value, np.generic):
+        return _json_safe(value.item())
+    return value
+
+
 # ==============================================================================
 # SECTION 7 -- GUI
 #
@@ -6603,6 +8408,7 @@ QPushButton:pressed {{ background: #121620; }}
 QPushButton:disabled {{ color: #5a6170; background: #14171e; border-color: #22262f; }}
 QPushButton#primary   {{ background: #0b5f86; border-color: {COL_ACCENT}; color: #eaf7ff; }}
 QPushButton#primary:hover {{ background: #0d74a3; }}
+QPushButton#primary:disabled {{ color: #5a6170; background: #14171e; border-color: #22262f; }}
 QPushButton#danger    {{ background: #7f1d1d; border-color: #b91c1c; color: #fee2e2; }}
 QPushButton#danger:hover  {{ background: #991b1b; }}
 QPushButton#warn      {{ background: #78350f; border-color: #b45309; color: #fef3c7; }}
@@ -6944,6 +8750,10 @@ class EmgPlotWidget(QtWidgets.QWidget):
             plot.hideButtons()
             plot.setLabel("left", CHANNEL_NAMES[i])
             axis = plot.getAxis("left")
+            #  No "(x0.001)" suffix: the counts are unitless, and at 150 %
+            #  scaling a lane is ~40 px tall -- "CH1 (x0.001)" written
+            #  vertically runs into the next lane's label, "CH1" does not.
+            axis.enableAutoSIPrefix(False)
             axis.setWidth(52)
             axis.setStyle(tickFont=QtGui.QFont("Consolas", 7))
             axis.setTextPen(pg.mkPen(CHANNEL_COLORS[i]))
@@ -7730,6 +9540,64 @@ def fit_to_screen(widget, want_width: int, want_height: int,
     return width, height
 
 
+def scroll_dialog_body(dialog, keep_last: int = 1) -> None:
+    """
+    Put everything in a dialog's layout into a scroll area, except the last
+    `keep_last` items (the button row), which stay pinned underneath it.
+
+    Windows display scaling is why this exists. At 125 % a 1920x1080 screen
+    is 1536x826 logical pixels, at 150 % it is 1280x688, and Qt lays out in
+    logical pixels -- so a dialog whose content needs 950 px is simply taller
+    than the screen, and fit_to_screen cannot shrink it below its layout's
+    minimum. Scrolling is the only way the bottom stays reachable. When it
+    fits, no scrollbar appears and nothing looks different.
+
+    Call it once the layout is complete, then fit_to_screen.
+    """
+    layout = dialog.layout()
+    if layout is None:
+        return
+    tail = []
+    for _ in range(min(keep_last, layout.count())):
+        tail.insert(0, layout.takeAt(layout.count() - 1))
+    margins = layout.contentsMargins()
+
+    body = QtWidgets.QWidget()
+    body.setLayout(layout)                    # Qt takes it off the dialog
+    scroll = QtWidgets.QScrollArea()
+    scroll.setWidgetResizable(True)
+    scroll.setFrameShape(QtWidgets.QFrame.NoFrame)
+    scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+    scroll.setWidget(body)
+
+    outer = QtWidgets.QVBoxLayout(dialog)
+    outer.setContentsMargins(0, 0, 0, margins.bottom())
+    outer.setSpacing(layout.spacing())
+    outer.addWidget(scroll, 1)
+    for item in tail:
+        child = item.layout() or item.widget()
+        if isinstance(child, QtWidgets.QLayout):
+            child.setParent(None)
+            child.setContentsMargins(margins.left(), 0, margins.right(), 0)
+            outer.addLayout(child)
+        elif child is not None:
+            outer.addWidget(child)
+    dialog._scroll_body = scroll
+
+
+def fit_table_height(table, rows: int) -> None:
+    """
+    Make a table exactly tall enough for `rows`, measured from the table's own
+    row and header heights rather than an assumed 24 px: at 125-150 % scaling
+    the font makes rows taller, and a guessed height cuts the table short so
+    it scrolls inside itself.
+    """
+    row_h = table.verticalHeader().defaultSectionSize()
+    head_h = table.horizontalHeader().sizeHint().height()
+    table.setFixedHeight(row_h * max(1, rows) + head_h
+                         + 2 * table.frameWidth() + 2)
+
+
 class CollapsibleSection(QtWidgets.QWidget):
     """
     A panel with a header you can click to fold it away.
@@ -7815,7 +9683,11 @@ class StatusBanner(QtWidgets.QFrame):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setMinimumHeight(104)
+        #  104 px is a sixth of the window on a 1080p screen at 150 % scaling
+        #  (688 logical px tall), taken straight out of the graph. On a short
+        #  screen the banner keeps its colour and text and loses the padding.
+        _w, avail_h = available_screen_size()
+        self.setMinimumHeight(104 if avail_h >= 800 else 64)
         self.setFrameShape(QtWidgets.QFrame.NoFrame)
 
         self._color = STATE_COLORS[STATE_IDLE]
@@ -9347,6 +11219,674 @@ class ModelStatsDialog(QtWidgets.QDialog):
         self.accept()
 
 
+def wrap_label(text: str, size: int = 12, bold: bool = False,
+               colour: str = None):
+    """
+    `make_label()` plus word wrap, as one expression.
+
+    It exists because `layout.addWidget(make_label(...))` returns None, so a
+    `.setWordWrap(True)` chained onto it raises -- a mistake that is easy to
+    write, invisible on the page, and only fires when the dialog is opened.
+    """
+    label = make_label(text, size, bold, colour)
+    label.setWordWrap(True)
+    return label
+
+
+def _stat_tile(caption: str, value, note: str, good: float = 0.85,
+               warn: float = 0.6, neutral: bool = False):
+    """
+    One headline number in a rounded box. `value` is a fraction or None.
+
+    Shared by both statistics dialogs so the neural net's numbers are
+    presented in exactly the same shape as the deployed model's -- a
+    side-by-side comparison in which one side is styled more generously is
+    not a comparison.
+
+    `neutral` draws the number without a verdict colour, and the DC-only
+    control uses it. For every other accuracy here, higher is better; for
+    that one it is not -- a HIGH DC-only score means the wearers differ in
+    gain rather than that gestures were learnt (CLAUDE.md 8k). Painting it
+    green would state the opposite of what it means.
+    """
+    box = QtWidgets.QFrame()
+    box.setStyleSheet(f"QFrame {{ background: {COL_PANEL}; border: 1px solid "
+                      f"{COL_BORDER}; border-radius: 8px; }}")
+    column = QtWidgets.QVBoxLayout(box)
+    column.setSpacing(1)
+    column.addWidget(make_label(caption, 9, False, COL_TEXT_DIM))
+    text = "--" if value is None else f"{value * 100:.1f} %"
+    colour = COL_TEXT_DIM
+    if value is not None and not neutral:
+        colour = (COL_GOOD if value >= good
+                  else COL_WARN if value >= warn else COL_BAD)
+    column.addWidget(make_label(text, 22, True, colour))
+    note_label = make_label(note, 9, False, COL_TEXT_DIM)
+    note_label.setWordWrap(True)
+    column.addWidget(note_label)
+    return box
+
+
+class NeuralStatsDialog(QtWidgets.QDialog):
+    """
+    The NEURAL NETWORK's own numbers -- and only its own.
+
+    A separate dialog rather than a tab inside MODEL STATS, for the same
+    reason the net is a separate file with a separate button: the two models
+    are independently validated and must be read independently. Where they
+    are compared, at the bottom, both protocols are named and the comparison
+    says in words that neither number is an ensemble.
+
+    It reads the plain-JSON sidecar `train_nn.py` writes beside the
+    checkpoint, NOT the checkpoint itself -- the application cannot import
+    torch to unpickle a `.pt`. That is also what makes this dialog work with
+    the worker stopped, with no GPU, and on a machine where torch was never
+    installed.
+    """
+
+    def __init__(self, engine: "NeuralEngine", parent=None,
+                 predictor: "LivePredictor" = None):
+        super().__init__(parent)
+        self.setWindowTitle("Neural network statistics")
+        fit_to_screen(self, 900, 800, min_width=460, min_height=340)
+        self.engine = engine
+        self.predictor = predictor
+
+        sidecar = load_nn_stats(engine.model_path) or {}
+        stats = dict(sidecar.get("stats") or {})
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setSpacing(8)
+
+        if not sidecar:
+            layout.addWidget(make_label("No neural network trained.", 14, True))
+            layout.addWidget(wrap_label(
+                f"Nothing at {nn_stats_path(engine.model_path)}.\n"
+                "The sidecar is written by the trainer alongside the "
+                "checkpoint; without it the application cannot read a "
+                "checkpoint's metrics, because a .pt file is a torch pickle "
+                "and the recorder does not import torch.",
+                10, False, COL_TEXT_DIM))
+            layout.addWidget(make_label(
+                "Train one with:    python train_nn.py", 11, False, COL_ACCENT))
+            close = QtWidgets.QPushButton("Close")
+            close.clicked.connect(self.accept)
+            layout.addStretch(1)
+            layout.addWidget(close)
+            return
+
+        kind = sidecar.get("kind", "?")
+        layout.addWidget(make_label(f"NN-{kind}", 18, True, COL_ACCENT))
+        layout.addWidget(wrap_label(
+            f"{sidecar.get('architecture', '')}", 10, False, COL_TEXT_DIM
+        ))
+        layout.addWidget(make_label(
+            f"trained {sidecar.get('created_iso', '?')}   |   "
+            f"{stats.get('n_parameters', '?')} parameters   |   "
+            f"{stats.get('epochs', '?')} epochs", 10, False, COL_TEXT_DIM))
+
+        #  The separation rule, at the top, where it cannot be scrolled past.
+        banner = QtWidgets.QLabel(
+            "This model is NOT part of the app's answer. The LIVE CLASSIFIER "
+            "panel is produced entirely by the scikit-learn model; this net "
+            "has its own START button and its output is never averaged into "
+            "that prediction or into the DECISION TRAIL's soft vote.")
+        banner.setWordWrap(True)
+        banner.setStyleSheet(
+            f"QLabel {{ color: {COL_WARN}; background: {COL_PANEL}; "
+            f"border: 1px solid {COL_WARN}; border-radius: {RAD_SM}px; "
+            f"padding: {SP_SM}px; }}")
+        layout.addWidget(banner)
+
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        inner = QtWidgets.QWidget()
+        body = QtWidgets.QVBoxLayout(inner)
+        body.setSpacing(10)
+
+        grouping = stats.get("grouping", "?")
+        tiles = QtWidgets.QHBoxLayout()
+        for caption, value, note in (
+            ("PER GESTURE", stats.get("recording_vote_accuracy"),
+             f"majority vote, {stats.get('n_recordings_voted', '?')} "
+             f"recordings"),
+            ("PER WINDOW", stats.get("window_accuracy"),
+             f"single {float(stats.get('window_s') or 0) * 1000:.0f} ms "
+             f"slice, no smoothing"),
+            ("MACRO F1", stats.get("window_macro_f1"),
+             "per window, class-balanced"),
+        ):
+            tiles.addWidget(_stat_tile(caption, value, note))
+        body.addLayout(tiles)
+
+        baseline = stats.get("majority_class_baseline")
+        body.addWidget(wrap_label(
+            f"Scored {grouping}-grouped, against a majority-class baseline of "
+            + (f"{baseline * 100:.1f} %." if baseline else "?")
+            + "  Quote the baseline next to the number: on a six-class "
+              "problem it is what the number has to beat, not 1/n.",
+            10, False, COL_TEXT_DIM))
+
+        # ---- what the net saw, and what it bought -----------------------
+        body.addWidget(make_label("WHAT THE TEMPORAL STRUCTURE IS WORTH",
+                                  11, True, COL_TEXT_DIM))
+        control = stats.get("dc_only_control")
+        if control:
+            gain = ((stats.get("window_accuracy") or 0)
+                    - control["window_accuracy"]) * 100
+            row = QtWidgets.QHBoxLayout()
+            row.addWidget(_stat_tile(
+                "DC ONLY", control.get("window_accuracy"),
+                "the same net, every window flattened to its 8 channel "
+                "means -- all time removed", neutral=True))
+            row.addWidget(_stat_tile(
+                "FULL INPUT", stats.get("window_accuracy"),
+                "the real window, time intact"))
+            body.addLayout(row)
+            verdict = make_label(
+                f"The temporal structure is worth {gain:+.1f} points."
+                + ("  That is thin: with the 8 channel means alone this net "
+                   "scores nearly the same, so nothing here is evidence that "
+                   "a sequence model was needed."
+                   if gain < 5 else
+                   "  So the net is reading how the signal changes, not only "
+                   "how loud it is."),
+                11, True, COL_BAD if gain < 5 else COL_GOOD)
+            verdict.setWordWrap(True)
+            body.addWidget(verdict)
+            if (stats.get("calibration_mode") or
+                    (sidecar.get("calibration") or {}).get("mode")) != "off":
+                hint = make_label(
+                    "Reminder: a RISING DC-only score is not good news. "
+                    "Per-wearer calibration makes the eight channel means "
+                    "transfer between people, which is not the same as "
+                    "learning a gesture.", 9, False, COL_TEXT_DIM)
+                hint.setWordWrap(True)
+                body.addWidget(hint)
+        else:
+            body.addWidget(make_label(
+                "Not measured on this run (--no-control).", 10, False,
+                COL_TEXT_DIM))
+
+        # ---- protocol ----------------------------------------------------
+        body.addWidget(make_label("HOW THIS WAS MEASURED", 11, True,
+                                  COL_TEXT_DIM))
+        protocol = QtWidgets.QPlainTextEdit()
+        protocol.setReadOnly(True)
+        protocol.setMaximumHeight(190)
+        folds = stats.get("fold_accuracies") or []
+        contrast = stats.get("grouping_contrast")
+        subject = stats.get("subject_independent")
+        calibration = sidecar.get("calibration") or {}
+        lines = [
+            f"Protocol      : {stats.get('validation_protocol', '?')}",
+            f"Folds         : {stats.get('n_splits', '?')}"
+            + (f"   ({', '.join(f'{a * 100:.0f}%' for a in folds)})"
+               if folds else ""),
+            f"Windows       : {stats.get('n_windows', '?')} x "
+            f"{stats.get('win_samples', '?')} samples x 8 channels"
+            + ("   (deduped by source timeline)"
+               if stats.get("deduped") else "   (NOT deduped -- leaks)"),
+            f"Recordings    : {stats.get('n_recordings', '?')} used of "
+            f"{stats.get('n_recordings_total', '?')} "
+            f"(filter: {stats.get('excluded', '?')})",
+            f"Subjects      : {', '.join(stats.get('subjects', []) or ['?'])}"
+            f"   sessions: {stats.get('n_sessions', '?')}",
+            f"Calibration   : {calibration.get('mode', 'off')}"
+            + (f"   (requested {calibration.get('requested')})"
+               if calibration.get("requested") !=
+                  calibration.get("mode") else "")
+            + (f"   wearers: {', '.join(calibration.get('subjects') or [])}"
+               if calibration.get("subjects") else ""),
+            f"Training      : {stats.get('epochs', '?')} epochs, batch "
+            f"{stats.get('batch_size', '?')}, lr "
+            f"{stats.get('learning_rate', '?')}, weight decay "
+            f"{stats.get('weight_decay', '?')}, label smoothing "
+            f"{stats.get('label_smoothing', '?')}",
+            "Early stopping: NO -- stopping when the held-out fold looks "
+            "best is fitting the test set.",
+            "Scaling       : log1p + per-channel standardise, fitted on the "
+            "TRAINING FOLD only; the fitted numbers ship inside the "
+            "checkpoint.",
+        ]
+        if contrast:
+            gap = ((stats.get("window_accuracy") or 0)
+                   - contrast["window_accuracy"]) * 100
+            lines.append(
+                f"Other protocol: {contrast.get('grouping', '?')}-grouped "
+                f"{contrast['window_accuracy'] * 100:.1f} % per window "
+                f"({gap:+.1f} points) -- a contrast, not the selection key")
+        if subject:
+            lines.append(
+                f"Per wearer    : " + ", ".join(
+                    f"{p} {s * 100:.1f} %"
+                    for p, s in sorted(subject["per_subject"].items()))
+                + f"   mean {subject['mean'] * 100:.1f} % "
+                  f"+- {subject['std'] * 100:.1f}")
+        else:
+            lines.append(
+                "Per wearer    : NOT MEASURABLE -- one subject only. This "
+                "net is specific to the person who recorded it.")
+        if calibration.get("mode", "off") != "off":
+            lines.append(
+                "NOTE          : a calibrated subject-grouped score is NOT "
+                "zero-shot. The held-out wearer's own unlabelled signal set "
+                "their gain.")
+        if stats.get("selection_bias_note"):
+            lines.append(f"Selection     : {stats['selection_bias_note']}")
+        protocol.setPlainText("\n".join(lines))
+        body.addWidget(protocol)
+
+        # ---- every candidate ---------------------------------------------
+        candidates = stats.get("candidates") or []
+        if candidates:
+            body.addWidget(make_label(
+                f"ALL {len(candidates)} CANDIDATES  (every architecture x "
+                f"window, on the same folds)", 11, True, COL_TEXT_DIM))
+            table = QtWidgets.QTableWidget(len(candidates), 6)
+            table.setHorizontalHeaderLabels(
+                ["architecture", "window", "per window", "per gesture",
+                 "macro F1", "parameters"])
+            table.verticalHeader().setVisible(False)
+            table.setEditTriggers(QtWidgets.QTableWidget.NoEditTriggers)
+            table.horizontalHeader().setSectionResizeMode(
+                0, QtWidgets.QHeaderView.Stretch)
+            chosen = (stats.get("kind"), stats.get("window_s"))
+            for row, entry in enumerate(candidates):
+                is_best = (entry.get("kind"), entry.get("window_s")) == chosen
+                cells = [
+                    ("* " if is_best else "") + str(entry.get("kind", "?")),
+                    f"{float(entry.get('window_s') or 0):.2f} s",
+                    f"{float(entry.get('window_accuracy') or 0) * 100:.1f} %",
+                    f"{float(entry.get('recording_vote_accuracy') or 0) * 100:.1f} %",
+                    f"{float(entry.get('window_macro_f1') or 0) * 100:.1f} %",
+                    str(entry.get("n_parameters", "?")),
+                ]
+                for column, text in enumerate(cells):
+                    item = QtWidgets.QTableWidgetItem(text)
+                    if is_best:
+                        font = item.font()
+                        font.setBold(True)
+                        item.setFont(font)
+                        item.setForeground(QtGui.QColor(COL_ACCENT))
+                    table.setItem(row, column, item)
+            table.setMinimumHeight(min(280, 34 + 26 * len(candidates)))
+            body.addWidget(table)
+            body.addWidget(wrap_label(
+                "* the one that was saved. Choosing the best of these on the "
+                "same folds makes its score optimistic -- the per-wearer "
+                "figures above did not pick their own folds.",
+                9, False, COL_TEXT_DIM))
+
+        # ---- confusion ----------------------------------------------------
+        matrix = stats.get("confusion_matrix")
+        labels = stats.get("labels") or sidecar.get("labels") or []
+        if matrix and labels:
+            self._add_confusion(body, np.array(matrix, dtype=float), labels)
+
+        # ---- against the deployed model ----------------------------------
+        if self.predictor is not None:
+            self._add_comparison(body, stats)
+
+        # ---- the live worker ----------------------------------------------
+        body.addWidget(make_label("THE INFERENCE WORKER", 11, True,
+                                  COL_TEXT_DIM))
+        worker = QtWidgets.QPlainTextEdit()
+        worker.setReadOnly(True)
+        worker.setMaximumHeight(140)
+        summary = engine.stats_summary()
+        device = (engine.meta.get("device") or {}) if engine.running else {}
+        trained_on = sidecar.get("device_trained_on") or {}
+        worker_lines = [
+            f"state         : {summary['state']}  --  {summary['status']}",
+            f"process       : {engine.script}  (a separate process: the "
+            f"recorder never imports torch)",
+            f"running on    : "
+            + (f"{device.get('device', '?')} {device.get('gpu', '')}"
+               if device else "not running"),
+            f"trained on    : {trained_on.get('device', '?')} "
+            f"{trained_on.get('gpu', '')}  torch {trained_on.get('torch', '?')}",
+            f"windows       : {summary['answered']} answered, "
+            f"{summary['sent']} sent, {summary['dropped']} dropped "
+            f"(the previous one had not come back), {summary['errors']} "
+            f"errors",
+            f"latency       : "
+            + (f"{summary['latency_ms']:.1f} ms round trip, "
+               f"{summary['infer_ms']:.2f} ms forward pass"
+               if not math.isnan(summary["latency_ms"]) else "not measured yet")
+            + f"   (budget: {NN_INTERVAL_MS} ms per window)",
+        ]
+        noise = engine.worker_output(6)
+        if noise:
+            worker_lines.append("")
+            worker_lines.append("the worker's own output:")
+            worker_lines.extend(f"    {line}" for line in noise)
+        worker.setPlainText("\n".join(worker_lines))
+        body.addWidget(worker)
+
+        scroll.setWidget(inner)
+        layout.addWidget(scroll, 1)
+
+        buttons = QtWidgets.QHBoxLayout()
+        buttons.addStretch(1)
+        close = QtWidgets.QPushButton("Close")
+        close.clicked.connect(self.accept)
+        buttons.addWidget(close)
+        layout.addLayout(buttons)
+
+    # -- pieces ---------------------------------------------------------------
+
+    def _add_confusion(self, body, matrix, labels) -> None:
+        body.addWidget(make_label(
+            "PER GESTURE (per window, summed over folds)", 11, True,
+            COL_TEXT_DIM))
+        table = QtWidgets.QTableWidget(len(labels), 4)
+        table.setHorizontalHeaderLabels(
+            ["gesture", "recall", "precision", "windows"])
+        table.verticalHeader().setVisible(False)
+        table.setEditTriggers(QtWidgets.QTableWidget.NoEditTriggers)
+        table.horizontalHeader().setSectionResizeMode(
+            0, QtWidgets.QHeaderView.Stretch)
+        for i, name in enumerate(labels):
+            support = matrix[i].sum()
+            recall = matrix[i, i] / support if support else 0.0
+            column_total = matrix[:, i].sum()
+            precision = matrix[i, i] / column_total if column_total else 0.0
+            for column, text in enumerate(
+                    [name, f"{recall * 100:.1f} %",
+                     f"{precision * 100:.1f} %", f"{int(support)}"]):
+                item = QtWidgets.QTableWidgetItem(text)
+                if column == 1:
+                    item.setForeground(QtGui.QColor(
+                        COL_GOOD if recall >= 0.8 else
+                        COL_WARN if recall >= 0.5 else COL_BAD))
+                table.setItem(i, column, item)
+        table.setMinimumHeight(min(260, 30 + 28 * len(labels)))
+        body.addWidget(table)
+
+        body.addWidget(make_label(
+            "CONFUSION MATRIX  (rows = truth, columns = predicted)",
+            11, True, COL_TEXT_DIM))
+        grid = QtWidgets.QTableWidget(len(labels), len(labels))
+        grid.setHorizontalHeaderLabels([l[:7] for l in labels])
+        grid.setVerticalHeaderLabels([l[:9] for l in labels])
+        grid.setEditTriggers(QtWidgets.QTableWidget.NoEditTriggers)
+        peak = max(1.0, matrix.max())
+        for i in range(len(labels)):
+            row_total = matrix[i].sum()
+            for j in range(len(labels)):
+                share = matrix[i, j] / row_total if row_total else 0.0
+                item = QtWidgets.QTableWidgetItem(f"{int(matrix[i, j])}")
+                item.setTextAlignment(QtCore.Qt.AlignCenter)
+                item.setToolTip(f"{labels[i]} predicted as {labels[j]}: "
+                                f"{share * 100:.1f} %")
+                if matrix[i, j]:
+                    strength = matrix[i, j] / peak
+                    item.setBackground(QtGui.QColor(
+                        34, 197, 94, int(40 + 150 * strength)) if i == j
+                        else QtGui.QColor(239, 68, 68,
+                                          int(30 + 140 * strength)))
+                grid.setItem(i, j, item)
+        grid.resizeColumnsToContents()
+        grid.setMinimumHeight(min(300, 40 + 30 * len(labels)))
+        body.addWidget(grid)
+
+    def _add_comparison(self, body, stats) -> None:
+        """
+        The two models side by side, with both protocols named.
+
+        This is the only place in the application where the net's number and
+        the deployed model's number appear together, and it is deliberately a
+        TABLE of two independent results rather than a combined figure: there
+        is no ensemble, so there is no third number to show. Where the two
+        were scored on different protocols the table says so instead of
+        subtracting them.
+        """
+        deployed = dict(self.predictor.stats or {})
+        if not deployed:
+            return
+        body.addWidget(make_label("AGAINST THE DEPLOYED MODEL", 11, True,
+                                  COL_TEXT_DIM))
+        #  The sklearn payload calls it `selection_grouping` and the net's
+        #  sidecar calls it `grouping`. Resolved with `or` rather than
+        #  `.get(key, fallback)` because a key PRESENT and set to None would
+        #  slip through a default and make the comparison below claim the two
+        #  protocols differ when they do not -- a warning nobody could act on.
+        deployed_grouping = str(deployed.get("grouping")
+                                or deployed.get("selection_grouping")
+                                or "?")
+        net_grouping = str(stats.get("grouping") or "?")
+        rows = [
+            ("model", str(deployed.get("model_name", "sklearn model")),
+             f"NN-{stats.get('kind', '?')}"),
+            ("grouping", deployed_grouping, net_grouping),
+            ("per window",
+             f"{(deployed.get('window_accuracy') or 0) * 100:.1f} %",
+             f"{(stats.get('window_accuracy') or 0) * 100:.1f} %"),
+            ("per gesture",
+             f"{(deployed.get('recording_vote_accuracy') or 0) * 100:.1f} %",
+             f"{(stats.get('recording_vote_accuracy') or 0) * 100:.1f} %"),
+            ("macro F1",
+             f"{(deployed.get('window_macro_f1') or 0) * 100:.1f} %",
+             f"{(stats.get('window_macro_f1') or 0) * 100:.1f} %"),
+            ("windows", str(deployed.get("n_windows", "?")),
+             str(stats.get("n_windows", "?"))),
+            ("input", f"{deployed.get('n_features', '?')} features "
+                      f"({self.predictor.feature_set})",
+             f"{stats.get('win_samples', '?')} x 8 raw samples"),
+            ("size", "~209 KB joblib, no torch",
+             f"{stats.get('n_parameters', '?')} parameters, needs torch"),
+        ]
+        table = QtWidgets.QTableWidget(len(rows), 3)
+        table.setHorizontalHeaderLabels(
+            ["", "LIVE CLASSIFIER (deployed)", "NEURAL NET (separate)"])
+        table.verticalHeader().setVisible(False)
+        table.setEditTriggers(QtWidgets.QTableWidget.NoEditTriggers)
+        for column in (1, 2):
+            table.horizontalHeader().setSectionResizeMode(
+                column, QtWidgets.QHeaderView.Stretch)
+        for row, (caption, left, right) in enumerate(rows):
+            for column, text in enumerate((caption, left, right)):
+                item = QtWidgets.QTableWidgetItem(text)
+                if column == 0:
+                    item.setForeground(QtGui.QColor(COL_TEXT_DIM))
+                table.setItem(row, column, item)
+        table.setMinimumHeight(min(300, 34 + 26 * len(rows)))
+        body.addWidget(table)
+
+        same = deployed_grouping == net_grouping != "?"
+        caption = make_label(
+            ("Both columns were scored on the same protocol, so the two "
+             "accuracies are comparable."
+             if same else
+             "CAREFUL: the two columns were scored on DIFFERENT protocols, "
+             "so these accuracies are not comparable. Retrain both with the "
+             "same dataset on disk before reading the difference.")
+            + "  Either way there is no third number: the two models are "
+              "never combined, and the app's prediction comes from the left "
+              "column alone.",
+            10, False, COL_TEXT_DIM if same else COL_WARN)
+        caption.setWordWrap(True)
+        body.addWidget(caption)
+
+
+class GestureSetupDialog(QtWidgets.QDialog):
+    """
+    Which gestures this session records.
+
+    The built-in six are checked; the optional ones (`OPTIONAL_GESTURES`)
+    ship unchecked, and a free-text box adds a name the tool has never heard
+    of. The result is written back to the `GESTURES` global by the caller, so
+    the folder layout, the plan, the combo boxes and every recording's config
+    snapshot follow it.
+
+    Switching a gesture OFF never touches data already on disk -- the folder
+    and its recordings stay, they are simply not cued any more, and the
+    trainer still finds them because discovery walks the tree rather than
+    this list. That asymmetry is deliberate: a label set is a plan for what
+    to record next, not a filter on what has been recorded.
+    """
+
+    def __init__(self, parent=None, selected=None):
+        super().__init__(parent)
+        self.setWindowTitle("Gestures to record")
+        fit_to_screen(self, 560, 620, min_width=380, min_height=320)
+        selected = list(selected if selected is not None else GESTURES)
+        self.boxes = {}
+        self._extra = []
+
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setSpacing(8)
+        layout.addWidget(make_label("Gestures to record", 15, True,
+                                    COL_ACCENT))
+        layout.addWidget(wrap_label(
+            "Checked gestures are cued by START SESSION and offered "
+            "everywhere a label is chosen. Unchecking one does NOT delete "
+            "anything already recorded -- it just stops being cued.",
+            10, False, COL_TEXT_DIM))
+
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        inner = QtWidgets.QWidget()
+        body = QtWidgets.QVBoxLayout(inner)
+        body.setSpacing(4)
+
+        counts = self._counts()
+        body.addWidget(make_label("IN USE / BUILT IN", 10, True, COL_TEXT_DIM))
+        for name in known_gestures():
+            if name in OPTIONAL_GESTURES and name not in selected:
+                continue
+            body.addWidget(self._row(name, name in selected, counts))
+
+        optional = [n for n in OPTIONAL_GESTURES if n not in selected]
+        if optional:
+            body.addWidget(make_label("", 4))
+            body.addWidget(make_label("OPTIONAL -- off by default", 10, True,
+                                      COL_TEXT_DIM))
+            body.addWidget(wrap_label(
+                "Every extra class costs recording time from every future "
+                "subject and makes the problem harder, so these are only "
+                "worth switching on when driven by a different muscle group "
+                "rather than just a different-looking hand.",
+                9, False, COL_TEXT_DIM))
+            for name in optional:
+                body.addWidget(self._row(name, False, counts))
+
+        body.addStretch(1)
+        scroll.setWidget(inner)
+        layout.addWidget(scroll, 1)
+
+        row = QtWidgets.QHBoxLayout()
+        row.addWidget(make_label("Add your own", 10, False, COL_TEXT_DIM))
+        self.custom_edit = QtWidgets.QLineEdit()
+        self.custom_edit.setPlaceholderText("e.g. WRIST_FLEX")
+        self.custom_edit.setToolTip(
+            "Upper case with underscores. It becomes a folder name, so it "
+            "goes through the same slug rules as everything else.")
+        self.custom_edit.returnPressed.connect(self._add_custom)
+        row.addWidget(self.custom_edit, 1)
+        add = QtWidgets.QPushButton("ADD")
+        add.clicked.connect(self._add_custom)
+        row.addWidget(add)
+        layout.addLayout(row)
+
+        self.warning = wrap_label("", 10, True, COL_WARN)
+        layout.addWidget(self.warning)
+
+        buttons = QtWidgets.QHBoxLayout()
+        buttons.addStretch(1)
+        cancel = QtWidgets.QPushButton("Cancel")
+        cancel.clicked.connect(self.reject)
+        buttons.addWidget(cancel)
+        ok = QtWidgets.QPushButton("USE THESE")
+        ok.setObjectName("primary")
+        ok.clicked.connect(self._accept)
+        buttons.addWidget(ok)
+        layout.addLayout(buttons)
+        self._custom_box = body
+
+    # -- pieces ---------------------------------------------------------------
+
+    def _counts(self) -> dict:
+        """How many recordings each gesture already has, for context."""
+        try:
+            summary = dataset_summary(os.path.join(PROJECT_DIR, DATA_FOLDER))
+        except OSError:
+            return {}
+        found = Counter()
+        for sessions in summary.get("persons", {}).values():
+            for counts in sessions.values():
+                for label, n in counts.items():
+                    found[label] += n
+        return dict(found)
+
+    def _row(self, name: str, checked: bool, counts: dict):
+        box = QtWidgets.QCheckBox(name)
+        box.setChecked(checked)
+        cue = gesture_cue(name)
+        have = counts.get(name, 0)
+        bits = []
+        if cue:
+            bits.append(cue)
+        bits.append("%d recording(s) on disk" % have if have
+                    else "nothing recorded yet")
+        box.setToolTip("  --  ".join(bits))
+        self.boxes[name] = box
+
+        holder = QtWidgets.QWidget()
+        line = QtWidgets.QVBoxLayout(holder)
+        line.setContentsMargins(0, 0, 0, 0)
+        line.setSpacing(0)
+        line.addWidget(box)
+        caption = make_label("      " + "  --  ".join(bits), 9, False,
+                             COL_TEXT_DIM if have else COL_WARN)
+        caption.setWordWrap(True)
+        line.addWidget(caption)
+        return holder
+
+    def _add_custom(self) -> None:
+        raw = self.custom_edit.text().strip()
+        if not raw:
+            return
+        name = safe_slug(raw, "GESTURE").upper()
+        if name in self.boxes:
+            self.boxes[name].setChecked(True)
+            self.warning.setText("%s was already listed -- it is now checked."
+                                 % name)
+            self.custom_edit.clear()
+            return
+        box = QtWidgets.QCheckBox(name)
+        box.setChecked(True)
+        self.boxes[name] = box
+        self._custom_box.insertWidget(self._custom_box.count() - 1, box)
+        self._extra.append(name)
+        self.warning.setText("")
+        self.custom_edit.clear()
+
+    def selected(self):
+        """The checked gestures, in the order the dialog listed them."""
+        return [name for name, box in self.boxes.items() if box.isChecked()]
+
+    def _accept(self) -> None:
+        chosen = self.selected()
+        if len(chosen) < 2:
+            self.warning.setText(
+                "Pick at least two gestures -- a classifier needs something "
+                "to tell apart.")
+            return
+        #  REST is not required, but losing it is worth saying out loud: it is
+        #  the only class that says "no gesture", and without it a live
+        #  classifier has to answer with a gesture at all times.
+        if "REST" not in chosen:
+            self.warning.setText(
+                "No REST selected. Without it the classifier has no 'no "
+                "gesture' answer and will always name one. Check REST, or "
+                "press USE THESE again to go ahead anyway.")
+            if not getattr(self, "_warned_rest", False):
+                self._warned_rest = True
+                return
+        self.accept()
+
+
 class CalibrationDialog(QtWidgets.QDialog):
     """
     Measure one wearer onto the common scale, or derive it from the data they
@@ -9449,7 +11989,9 @@ class CalibrationDialog(QtWidgets.QDialog):
         outer = QtWidgets.QVBoxLayout(box)
         outer.setSpacing(6)
         hint = make_label(
-            "Cues REST and then each gesture. Each channel's reference is the "
+            "Cues REST and then each gesture. REST sets each channel's floor "
+            "and is checked too: a hand that was not fully relaxed is "
+            "rejected and can be redone. Each channel's reference is the "
             "loudest it gets across the whole set, which is why this beats "
             "one generic squeeze: a squeeze leaves most channels quiet and "
             "would set their scale from nearly nothing.",
@@ -9487,8 +12029,13 @@ class CalibrationDialog(QtWidgets.QDialog):
             QtWidgets.QAbstractItemView.SelectRows)
         self.sweep_table.setSelectionMode(
             QtWidgets.QAbstractItemView.SingleSelection)
-        self.sweep_table.horizontalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.Stretch)
+        #  The verdict is the column that carries a sentence; the other three
+        #  are short, so they take what they need and it takes the rest.
+        head = self.sweep_table.horizontalHeader()
+        for col in range(3):
+            head.setSectionResizeMode(
+                col, QtWidgets.QHeaderView.ResizeToContents)
+        head.setSectionResizeMode(3, QtWidgets.QHeaderView.Stretch)
         self.sweep_table.itemSelectionChanged.connect(self._refresh)
         outer.addWidget(self.sweep_table)
         layout.addWidget(box)
@@ -9548,7 +12095,7 @@ class CalibrationDialog(QtWidgets.QDialog):
         self.table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
         self.table.horizontalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.Stretch)
-        self.table.setFixedHeight(24 * N_CHANNELS + 28)
+        fit_table_height(self.table, N_CHANNELS)
         layout.addWidget(self.table)
 
         # ---- how it is applied -----------------------------------------
@@ -9605,6 +12152,9 @@ class CalibrationDialog(QtWidgets.QDialog):
         buttons.addWidget(close, 1)
         layout.addLayout(buttons)
 
+        #  The body is ~950 px tall, which is more than a 1080p screen has at
+        #  125 % scaling. It scrolls; SAVE / CLEAR / CLOSE stay pinned.
+        scroll_dialog_body(self, keep_last=1)
         fit_to_screen(self, 680, 900)
 
     # -- stream state ---------------------------------------------------------
@@ -9768,7 +12318,17 @@ class CalibrationDialog(QtWidgets.QDialog):
         if not label or self.phase != self.IDLE:
             return
         self._queue = []
-        self._start(label, prepare=True)
+        #  The REST row is the "rest" capture -- the same one RELAX takes.
+        self._start("rest" if label == "REST" else label, prepare=True)
+
+    def rest_quality(self) -> dict:
+        return calibration_rest_quality(self.rest_block)
+
+    def _usable_rest(self):
+        """The rest capture, or None when it was rejected -- never a tense one."""
+        if self.rest_block is None or not self.rest_quality()["ok"]:
+            return None
+        return self.rest_block
 
     def selected_gesture(self) -> str:
         row = self.sweep_table.currentRow()
@@ -9826,13 +12386,15 @@ class CalibrationDialog(QtWidgets.QDialog):
             rate = None
         fs = rate or nominal_rate()
 
-        if self.rest_block is not None and self.gesture_blocks:
+        #  A rejected rest builds nothing: it is the floor `affine` subtracts.
+        rest = self._usable_rest()
+        if rest is not None and self.gesture_blocks:
             return calibration_from_gesture_captures(
-                self.rest_block, self.gesture_blocks,
+                rest, self.gesture_blocks,
                 person_id=self.person_id, session_id=SESSION_ID, fs=fs)
-        if self.rest_block is not None and self.effort_block is not None:
+        if rest is not None and self.effort_block is not None:
             return calibration_from_captures(
-                self.rest_block, self.effort_block,
+                rest, self.effort_block,
                 person_id=self.person_id, session_id=SESSION_ID,
                 fs=fs, source="live")
         return self.record
@@ -9868,8 +12430,12 @@ class CalibrationDialog(QtWidgets.QDialog):
                        self.mode_combo):
             widget.setEnabled(not busy)
 
-        self.rest_result.setText(
-            self._level_text(self.rest_block, CALIBRATION_REST_PERCENTILE))
+        rest_q = self.rest_quality()
+        rest_text = self._level_text(self.rest_block,
+                                     CALIBRATION_REST_PERCENTILE)
+        if self.rest_block is not None and not rest_q["ok"]:
+            rest_text += f" -- REJECTED: {rest_q['reason']}"
+        self.rest_result.setText(rest_text)
         self.effort_result.setText(
             self._level_text(self.effort_block, CALIBRATION_EFFORT_PERCENTILE))
         self._fill_sweep_table()
@@ -9878,6 +12444,22 @@ class CalibrationDialog(QtWidgets.QDialog):
         self.clear_button.setEnabled(
             not busy
             and load_calibration(self.root, self.person_id) is not None)
+
+        #  Captures waiting on a rejected rest: say so, and do not offer to
+        #  save whatever older record pending_record() fell back to.
+        if (self.rest_block is not None and not rest_q["ok"]
+                and (self.gesture_blocks or self.effort_block is not None)):
+            self.state_label.setText(
+                "REST was not relaxed -- nothing can be built until it is "
+                "redone.")
+            self.state_label.setStyleSheet(
+                f"color: {COL_BAD}; background: transparent;")
+            self.warning_label.setText(
+                f"REST rejected: {rest_q['reason']}. Select the REST row and "
+                f"press REDO SELECTED (or press RELAX).")
+            self.save_button.setEnabled(False)
+            self._fill_table(None, None)
+            return
 
         if record is None:
             self.state_label.setText(f"{self.person_id} has no calibration.")
@@ -9898,22 +12480,33 @@ class CalibrationDialog(QtWidgets.QDialog):
         self._fill_table(*(levels if levels else (None, None)))
 
     def _fill_sweep_table(self) -> None:
-        """One row per gesture in the sweep, with how its capture landed."""
+        """
+        REST first, then one row per gesture, with how each capture landed.
+        Gestures are judged against the rest only once the rest is accepted.
+        """
         wanted = self.sweep_gestures()
         extra = [g for g in self.gesture_blocks if g not in wanted]
-        rows = wanted + sorted(extra)
-        rest_levels = (np.percentile(
-            np.asarray(self.rest_block, dtype=np.float64),
-            CALIBRATION_REST_PERCENTILE, axis=0)
-            if self.rest_block is not None
-            and np.asarray(self.rest_block).size else None)
+        rows = ["REST"] + wanted + sorted(extra)
+        rest_q = self.rest_quality()
+        rest_levels = rest_q["levels"] if rest_q["ok"] else None
 
         keep = self.selected_gesture()
         self.sweep_table.setRowCount(len(rows))
-        self.sweep_table.setFixedHeight(24 * max(1, len(rows)) + 28)
+        fit_table_height(self.sweep_table, len(rows))
         for row, label in enumerate(rows):
             block = self.gesture_blocks.get(label)
-            if block is None:
+            if label == "REST":
+                if self.rest_block is None:
+                    cells = [label, "--", "--", "not captured"]
+                    colour = COL_TEXT_DIM
+                else:
+                    cells = [label, str(rest_q["n_samples"]),
+                             (f"CH{rest_q['loud_channel']} "
+                              f"{rest_q['level']:.0f}"
+                              if rest_q["loud_channel"] else "--"),
+                             "accepted" if rest_q["ok"] else rest_q["reason"]]
+                    colour = COL_GOOD if rest_q["ok"] else COL_BAD
+            elif block is None:
                 cells = [label, "--", "--", "not captured"]
                 colour = COL_TEXT_DIM
             else:
@@ -9925,6 +12518,7 @@ class CalibrationDialog(QtWidgets.QDialog):
                 colour = COL_GOOD if q["ok"] else COL_BAD
             for col, text in enumerate(cells):
                 item = QtWidgets.QTableWidgetItem(text)
+                item.setToolTip(text)       # a long verdict is elided
                 if col:
                     item.setForeground(QtGui.QColor(colour))
                 self.sweep_table.setItem(row, col, item)
@@ -9987,6 +12581,136 @@ class CalibrationDialog(QtWidgets.QDialog):
     def closeEvent(self, event) -> None:                       # pragma: no cover
         self.tick.stop()
         super().closeEvent(event)
+
+
+class NeuralSetupDialog(QtWidgets.QDialog):
+    """
+    Which architectures and hyperparameters TRAIN NEURAL NET sweeps.
+
+    Saved to models/nn_spec.json and passed to train_nn.py as flags. Changes
+    only the NEXT neural training; the scoring protocol is not configurable
+    here, so choosing settings cannot flatter the net.
+    """
+
+    def __init__(self, spec: dict, path: str, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Neural network setup")
+        self.spec_path = path
+        self.saved = False
+        spec, _problems = validate_nn_spec(spec)
+
+        root = QtWidgets.QVBoxLayout(self)
+        root.addWidget(make_label(
+            "Architectures to compare (each is scored on the same folds):",
+            FS_SM, True))
+        self.kind_boxes = {}
+        for kind, text in NN_KINDS.items():
+            box = QtWidgets.QCheckBox(f"{kind}  --  {text}")
+            box.setChecked(kind in spec["kinds"])
+            self.kind_boxes[kind] = box
+            root.addWidget(box)
+
+        form = QtWidgets.QFormLayout()
+        self.windows_edit = QtWidgets.QLineEdit(
+            ", ".join(f"{w:g}" for w in spec["windows"]))
+        self.windows_edit.setToolTip("Window lengths in seconds, comma "
+                                     "separated (0.1 - 2.0).")
+        form.addRow("Window lengths (s)", self.windows_edit)
+
+        def spin(lo, hi, value, step, decimals=0):
+            w = (QtWidgets.QDoubleSpinBox() if decimals
+                 else QtWidgets.QSpinBox())
+            if decimals:
+                w.setDecimals(decimals)
+            w.setRange(lo, hi)
+            w.setSingleStep(step)
+            w.setValue(value)
+            return w
+        self.overlap = spin(0.0, 0.9, spec["overlap"], 0.05, 2)
+        self.epochs = spin(5, 500, spec["epochs"], 5)
+        self.hidden = spin(8, 256, spec["hidden"], 8)
+        self.dropout = spin(0.0, 0.8, spec["dropout"], 0.05, 2)
+        self.lr = spin(0.00001, 0.1, spec["learning_rate"], 0.0005, 5)
+        self.wd = spin(0.0, 0.1, spec["weight_decay"], 0.0005, 5)
+        self.batch = spin(8, 512, spec["batch_size"], 8)
+        self.smooth = spin(0.0, 0.5, spec["label_smoothing"], 0.01, 2)
+        for label, widget in (
+                ("Window overlap", self.overlap),
+                ("Epochs (fixed, no early stopping)", self.epochs),
+                ("Hidden size", self.hidden), ("Dropout", self.dropout),
+                ("Learning rate", self.lr), ("Weight decay", self.wd),
+                ("Batch size", self.batch),
+                ("Label smoothing", self.smooth)):
+            form.addRow(label, widget)
+        root.addLayout(form)
+
+        self.problem_label = make_label("", 10, False, COL_WARN)
+        self.problem_label.setWordWrap(True)
+        root.addWidget(self.problem_label)
+        root.addWidget(make_label(
+            f"Saved to {path} and read by train_nn.py on the next training.",
+            10, False, COL_TEXT_DIM))
+
+        buttons = QtWidgets.QHBoxLayout()
+        reset = QtWidgets.QPushButton("RESET TO DEFAULTS")
+        reset.clicked.connect(self._reset)
+        buttons.addWidget(reset)
+        buttons.addStretch(1)
+        cancel = QtWidgets.QPushButton("Cancel")
+        cancel.clicked.connect(self.reject)
+        buttons.addWidget(cancel)
+        save = QtWidgets.QPushButton("SAVE SETUP")
+        save.setObjectName("primary")
+        save.setDefault(True)
+        save.clicked.connect(self._save)
+        buttons.addWidget(save)
+        root.addLayout(buttons)
+        scroll_dialog_body(self, keep_last=1)
+        fit_to_screen(self, 640, 620, min_width=480, min_height=420)
+
+    def current_spec(self) -> dict:
+        wins = []
+        for part in self.windows_edit.text().replace(";", ",").split(","):
+            part = part.strip()
+            if part:
+                try:
+                    wins.append(float(part))
+                except ValueError:
+                    pass
+        return {"kinds": [k for k, b in self.kind_boxes.items()
+                          if b.isChecked()],
+                "windows": wins, "overlap": self.overlap.value(),
+                "epochs": self.epochs.value(), "hidden": self.hidden.value(),
+                "dropout": self.dropout.value(),
+                "learning_rate": self.lr.value(),
+                "weight_decay": self.wd.value(),
+                "batch_size": self.batch.value(),
+                "label_smoothing": self.smooth.value()}
+
+    def _reset(self) -> None:
+        d = NN_SPEC_DEFAULTS
+        for k, b in self.kind_boxes.items():
+            b.setChecked(k in d["kinds"])
+        self.windows_edit.setText(", ".join(f"{w:g}" for w in d["windows"]))
+        self.overlap.setValue(d["overlap"])
+        self.epochs.setValue(d["epochs"])
+        self.hidden.setValue(d["hidden"])
+        self.dropout.setValue(d["dropout"])
+        self.lr.setValue(d["learning_rate"])
+        self.wd.setValue(d["weight_decay"])
+        self.batch.setValue(d["batch_size"])
+        self.smooth.setValue(d["label_smoothing"])
+
+    def _save(self) -> None:
+        spec, problems = validate_nn_spec(self.current_spec())
+        try:
+            save_nn_spec(spec, self.spec_path)
+        except OSError as exc:
+            self.problem_label.setText(f"Not saved: {exc}")
+            return
+        self.spec = spec
+        self.saved = True
+        self.accept()
 
 
 class ModelSpecDialog(QtWidgets.QDialog):
@@ -10193,6 +12917,45 @@ class ModelSpecDialog(QtWidgets.QDialog):
         auto.addWidget(self.auto_warning)
         root.addWidget(auto_box)
 
+        # ---- training data ---------------------------------------------------
+        data_box = QtWidgets.QGroupBox("TRAINING DATA")
+        data = QtWidgets.QVBoxLayout(data_box)
+        data.setSpacing(5)
+
+        self.data_list = QtWidgets.QListWidget()
+        self.data_list.setMaximumHeight(120)
+        self.data_list.setToolTip(
+            "Tick the subject/session folders to train on. Ticking all of "
+            "them, or none, means everything on disk -- including sessions "
+            "recorded later.")
+        self.data_list.itemChanged.connect(self._on_data_changed)
+        data.addWidget(self.data_list)
+
+        drow = QtWidgets.QHBoxLayout()
+        drow.addWidget(make_label("Calibration for training", 11, False,
+                                  COL_TEXT_DIM))
+        self.cal_combo = QtWidgets.QComboBox()
+        self.cal_combo.addItem(
+            f"follow the app setting ({CALIBRATION_MODE})",
+            DATA_CALIBRATION_DEFAULT)
+        for mode in CALIBRATION_MODES:
+            self.cal_combo.addItem(
+                "off  -- no calibration; any wearer can use the model"
+                if mode == "off" else mode, mode)
+        self.cal_combo.setToolTip(
+            "Whether each wearer's stored calibration is applied to their "
+            "training data. A calibrated model refuses to run for a wearer "
+            "who has not calibrated; 'off' trains on raw device counts and "
+            "has no such requirement, at the cost of cross-wearer accuracy.")
+        self.cal_combo.currentIndexChanged.connect(self._on_data_changed)
+        drow.addWidget(self.cal_combo, 1)
+        data.addLayout(drow)
+
+        self.data_info = make_label("", 10, False, COL_TEXT_DIM)
+        self.data_info.setWordWrap(True)
+        data.addWidget(self.data_info)
+        root.addWidget(data_box)
+
         # ---- footer ----------------------------------------------------------
         self.problem_label = make_label("", 10, False, COL_WARN)
         self.problem_label.setWordWrap(True)
@@ -10219,6 +12982,11 @@ class ModelSpecDialog(QtWidgets.QDialog):
         save.clicked.connect(self.save_spec)
         buttons.addWidget(save)
         root.addLayout(buttons)
+
+        #  ~700 px of minimum content: more than a 1080p screen has at 150 %
+        #  scaling. Scroll the body, keep SAVE pinned, and size again.
+        scroll_dialog_body(self, keep_last=1)
+        fit_to_screen(self, 1180, 860, min_width=760, min_height=520)
 
         self._reload_all(problems)
 
@@ -10247,6 +13015,31 @@ class ModelSpecDialog(QtWidgets.QDialog):
             self.auto_check.setChecked(bool(auto.get("enabled")))
             self.auto_spin.setValue(int(auto.get(
                 "max_per_model", MODEL_AUTO_MAX_PER_MODEL)))
+
+            selection = self.spec.get("data") or default_data_selection()
+            chosen = set(selection["include"])
+            try:
+                available = dataset_person_sessions(
+                    os.path.join(PROJECT_DIR, DATA_FOLDER))
+            except OSError:
+                available = {}
+            # A pair named in the spec but gone from disk stays visible, so it
+            # is not silently dropped on the next save.
+            for key in sorted(chosen - set(available)):
+                available[key] = 0
+            self.data_list.clear()
+            for key, count in sorted(available.items()):
+                item = QtWidgets.QListWidgetItem(
+                    f"{key}      {count} recording(s)" if count
+                    else f"{key}      not on disk")
+                item.setData(QtCore.Qt.UserRole, key)
+                item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
+                item.setCheckState(QtCore.Qt.Checked
+                                   if not chosen or key in chosen
+                                   else QtCore.Qt.Unchecked)
+                self.data_list.addItem(item)
+            self.cal_combo.setCurrentIndex(max(0, self.cal_combo.findData(
+                selection["calibration"])))
         finally:
             self._loading = False
 
@@ -10282,6 +13075,20 @@ class ModelSpecDialog(QtWidgets.QDialog):
                 + ", ".join(m["name"] for m in on))
 
         self._refresh_auto_info()
+
+        selection = self.spec.get("data") or default_data_selection()
+        include, cal = selection["include"], selection["calibration"]
+        who = (f"{len(include)} subject/session folder(s)" if include
+               else "everything on disk")
+        if cal == "off":
+            cal_text = ("calibration OFF -- the model needs no calibration "
+                        "to run for any wearer")
+        elif cal == DATA_CALIBRATION_DEFAULT:
+            cal_text = f"calibration follows the app setting ({CALIBRATION_MODE})"
+        else:
+            cal_text = (f"calibration '{cal}' -- every wearer must calibrate "
+                        "before the model will run for them")
+        self.data_info.setText(f"Training on {who}; {cal_text}.")
 
         if problems:
             self.problem_label.setText("spec was corrected: "
@@ -10536,6 +13343,24 @@ class ModelSpecDialog(QtWidgets.QDialog):
         }
         self._revalidate()
 
+    def _on_data_changed(self, *_args) -> None:
+        if self._loading:
+            return
+        keys = [self.data_list.item(i).data(QtCore.Qt.UserRole)
+                for i in range(self.data_list.count())]
+        ticked = [self.data_list.item(i).data(QtCore.Qt.UserRole)
+                  for i in range(self.data_list.count())
+                  if self.data_list.item(i).checkState() == QtCore.Qt.Checked]
+        # All or none ticked is "everything", stored as an empty list so a
+        # session recorded tomorrow is included without opening this dialog.
+        include = [] if len(ticked) in (0, len(keys)) else ticked
+        self.spec["data"] = {
+            "include": include,
+            "calibration": self.cal_combo.currentData()
+            or DATA_CALIBRATION_DEFAULT,
+        }
+        self._revalidate()
+
     def _set_auto_for(self, row: int, enabled: bool) -> None:
         if self._loading or not (0 <= row < len(self.spec["models"])):
             return
@@ -10686,6 +13511,7 @@ class TrimDialog(QtWidgets.QDialog):
             plot = self.glw.addPlot(row=i, col=0)
             plot.showGrid(x=True, y=True, alpha=0.12)
             plot.setLabel("left", CHANNEL_NAMES[i])
+            plot.getAxis("left").enableAutoSIPrefix(False)
             plot.getAxis("left").setWidth(50)
             plot.getAxis("left").setTextPen(pg.mkPen(CHANNEL_COLORS[i]))
             plot.getAxis("bottom").setStyle(showValues=False)
@@ -10792,13 +13618,13 @@ class TrimDialog(QtWidgets.QDialog):
                 "The take is never modified. Each EXTRACT CLIP writes a new "
                 "recording into its gesture folder -- that is the training "
                 "data. Cut as many clips as you like, then press DONE.",
-                11, False, COL_WARN
+                11, False, COL_TEXT_DIM
             )
         else:
             note = make_label(
                 "The raw recording is never modified. Saving writes a separate "
                 "*_trimmed.csv / *_trimmed.npz next to it. Notes go to a separate "
-                "*_notes.json and never touch the signal either.", 11, False, COL_WARN
+                "*_notes.json and never touch the signal either.", 11, False, COL_TEXT_DIM
             )
         note.setWordWrap(True)
         root.addWidget(note)
@@ -10993,7 +13819,21 @@ class TrimDialog(QtWidgets.QDialog):
         t0 = float(self.start_spin.value()) + shift
         t0 = float(np.clip(t0, self.t[0], max(self.t[0], self.t[-1] - width)))
         self._set_selection(t0, min(float(self.t[-1]), t0 + width))
-        self.preview_selection()
+        self._keep_selection_in_view()
+
+    def _keep_selection_in_view(self) -> None:
+        """
+        Pan, never zoom: shift the view only if the selection has left it, and
+        keep the current zoom level. Zooming here made the graph jump in on
+        the first cut and stay there.
+        """
+        t0, t1 = self.start_spin.value(), self.end_spin.value()
+        (x0, x1), _ = self.plots[0].viewRange()
+        if t0 >= x0 and t1 <= x1:
+            return
+        span = x1 - x0
+        new0 = t0 - 0.05 * span if t1 - t0 <= span else t0
+        self.plots[0].setXRange(new0, new0 + span, padding=0)
 
     def _refresh_clip_list(self) -> None:
         self.clip_list.clear()
@@ -12323,6 +15163,512 @@ class LivePredictor:
                 else str(index))
 
 
+def latest_model_window(acq, seconds: float):
+    """
+    The newest `seconds` of signal from the ring buffer -- the window the
+    live classifier predicts on. Shared by PREDICT and TEST MODEL, so the
+    test scores exactly the input the panel's answer is built from.
+    """
+    try:
+        rate = acq.stats()["rate"] or nominal_rate()
+    except Exception:                                      # pragma: no cover
+        rate = nominal_rate()
+    want = int(seconds * rate * 1.25) + 4
+    emg, t = acq.ring.snapshot(max(8, want))
+    # Keep only the samples inside the model's own window length.
+    if t.size and (t[-1] - t[0]) > seconds:
+        keep = t >= (t[-1] - seconds)
+        emg, t = emg[keep], t[keep]
+    return emg, t
+
+
+class ModelTestDialog(QtWidgets.QDialog):
+    """
+    TEST MODEL: cue each gesture, let the SAVED model predict live, count.
+
+    Not modal, so the graph stays visible behind it. It drives the predictor
+    itself (the panel's own PREDICT is stopped first so the two cannot share
+    one smoothing history), and it never trains, saves or alters a model --
+    it appends a result line to the wearer's model_tests.jsonl, nothing else.
+    """
+
+    def __init__(self, window: "MainWindow"):
+        super().__init__(window)
+        self.setWindowTitle("Test the model live")
+        self.setModal(False)
+        self.window_ = window
+        self.predictor = window.predictor
+        self.acq = window.acq
+        self.session: Optional[ModelTestSession] = None
+        self._last_predict = 0.0
+        self.result = None
+
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setSpacing(8)
+        stats = self.predictor.stats or {}
+        layout.addWidget(make_label(
+            f"Live test -- {PERSON_ID} / {SESSION_ID}", FS_XL, True,
+            COL_ACCENT))
+        intro = make_label(
+            f"Model: {stats.get('model_name', '?')}  "
+            f"({', '.join(self.predictor.labels)})\n\n"
+            "Each gesture is cued several times in a shuffled order. Get "
+            "ready, then HOLD the gesture until the next cue. The first "
+            f"{MODEL_TEST_SETTLE_S:.0f} s of each hold is not scored (your "
+            "reaction and the onset). Nothing is recorded or trained -- only "
+            "the score is kept.",
+            FS_SM, False, COL_TEXT_DIM)
+        intro.setWordWrap(True)
+        layout.addWidget(intro)
+
+        self.honesty = make_label("", FS_SM, True, COL_WARN)
+        self.honesty.setWordWrap(True)
+        layout.addWidget(self.honesty)
+        self._check_honesty()
+
+        row = QtWidgets.QHBoxLayout()
+        row.addWidget(make_label("Rounds", FS_SM, False, COL_TEXT_DIM))
+        self.rounds_spin = QtWidgets.QSpinBox()
+        self.rounds_spin.setRange(1, 10)
+        self.rounds_spin.setValue(MODEL_TEST_ROUNDS)
+        self.rounds_spin.setToolTip("How many times each gesture is cued.")
+        row.addWidget(self.rounds_spin)
+        row.addSpacing(12)
+        row.addWidget(make_label("Hold (s)", FS_SM, False, COL_TEXT_DIM))
+        self.hold_spin = QtWidgets.QDoubleSpinBox()
+        self.hold_spin.setRange(2.0, 8.0)
+        self.hold_spin.setSingleStep(0.5)
+        self.hold_spin.setValue(MODEL_TEST_HOLD_S)
+        row.addWidget(self.hold_spin)
+        row.addStretch(1)
+        self.plan_label = make_label("", FS_SM, False, COL_TEXT_DIM)
+        row.addWidget(self.plan_label)
+        layout.addLayout(row)
+        self.rounds_spin.valueChanged.connect(self._update_plan_label)
+        self.hold_spin.valueChanged.connect(self._update_plan_label)
+        self._update_plan_label()
+
+        self.cue = make_label("press START", 26, True, COL_TEXT_DIM,
+                              QtCore.Qt.AlignCenter)
+        self.cue.setStyleSheet(
+            f"color: {COL_TEXT_DIM}; background: transparent; "
+            f"font-size: 30px; font-weight: 800;")
+        layout.addWidget(self.cue)
+        self.sub = make_label("", FS_MD, False, COL_TEXT_DIM,
+                              QtCore.Qt.AlignCenter)
+        layout.addWidget(self.sub)
+        self.live = make_label("", FS_MD, True, COL_TEXT_DIM,
+                               QtCore.Qt.AlignCenter)
+        layout.addWidget(self.live)
+        self.bar = QtWidgets.QProgressBar()
+        self.bar.setRange(0, 1000)
+        self.bar.setTextVisible(False)
+        self.bar.setFixedHeight(8)
+        layout.addWidget(self.bar)
+
+        self.results = QtWidgets.QTextBrowser()
+        self.results.setMinimumHeight(220)
+        layout.addWidget(self.results, 1)
+        self._show_history()
+
+        buttons = QtWidgets.QHBoxLayout()
+        self.start_button = QtWidgets.QPushButton("START TEST")
+        self.start_button.setObjectName("primary")
+        self.start_button.setMinimumHeight(H_ACTION)
+        self.start_button.clicked.connect(self.toggle)
+        buttons.addWidget(self.start_button, 2)
+        close = QtWidgets.QPushButton("CLOSE")
+        close.setMinimumHeight(H_ACTION)
+        close.clicked.connect(self.close)
+        buttons.addWidget(close, 1)
+        layout.addLayout(buttons)
+
+        scroll_dialog_body(self, keep_last=1)
+        fit_to_screen(self, 760, 860, min_width=480, min_height=420)
+
+        self.timer = QtCore.QTimer(self)
+        self.timer.setInterval(40)
+        self.timer.timeout.connect(self._tick)
+
+    # -- setup ----------------------------------------------------------------
+
+    def _check_honesty(self) -> None:
+        """Warn when this sitting is part of what the model trained on."""
+        data = (self.predictor.payload_meta or {}).get("data") or {}
+        sitting = f"{safe_slug(PERSON_ID, 'person')}/{SESSION_ID}"
+        trained = set(data.get("sessions") or [])
+        if sitting in trained:
+            self.honesty.setText(
+                f"{sitting} is IN this model's training data, so this score "
+                f"will be optimistic. For an honest number: take the band "
+                f"off, put it back on, and set a new Session id first.")
+        elif safe_slug(PERSON_ID, "person") in set(data.get("subjects") or []):
+            self.honesty.setText(
+                "You are a wearer the model trained on, in a NEW sitting -- "
+                "this is the 'known wearer' number.")
+            self.honesty.setStyleSheet(
+                f"color: {COL_GOOD}; background: transparent;")
+        else:
+            self.honesty.setText(
+                "You are NOT in this model's training data -- this is the "
+                "'new wearer' number.")
+            self.honesty.setStyleSheet(
+                f"color: {COL_GOOD}; background: transparent;")
+
+    def _update_plan_label(self) -> None:
+        n = self.rounds_spin.value() * len(self.predictor.labels)
+        seconds = n * (MODEL_TEST_PREPARE_S + self.hold_spin.value())
+        self.plan_label.setText(f"{n} trials, about {fmt_duration(seconds)}")
+
+    def _streaming(self) -> bool:
+        try:
+            age = self.acq.stats().get("last_sample_age")
+        except Exception:                                  # pragma: no cover
+            return False
+        return age is not None and age <= CALIBRATION_STALE_SECONDS
+
+    # -- run ------------------------------------------------------------------
+
+    def toggle(self) -> None:
+        if self.session is not None and not self.session.finished:
+            self.session.stop()
+            self._finish(early=True)
+            return
+        if not self.predictor.ready:
+            self.sub.setText(f"No usable model: {self.predictor.status}")
+            return
+        if not self._streaming():
+            self.sub.setText("No samples arriving -- connect and wear the "
+                             "armband first.")
+            return
+        self.window_.stop_prediction()
+        self.session = ModelTestSession(
+            None, self.predictor.labels, rounds=self.rounds_spin.value(),
+            hold_s=self.hold_spin.value())
+        self.session.start(time.perf_counter())
+        self.predictor.reset()
+        self.result = None
+        self.rounds_spin.setEnabled(False)
+        self.hold_spin.setEnabled(False)
+        self.start_button.setText("STOP")
+        self.start_button.setObjectName("danger")
+        self.start_button.setStyleSheet("")
+        self.timer.start()
+
+    def _tick(self) -> None:
+        s = self.session
+        if s is None:
+            return
+        now = time.perf_counter()
+        if s.tick(now):
+            self.predictor.reset()       # one trial's history never votes
+        if s.finished:
+            self._finish()
+            return
+        if not self._streaming():
+            s.stop()
+            self._finish(early=True, why="the stream stopped")
+            return
+
+        total = len(s.plan)
+        self.bar.setValue(int(1000 * (s.index + (
+            0 if s.state == s.PREPARE else 0.5)) / max(1, total)))
+        colour = STATE_COLORS.get(STATE_RECORDING, COL_GOOD)
+        if s.state == s.PREPARE:
+            self.cue.setText(f"GET READY:  {s.current}")
+            self.cue.setStyleSheet(
+                f"color: {COL_WARN}; background: transparent; "
+                f"font-size: 30px; font-weight: 800;")
+            self.sub.setText(f"trial {s.index + 1} of {total}  --  "
+                             f"{GESTURE_CUES.get(s.current, '')}")
+            self.live.setText("")
+            return
+
+        self.cue.setText(f"HOLD  {s.current}   {s.remaining(now):.1f} s")
+        self.cue.setStyleSheet(
+            f"color: {colour}; background: transparent; "
+            f"font-size: 30px; font-weight: 800;")
+        self.sub.setText(
+            f"trial {s.index + 1} of {total}  --  "
+            + ("scoring" if s.scoring(now) else "settling, not scored yet"))
+        if (now - self._last_predict) * 1000.0 < PREDICTION_INTERVAL_MS:
+            return
+        self._last_predict = now
+        emg, t = latest_model_window(self.acq,
+                                     self.predictor.window_seconds())
+        if emg.shape[0] < 4:
+            return
+        prediction = self.predictor.predict(emg, t)
+        if prediction is None:
+            s.stop()
+            self._finish(early=True,
+                         why=f"the model stopped: {self.predictor.status}")
+            return
+        if s.scoring(now):
+            s.add(prediction.raw_label, prediction.label)
+        right = prediction.label == s.current
+        self.live.setText(f"the model says: {prediction.label} "
+                          f"({prediction.percent})")
+        self.live.setStyleSheet(
+            f"color: {COL_GOOD if right else COL_BAD}; "
+            f"background: transparent;")
+
+    def _finish(self, early: bool = False, why: str = "") -> None:
+        self.timer.stop()
+        self.rounds_spin.setEnabled(True)
+        self.hold_spin.setEnabled(True)
+        self.start_button.setText("START TEST")
+        self.start_button.setObjectName("primary")
+        self.start_button.setStyleSheet("")
+        self.cue.setText("done" if not early else "stopped")
+        self.cue.setStyleSheet(
+            f"color: {COL_TEXT_DIM}; background: transparent; "
+            f"font-size: 30px; font-weight: 800;")
+        self.live.setText("")
+        self.bar.setValue(1000 if not early else self.bar.value())
+        s = self.session
+        summary = s.summary() if s is not None else None
+        if not summary or not summary["windows"]:
+            self.sub.setText("Nothing was scored" + (f": {why}" if why else
+                                                     "."))
+            return
+        stats = self.predictor.stats or {}
+        data = (self.predictor.payload_meta or {}).get("data") or {}
+        self.result = {
+            "unix_time": time.time(),
+            "iso_time": datetime.now().isoformat(timespec="seconds"),
+            "person_id": PERSON_ID,
+            "session_id": SESSION_ID,
+            "sitting_in_training_data":
+                f"{safe_slug(PERSON_ID, 'person')}/{SESSION_ID}"
+                in set(data.get("sessions") or []),
+            "wearer_in_training_data":
+                safe_slug(PERSON_ID, "person")
+                in set(data.get("subjects") or []),
+            "complete": not early,
+            "stopped_because": why,
+            "model": {"name": stats.get("model_name"),
+                      "path": self.predictor.full_path,
+                      "trained_newest": data.get("newest_stamp"),
+                      "uid_digest": data.get("uid_digest"),
+                      "calibration": ((self.predictor.payload_meta or {})
+                                      .get("calibration") or {}).get("mode")
+                      if isinstance((self.predictor.payload_meta or {})
+                                    .get("calibration"), dict) else None,
+                      "cv_window_accuracy": stats.get("window_accuracy"),
+                      "cv_recording_vote": stats.get(
+                          "recording_vote_accuracy")},
+            **summary,
+        }
+        try:
+            path = save_model_test(os.path.join(PROJECT_DIR, DATA_FOLDER),
+                                   PERSON_ID, self.result)
+            saved = f"saved to {path}"
+        except OSError as exc:
+            saved = f"NOT saved: {exc}"
+        self.sub.setText(("stopped early -- partial result, " if early else "")
+                         + saved)
+        self.results.setHtml(self._result_html(self.result))
+        self.window_._append_log(
+            f"Model test: {summary['per_trial']['accuracy'] * 100:.0f} % per "
+            f"trial, {summary['smoothed']['accuracy'] * 100:.0f} % smoothed, "
+            f"{summary['per_window']['accuracy'] * 100:.0f} % per window "
+            f"({summary['trials_scored']} trials).")
+
+    # -- output ---------------------------------------------------------------
+
+    @staticmethod
+    def _pct(value) -> str:
+        return ("--" if value is None or (isinstance(value, float)
+                                          and not math.isfinite(value))
+                else f"{value * 100:.1f} %")
+
+    def _result_html(self, r: dict) -> str:
+        labels = r["labels"]
+        rows = [("per trial (one answer per hold)", r["per_trial"]),
+                ("smoothed (what the panel shows)", r["smoothed"]),
+                ("per window (raw, comparable with CV)", r["per_window"])]
+        cell = "padding:2px 10px"
+        html = [f'<div style="font-family:Segoe UI;color:{COL_TEXT}">']
+        html.append('<table style="border-collapse:collapse">'
+                    f'<tr><th style="{cell};text-align:left">score</th>'
+                    f'<th style="{cell}">accuracy</th>'
+                    f'<th style="{cell}">macro F1</th>'
+                    f'<th style="{cell}">n</th></tr>')
+        for name, m in rows:
+            html.append(f'<tr><td style="{cell}">{name}</td>'
+                        f'<td style="{cell}"><b>{self._pct(m["accuracy"])}'
+                        f'</b></td><td style="{cell}">'
+                        f'{self._pct(m["macro_f1"])}</td>'
+                        f'<td style="{cell}">{m["n"]}</td></tr>')
+        html.append("</table>")
+        cv = r["model"].get("cv_window_accuracy")
+        if cv is not None:
+            html.append(
+                f'<p style="color:{COL_TEXT_DIM}">For comparison, the '
+                f"trainer's cross-validated score: {self._pct(cv)} per "
+                f"window, {self._pct(r['model'].get('cv_recording_vote'))} "
+                f"per recording -- on wearers it had NOT seen.</p>")
+        #  The confusion matrix as ROW percentages: each row is one true
+        #  gesture and sums to 100 %, so a rare gesture reads as clearly as a
+        #  common one.
+        m = np.asarray(r["confusion_smoothed"], dtype=float)
+        html.append('<p><b>Confusion, smoothed answers</b> '
+                    f'<span style="color:{COL_TEXT_DIM}">(rows = what you '
+                    'did, columns = what it said; % of each row)</span></p>')
+        html.append('<table style="border-collapse:collapse">')
+        html.append(f'<tr><td style="{cell}"></td>' + "".join(
+            f'<td style="{cell};color:{COL_TEXT_DIM}">{l[:8]}</td>'
+            for l in labels) + "</tr>")
+        for i, name in enumerate(labels):
+            total = m[i].sum()
+            html.append(f'<tr><td style="{cell}">{name}</td>')
+            for j in range(len(labels)):
+                share = m[i, j] / total if total else 0.0
+                colour = (COL_GOOD if i == j else COL_BAD) if share >= 0.05 \
+                    else COL_TEXT_DIM
+                html.append(f'<td style="{cell};color:{colour};'
+                            f'text-align:right">'
+                            + (f"{share * 100:.0f}" if total else "")
+                            + "</td>")
+            html.append("</tr>")
+        html.append("</table>")
+        html.append(self._history_html())
+        html.append("</div>")
+        return "".join(html)
+
+    def _history_html(self) -> str:
+        tests = load_model_tests(os.path.join(PROJECT_DIR, DATA_FOLDER),
+                                 PERSON_ID)[-8:]
+        if not tests:
+            return ""
+        out = [f'<p><b>Earlier tests for {PERSON_ID}</b></p><table>']
+        for t in reversed(tests):
+            trial = (t.get("per_trial") or {}).get("accuracy")
+            smooth = (t.get("smoothed") or {}).get("accuracy")
+            tag = ("in training data" if t.get("sitting_in_training_data")
+                   else "new sitting")
+            out.append(
+                f'<tr><td style="padding:1px 10px">{t.get("iso_time", "?")}'
+                f'</td><td style="padding:1px 10px">'
+                f'{(t.get("model") or {}).get("name", "?")}</td>'
+                f'<td style="padding:1px 10px">{self._pct(trial)} trial</td>'
+                f'<td style="padding:1px 10px">{self._pct(smooth)} smoothed'
+                f'</td><td style="padding:1px 10px;color:{COL_TEXT_DIM}">'
+                f'{tag}</td></tr>')
+        out.append("</table>")
+        return "".join(out)
+
+    def _show_history(self) -> None:
+        history = self._history_html()
+        self.results.setHtml(
+            f'<div style="font-family:Segoe UI;color:{COL_TEXT}">'
+            + (history or f'<p style="color:{COL_TEXT_DIM}">No tests yet '
+               f"for {PERSON_ID}.</p>") + "</div>")
+
+    def closeEvent(self, event) -> None:
+        if self.session is not None and not self.session.finished:
+            self.session.stop()
+            self._finish(early=True, why="the dialog was closed")
+        self.timer.stop()
+        if getattr(self.window_, "model_test_dialog", None) is self:
+            self.window_.model_test_dialog = None
+        super().closeEvent(event)
+
+
+class TrainingJobWatcher(QtCore.QObject):
+    """
+    The window's view of one background training job (see SECTION 5b).
+
+    It replaces the QProcess the GUI used to own. It reads the job's log on a
+    timer and emits complete lines, and emits `finished` once the runner says
+    it is done -- or once the runner has demonstrably died without saying so,
+    so that a killed runner cannot leave the panel at "training" forever.
+    Stopping the watcher (`detach`) does NOT stop the job; `kill` does.
+    """
+
+    lines = QtCore.Signal(list)
+    finished = QtCore.Signal(int, object)
+
+    #  The runner writes status.json within milliseconds of starting. If
+    #  there is still none after this long, it never started.
+    START_GRACE_S = 30.0
+
+    def __init__(self, job_dir: str, parent=None):
+        super().__init__(parent)
+        self.job_dir = job_dir
+        self.tail = JobLogTail(os.path.join(job_dir, "log.txt"))
+        self.created = time.time()
+        try:
+            with open(os.path.join(job_dir, "job.json"),
+                      encoding="utf-8") as fh:
+                self.job = json.load(fh)
+        except (OSError, ValueError):
+            self.job = {}
+        self.kind = self.job.get("kind", "")
+        self.done = False
+        self._seen_status = False
+        self.timer = QtCore.QTimer(self)
+        self.timer.setInterval(300)
+        self.timer.timeout.connect(self.poll)
+
+    def start(self) -> None:
+        self.timer.start()
+
+    def status(self) -> Optional[dict]:
+        return read_job_status(self.job_dir)
+
+    def started_unix(self) -> float:
+        status = self.status() or {}
+        return float(status.get("started_unix")
+                     or self.job.get("created_unix") or self.created)
+
+    def poll(self) -> None:
+        if self.done:
+            return
+        batch = self.tail.read_lines()
+        if batch:
+            self.lines.emit(batch)
+        status = self.status()
+        if status is None:
+            #  A read can also fail for a moment while the runner replaces
+            #  the file. Only a status NEVER seen means it did not start.
+            if (not self._seen_status
+                    and time.time() - self.created > self.START_GRACE_S):
+                self._finish(-1, "the training runner never started")
+            return
+        self._seen_status = True
+        state = status.get("state")
+        if state in ("finished", "cancelled"):
+            rest = self.tail.read_lines(final=True)
+            if rest:
+                self.lines.emit(rest)
+            code = status.get("exit_code")
+            self._finish(int(code) if code is not None else -1, state)
+        elif not pid_alive(status.get("pid")):
+            #  Re-read once: the runner may have finished between the two.
+            status = self.status() or {}
+            if status.get("state") == "running":
+                rest = self.tail.read_lines(final=True)
+                if rest:
+                    self.lines.emit(rest)
+                self._finish(-1, "the training runner died")
+
+    def _finish(self, code: int, why: str) -> None:
+        self.done = True
+        self.timer.stop()
+        mark_job_seen(self.job_dir)
+        self.finished.emit(code, why)
+
+    def kill(self) -> None:
+        """Ask the job to stop. `finished` follows once it has."""
+        cancel_training_job(self.job_dir)
+
+    def detach(self) -> None:
+        """Stop watching. The job carries on."""
+        self.timer.stop()
+
+
 # ------------------------------------------------------------------------------
 # Main window
 # ------------------------------------------------------------------------------
@@ -12358,7 +15704,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.one_shot_capture_at = 0.0    # when the classified window starts
         self.one_shot_deadline = 0.0      # when it ends
         self.one_shot_clear_at = 0.0      # when to clear a held one-shot result
-        self.training_process = None      # QProcess running train_model.py
+        #  The background job running train_model.py (a TrainingJobWatcher,
+        #  not a QProcess: the job outlives the window -- see SECTION 5b).
+        self.training_process = None
+        self._job = None                  # the watcher of the job running
+        self._chain_job = None            # set while an ML + NN chain runs
+        self._job_step = ""               # "ml" / "nn": which step logs now
+        self._job_steps_ended = set()
         # Which classifiers the next retrain sweeps. Loaded from disk so an
         # edit survives a restart; the defaults reproduce the roster
         # train_model.py has always used.
@@ -12367,6 +15719,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.training_output = []         # its captured stdout
         self.training_started_at = 0.0    # for the elapsed/ETA readout
         self.training_phase_text = ""
+        # ETA state, see _estimate_training_remaining(). The 1 s clock keeps
+        # elapsed and the countdown moving between trainer events, which can
+        # be minutes apart while one expensive model is being fitted.
+        self._train_stages = []           # [(name, units)] from the trainer
+        self._train_stage_clock = {}      # name -> [t_first, done_first, t_last, done_last]
+        self._train_eta_snapshot = None   # (monotonic time, seconds left, lower bound)
+        self._train_live = False
+        self._train_clock = QtCore.QTimer(self)
+        self._train_clock.setInterval(1000)
+        self._train_clock.timeout.connect(self._tick_training_clock)
+        self._train_clock.start()
         # GPU or CPU. Unknown until the subprocess probe answers, and shown
         # as unknown until then rather than assumed either way.
         self.compute_info = blank_compute_info()
@@ -12408,6 +15771,17 @@ class MainWindow(QtWidgets.QMainWindow):
         #  startup.
         self.decision_panel = DecisionPanel(model_path=MODEL_PATH)
         self.stats_dialog = None
+
+        #  The neural net: a SEPARATE engine, a separate process, a separate
+        #  button. Constructed but not started -- nothing happens until START
+        #  NN is pressed, so a machine with no torch and no checkpoint behaves
+        #  exactly as it did before this existed. It is never consulted by
+        #  `self.predictor` and never feeds `self.decision_panel`; see
+        #  section 8L.
+        self.nn_engine = NeuralEngine() if ENABLE_NEURAL_NET else None
+        self.nn_training_process = None    # the job's watcher, during train_nn
+        self.nn_stats_dialog = None
+        self.nn_prob_bars = {}
 
         self._build_ui()
         self._load_session_markers()
@@ -12640,16 +16014,23 @@ class MainWindow(QtWidgets.QMainWindow):
             ("channels", self._group_channels, False),
             ("recordings", self._group_recordings, True),
             ("prediction", self._group_prediction, False),
+            #  Below LIVE CLASSIFIER, not inside it. The reading order is the
+            #  separation: the deployed answer first, then a clearly
+            #  separate second opinion that does not contribute to it.
+            ("neural", self._group_neural if ENABLE_NEURAL_NET else None,
+             False),
             ("training", self._group_training, False),
             ("log", self._group_log, False),
         ):
             if builder is None:
                 continue
-            section = collapsible(builder(), start_open)
+            section = collapsible(builder(), start_open and SIDE_PANELS_START_OPEN)
             section.toggled.connect(
                 lambda opened, sec=section: self._on_section_toggled(sec, opened))
             self.sections[key] = section
             column.addWidget(section)
+            if key in SIDE_PANELS_HIDDEN:
+                section.setVisible(False)
         column.addStretch(1)
 
         scroll.setWidget(inner)
@@ -12849,16 +16230,40 @@ class MainWindow(QtWidgets.QMainWindow):
         self.free_take_detail.setWordWrap(True)
         layout.addWidget(self.free_take_detail)
 
-        layout.addWidget(make_label("TAKES ON DISK", 10, True, COL_TEXT_DIM))
+        #  The header names the subject and session, because the list is
+        #  SCOPED to them and that scoping was previously invisible: a take
+        #  recorded under one SESSION_ID simply is not here when the app is
+        #  reopened under another, which looks exactly like a take that never
+        #  got saved.
+        self.take_list_header = make_label("TAKES ON DISK", 10, True,
+                                           COL_TEXT_DIM)
+        layout.addWidget(self.take_list_header)
+        #  Filters. The list shows every take of every subject and session;
+        #  these narrow it. Both default to "all".
+        filter_row = QtWidgets.QHBoxLayout()
+        self.take_person_filter = QtWidgets.QComboBox()
+        self.take_person_filter.setToolTip("Show only this subject's takes.")
+        self.take_date_filter = QtWidgets.QComboBox()
+        self.take_date_filter.setToolTip("Show only takes recorded on this day.")
+        filter_row.addWidget(self.take_person_filter, 1)
+        filter_row.addWidget(self.take_date_filter, 1)
+        layout.addLayout(filter_row)
+        self.take_person_filter.currentIndexChanged.connect(
+            lambda _i: self._apply_take_filter())
+        self.take_date_filter.currentIndexChanged.connect(
+            lambda _i: self._apply_take_filter())
+
         self.take_list = QtWidgets.QListWidget()
-        self.take_list.setMaximumHeight(96)
+        self.take_list.setMinimumHeight(110)
+        self.take_list.setMaximumHeight(190)
         # Several takes can be queued up: Ctrl+click or Shift+click. They are
         # opened one after another, and each stays its own recording -- see
         # open_takes_for_cutting().
         self.take_list.setSelectionMode(
             QtWidgets.QAbstractItemView.ExtendedSelection)
         self.take_list.setToolTip(
-            "Every take saved for this subject and session. Double-click one "
+            "Every take saved, for every subject and session -- narrow it with "
+            "the filters above. Double-click one "
             "to open it, or Ctrl/Shift+click several and open them in a row. "
             "Each take -- and every clip cut from it -- stays a separate "
             "recording."
@@ -12866,6 +16271,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.take_list.itemDoubleClicked.connect(
             lambda _item: self.open_selected_take())
         layout.addWidget(self.take_list)
+
+        #  Where the rest of this subject's takes are, when the current
+        #  session is not where they went. OPEN FILE(S)... reaches them
+        #  without changing the session, which is the non-destructive answer.
+        self.take_elsewhere = make_label("", FS_SM, False, COL_WARN)
+        self.take_elsewhere.setWordWrap(True)
+        layout.addWidget(self.take_elsewhere)
 
         row2 = QtWidgets.QHBoxLayout()
         self.open_take_button = QtWidgets.QPushButton("OPEN TAKE(S) & CUT CLIPS")
@@ -13003,17 +16415,67 @@ class MainWindow(QtWidgets.QMainWindow):
         self.order_combo = QtWidgets.QComboBox()
         self.order_combo.addItems(["interleaved", "blocked", "random"])
         self.order_combo.setCurrentText(GESTURE_ORDER)
+        #  All three described, not just the default. "blocked" is the one
+        #  people actually ask for -- five of the same gesture in a row
+        #  instead of being bounced between gestures -- and it was
+        #  undiscoverable while the tooltip only explained "interleaved".
         self.order_combo.setToolTip(
-            "interleaved: one round of every gesture at a time -- spreads "
-            "fatigue and electrode drift evenly across the label set"
+            "blocked: every repetition of one gesture back to back, then the "
+            "next gesture. Easiest for the subject -- you hold one pose and "
+            "repeat it.\n\n"
+            "interleaved: one round of every gesture at a time. Spreads "
+            "fatigue and electrode drift evenly across the label set instead "
+            "of baking it into whichever gesture came last.\n\n"
+            "random: fully shuffled. Best against order effects.\n\n"
+            "Blocked is the comfortable choice; interleaved is the honest "
+            "one, because in blocked order each gesture's data all comes "
+            "from one stretch of time."
         )
         grid.addWidget(self.order_combo, 0, 3)
 
-        grid.addWidget(make_label("Manual gesture", 10, False, COL_TEXT_DIM), 1, 0)
+        #  How long each repetition is held. In blocked order this is the
+        #  number that decides whether five reps in a row is comfortable or
+        #  exhausting, so it belongs on screen rather than in the config.
+        grid.addWidget(make_label("Hold each rep", 10, False, COL_TEXT_DIM),
+                       1, 0)
+        self.hold_spin = QtWidgets.QDoubleSpinBox()
+        self.hold_spin.setRange(0.5, 30.0)
+        self.hold_spin.setSingleStep(0.5)
+        self.hold_spin.setDecimals(1)
+        self.hold_spin.setSuffix(" s")
+        self.hold_spin.setValue(RECORD_TIME)
+        self.hold_spin.setToolTip(
+            "Length of the labelled RECORD window for each repetition.\n\n"
+            "Shorter is less tiring and drifts less, which matters most in "
+            "blocked order; longer gives more windows per repetition. At "
+            "2.5 s a repetition yields about 7 windows at the model's 0.3 s "
+            "/ 0.5 overlap setting.\n\n"
+            "PRE/POST_GESTURE_MS of extra signal is captured around it "
+            "either way, so an early or late reaction is still in the raw "
+            "file."
+        )
+        grid.addWidget(self.hold_spin, 1, 1)
+
+        grid.addWidget(make_label("Manual gesture", 10, False, COL_TEXT_DIM),
+                       1, 2)
         self.gesture_combo = QtWidgets.QComboBox()
         self.gesture_combo.addItems(GESTURES)
         self.gesture_combo.setToolTip("Label used by the manual RECORD button")
-        grid.addWidget(self.gesture_combo, 1, 1)
+        grid.addWidget(self.gesture_combo, 1, 3)
+
+        #  Which gestures this session records at all. The optional ones ship
+        #  switched off, so this is how they get switched on.
+        self.gestures_button = QtWidgets.QPushButton("GESTURES...")
+        self.gestures_button.setToolTip(
+            "Choose which gestures this session records, switch on the "
+            "optional ones (PINCH, THUMB_OVER_INDEX, POINT), or add your "
+            "own.  Ctrl+Shift+G")
+        self.gestures_button.clicked.connect(self.edit_gestures)
+        grid.addWidget(self.gestures_button, 4, 0, 1, 4)
+
+        self._gestures_shortcut = QtGui.QShortcut(
+            QtGui.QKeySequence("Ctrl+Shift+G"), self)
+        self._gestures_shortcut.activated.connect(self.edit_gestures)
 
         self.plan_label = make_label("", 10, False, COL_TEXT_DIM)
         self.plan_label.setWordWrap(True)
@@ -13030,6 +16492,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.reps_spin.valueChanged.connect(self._refresh_plan_info)
         self.order_combo.currentTextChanged.connect(self._refresh_plan_info)
+        self.hold_spin.valueChanged.connect(self._refresh_plan_info)
         return group
 
     def _group_channels(self):
@@ -13180,15 +16643,41 @@ class MainWindow(QtWidgets.QMainWindow):
         buttons.addWidget(self.stats_button, 1)
         layout.addLayout(buttons)
 
+        self.test_button = QtWidgets.QPushButton("TEST MODEL...")
+        self.test_button.setMinimumHeight(30)
+        self.test_button.setToolTip(
+            "Score the saved model LIVE, on whoever is wearing the band: it "
+            "cues each gesture a few times, predicts through the same path "
+            "PREDICT uses, and counts hits into its own confusion matrix.\n\n"
+            "This is the 'how often is it right for me' number that "
+            "cross-validation does not measure. Honest only on a sitting "
+            "the model did not train on -- re-don the band first.")
+        self.test_button.clicked.connect(self.open_model_test)
+        layout.addWidget(self.test_button)
+
         self.retrain_button = QtWidgets.QPushButton("RETRAIN ON ALL DATA")
         self.retrain_button.setMinimumHeight(30)
         self.retrain_button.setToolTip(
             "Retrain using EVERY recording on disk -- the ones you just made "
             "plus all earlier sessions and people. New data is added to the "
-            "old, never trained on by itself."
+            "old, never trained on by itself.\n\n"
+            "Runs in the background: closing the app does not stop it."
         )
         self.retrain_button.clicked.connect(self.retrain_model)
         layout.addWidget(self.retrain_button)
+
+        self.retrain_all_button = QtWidgets.QPushButton(
+            "RETRAIN ML + NEURAL NET")
+        self.retrain_all_button.setMinimumHeight(30)
+        self.retrain_all_button.setToolTip(
+            "Retrain the classifier, then the neural net, one after the "
+            "other in one background job -- never at the same time, they "
+            "would fight over the machine. If the classifier fails, the net "
+            "is not started.\n\n"
+            "Closing the app does not stop it; reopen to see the progress.")
+        self.retrain_all_button.clicked.connect(self.retrain_everything)
+        self.retrain_all_button.setVisible(ENABLE_NEURAL_NET)
+        layout.addWidget(self.retrain_all_button)
 
         self.spec_button = QtWidgets.QPushButton("MODEL SPEC...")
         self.spec_button.setMinimumHeight(30)
@@ -13303,6 +16792,717 @@ class MainWindow(QtWidgets.QMainWindow):
             self.prob_bars[name] = (bar, value)
         self.prob_box.setVisible(bool(labels))
 
+    # ======================================================================
+    # NEURAL NETWORK PANEL  (section 8L)
+    # ======================================================================
+
+    def _group_neural(self):
+        """
+        The second opinion, with its own everything.
+
+        Laid out to make the separation unmissable rather than merely true:
+        its own group box under LIVE CLASSIFIER, a standing caption saying it
+        does not contribute to the answer above, its own START button, its own
+        bars, its own device chip and its own statistics dialog. Nothing in
+        here reads `self.predictor` and nothing writes to it.
+        """
+        group = QtWidgets.QGroupBox("NEURAL NETWORK  (separate opinion)")
+        layout = QtWidgets.QVBoxLayout(group)
+        layout.setSpacing(6)
+
+        caption = wrap_label(
+            "A different model on the same signal: a small sequence net that "
+            "reads how the envelope CHANGES across the window. It is NOT "
+            "part of the prediction above -- separate file, separate button, "
+            "separate numbers, never averaged in.", FS_SM, False, COL_TEXT_DIM)
+        layout.addWidget(caption)
+
+        #  Result. Styled like the classifier's so the two are comparable at
+        #  a glance, but smaller: the deployed answer stays the headline.
+        self.nn_label = make_label("--", 22, True, COL_TEXT_DIM)
+        self.nn_label.setAlignment(QtCore.Qt.AlignCenter)
+        layout.addWidget(self.nn_label)
+
+        self.nn_conf = make_label("", 12, True, COL_TEXT_DIM)
+        self.nn_conf.setAlignment(QtCore.Qt.AlignCenter)
+        layout.addWidget(self.nn_conf)
+
+        #  Its own bars, filled only from this net's own softmax.
+        self.nn_prob_box = QtWidgets.QWidget()
+        bars = QtWidgets.QGridLayout(self.nn_prob_box)
+        bars.setContentsMargins(0, 2, 0, 2)
+        bars.setSpacing(2)
+        bars.setColumnStretch(1, 1)
+        layout.addWidget(self.nn_prob_box)
+
+        #  Where the two models disagree. The interesting line: a single
+        #  blended number would hide exactly this.
+        self.nn_agreement = wrap_label("", FS_SM, True, COL_TEXT_DIM)
+        layout.addWidget(self.nn_agreement)
+
+        buttons = QtWidgets.QHBoxLayout()
+        self.nn_start_button = QtWidgets.QPushButton("START NN")
+        self.nn_start_button.setObjectName("primary")
+        self.nn_start_button.setMinimumHeight(34)
+        self.nn_start_button.setToolTip(
+            "Start the neural net on the live signal, in its own process.\n\n"
+            "It runs alongside the LIVE CLASSIFIER without affecting it: both "
+            "can run at once, and whatever this one says, the prediction "
+            "above is produced by the scikit-learn model alone.  Ctrl+Shift+N")
+        self.nn_start_button.clicked.connect(self.toggle_neural)
+        buttons.addWidget(self.nn_start_button, 2)
+
+        self.nn_stats_button = QtWidgets.QPushButton("NN STATS")
+        self.nn_stats_button.setMinimumHeight(34)
+        self.nn_stats_button.setToolTip(
+            "This net's own cross-validated numbers, its architecture, every "
+            "candidate the sweep tried, and a side-by-side against the "
+            "deployed model. Works with the net stopped.")
+        self.nn_stats_button.clicked.connect(self.show_neural_stats)
+        buttons.addWidget(self.nn_stats_button, 1)
+        layout.addLayout(buttons)
+
+        self.nn_train_button = QtWidgets.QPushButton("TRAIN NEURAL NET")
+        self.nn_train_button.setMinimumHeight(30)
+        self.nn_train_button.setToolTip(
+            "Sweep the architectures on EVERY recording on disk and save the "
+            "best to its own checkpoint.\n\n"
+            "Unlike RETRAIN, this one really does use the GPU when there is "
+            "one. It does not touch the deployed model.")
+        self.nn_train_button.clicked.connect(self.train_neural_net)
+        layout.addWidget(self.nn_train_button)
+
+        self.nn_setup_button = QtWidgets.QPushButton("NEURAL SETUP...")
+        self.nn_setup_button.setMinimumHeight(30)
+        self.nn_setup_button.setToolTip(
+            "Choose which architectures the next neural training compares, "
+            "the window lengths, epochs, hidden size, dropout and learning "
+            "rate. Used by the FULL SWEEP; QUICK ignores it.")
+        self.nn_setup_button.clicked.connect(self.edit_nn_setup)
+        layout.addWidget(self.nn_setup_button)
+        self.nn_setup_summary = make_label(
+            describe_nn_spec(load_nn_spec()[0]), FS_SM, False, COL_TEXT_DIM)
+        self.nn_setup_summary.setWordWrap(True)
+        layout.addWidget(self.nn_setup_summary)
+
+        #  What the worker is really running on. Not the hardware probe above:
+        #  that answers "is a GPU installed", this answers "is the net using
+        #  it", and until the worker says so it reads as unknown.
+        self.nn_device_label = wrap_label("", FS_SM, True, COL_TEXT_DIM)
+        layout.addWidget(self.nn_device_label)
+
+        self.nn_status_label = wrap_label("", FS_SM, False, COL_TEXT_DIM)
+        layout.addWidget(self.nn_status_label)
+
+        self.nn_perf_label = wrap_label("", FS_SM, False, COL_TEXT_DIM)
+        self.nn_perf_label.setFont(QtGui.QFont("Consolas", 8))
+        layout.addWidget(self.nn_perf_label)
+
+        self._nn_shortcut = QtGui.QShortcut(
+            QtGui.QKeySequence("Ctrl+Shift+N"), self)
+        self._nn_shortcut.activated.connect(self.toggle_neural)
+
+        self._rebuild_nn_bars()
+        self._refresh_neural_panel()
+        return group
+
+    def _rebuild_nn_bars(self) -> None:
+        """One bar per label THIS net knows -- taken from its own metadata."""
+        if not hasattr(self, "nn_prob_box"):
+            return
+        grid = self.nn_prob_box.layout()
+        while grid.count():
+            item = grid.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        self.nn_prob_bars = {}
+
+        engine = self.nn_engine
+        #  The net's own label list, never the predictor's. The two models can
+        #  legitimately be trained on different data and disagree about the
+        #  label set, and borrowing the other one's list would silently
+        #  mislabel every bar.
+        labels = list(engine.labels) if (engine and engine.ready) else []
+        for row, name in enumerate(labels):
+            caption = make_label(name, 9, False, COL_TEXT_DIM)
+            bar = QtWidgets.QProgressBar()
+            bar.setRange(0, 1000)
+            bar.setValue(0)
+            bar.setTextVisible(False)
+            bar.setFixedHeight(10)
+            value = make_label("0 %", 9, False, COL_TEXT_DIM)
+            value.setFixedWidth(38)
+            value.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+            grid.addWidget(caption, row, 0)
+            grid.addWidget(bar, row, 1)
+            grid.addWidget(value, row, 2)
+            self.nn_prob_bars[name] = (bar, value)
+        self.nn_prob_box.setVisible(bool(labels))
+
+    def _refresh_neural_panel(self, force: bool = True) -> None:
+        """
+        Buttons, badges and the status line for the engine's current state.
+
+        `force=False` from the 100 ms UI tick. The buttons are free to
+        recompute, but the status line asks `data_status()`, which reads the
+        sidecar off disk -- ten times a second for an answer that changes
+        when a sweep finishes. Throttled for the same reason the model
+        provenance line is (section 8c).
+        """
+        engine = self.nn_engine
+        if engine is None or not hasattr(self, "nn_start_button"):
+            return
+        now = time.perf_counter()
+        if not force and now - getattr(self, "_nn_status_at", 0.0) < 1.0:
+            self._refresh_nn_buttons()
+            return
+        self._nn_status_at = now
+
+        self._refresh_nn_buttons()
+        running = engine.running
+
+        headline, detail, severity = engine.device_badge()
+        colour = {"good": COL_GOOD, "warn": COL_WARN}.get(severity,
+                                                          COL_TEXT_DIM)
+        self.nn_device_label.setText(headline)
+        self.nn_device_label.setToolTip(detail)
+        self.nn_device_label.setStyleSheet(
+            f"color: {colour}; background: transparent;")
+
+        if not engine.trained():
+            self.nn_status_label.setText(
+                f"No checkpoint at {engine.model_path}.\n"
+                "Press TRAIN NEURAL NET, or run:  python train_nn.py")
+            self.nn_status_label.setStyleSheet(
+                f"color: {COL_TEXT_DIM}; background: transparent;")
+            return
+
+        state_colour = {"ready": COL_GOOD, "error": COL_BAD,
+                        "starting": COL_WARN}.get(engine.state, COL_TEXT_DIM)
+        text = engine.describe() if engine.ready else engine.status
+
+        #  Whether the net is CURRENT is asked of the checkpoint on disk, not
+        #  of the running worker, so it is answered whether or not the net is
+        #  started -- and stopped is its normal state. Reporting it only while
+        #  running meant the one case that matters went unreported: RETRAIN
+        #  updates the scikit-learn model and leaves this checkpoint behind,
+        #  and nothing said so until somebody happened to press START NN.
+        #  Same principle as section 8c: the question has an answer at all
+        #  times, or it is reported as unanswerable.
+        data = engine.data_status(self._nn_fingerprint())
+        if data.get("state") == "stale":
+            n_new = data.get("n_new") or 0
+            text += "\nOUT OF DATE -- the dataset has changed since this net "
+            text += (f"was trained ({n_new} new recording(s)). "
+                     if n_new else "was trained. ")
+            text += "TRAIN NEURAL NET to catch it up."
+            state_colour = COL_WARN
+        self.nn_status_label.setText(text)
+        self.nn_status_label.setToolTip(data.get("detail", ""))
+        self.nn_status_label.setStyleSheet(
+            f"color: {state_colour}; background: transparent;")
+
+    def _refresh_nn_buttons(self) -> None:
+        """The cheap half of the panel refresh: nothing here touches disk."""
+        engine = self.nn_engine
+        if engine is None or not hasattr(self, "nn_start_button"):
+            return
+        running = engine.running
+        self.nn_start_button.setText("STOP NN" if running else "START NN")
+        self.nn_start_button.setObjectName("danger" if running else "primary")
+        self.nn_start_button.setStyleSheet("")
+        #  Training and inference would fight over the same GPU, so one at a
+        #  time -- the same discipline RETRAIN already applies to the CPU.
+        self.nn_start_button.setEnabled(
+            engine.trained() and self.nn_training_process is None)
+        self.nn_train_button.setEnabled(
+            self.nn_training_process is None
+            and self.training_process is None
+            and not self.sequence.running
+            and not running)
+        self.nn_train_button.setText(
+            "CANCEL NN TRAINING" if self.nn_training_process is not None
+            else "TRAIN NEURAL NET")
+
+    def _nn_fingerprint(self):
+        """
+        The dataset fingerprint, borrowed from the classifier panel's cache.
+
+        Walking the tree again here would double a 30 ms directory scan on a
+        GUI timer for an answer that is already in hand (section 8c).
+        """
+        return getattr(self, "_fingerprint", None)
+
+    # -- control --------------------------------------------------------------
+
+    def toggle_neural(self) -> None:
+        engine = self.nn_engine
+        if engine is None:
+            return
+        if engine.running:
+            self.stop_neural()
+            return
+        if not engine.start():
+            #  Every refusal already carries its reason; show it rather than
+            #  a generic failure, because the common one -- "this wearer has
+            #  not calibrated" -- is fixed by pressing a different button.
+            self.nn_label.setText("--")
+            self._refresh_neural_panel()
+            self._append_log(f"Neural net not started: {engine.status}")
+            if "calibration" in engine.status.lower():
+                QtWidgets.QMessageBox.information(
+                    self, "Neural net", engine.status)
+            return
+        engine.reset()
+        self.nn_label.setText("STARTING")
+        self.nn_label.setStyleSheet(
+            f"color: {COL_WARN}; background: transparent;")
+        self.nn_conf.setText("loading torch and the checkpoint...")
+        self.nn_timer.start(max(30, int(NN_INTERVAL_MS)))
+        self._refresh_neural_panel()
+        self._append_log(
+            f"Neural net starting ({engine.script}, device "
+            f"{engine.device!r}) -- a separate process; the live classifier "
+            f"is unaffected.")
+
+    def stop_neural(self) -> None:
+        engine = self.nn_engine
+        if engine is None:
+            return
+        was = engine.running
+        self.nn_timer.stop()
+        engine.stop()
+        self.nn_label.setText("--")
+        self.nn_label.setStyleSheet(
+            f"color: {COL_TEXT_DIM}; background: transparent;")
+        self.nn_conf.setText("")
+        self.nn_agreement.setText("")
+        for bar, value in self.nn_prob_bars.values():
+            bar.setValue(0)
+            value.setText("--")
+        self._refresh_neural_panel()
+        if was:
+            self._append_log("Neural net stopped.")
+
+    def _tick_neural(self) -> None:
+        """
+        The net's own timer: collect answers, then send one window.
+
+        Collect FIRST. `NN_MAX_IN_FLIGHT` is 1, so sending before reading
+        would see the previous request still outstanding and drop every
+        second window for no reason.
+        """
+        engine = self.nn_engine
+        if engine is None:
+            return
+        produced = engine.poll()
+        for prediction in produced:
+            self._show_nn_prediction(prediction)
+
+        if engine.state in ("error", "stopped"):
+            self.nn_timer.stop()
+            #  An error can leave the worker alive -- a width mismatch, say,
+            #  is the engine refusing a healthy process. Shut it down, or it
+            #  keeps a CUDA context for a panel that has stopped listening.
+            if engine.state == "error":
+                engine.stop_quietly()
+            self.nn_label.setText("--" if engine.state == "stopped" else "ERROR")
+            self.nn_label.setStyleSheet(
+                f"color: {COL_TEXT_DIM if engine.state == 'stopped' else COL_BAD};"
+                f" background: transparent;")
+            self.nn_conf.setText("")
+            self._refresh_neural_panel()
+            if engine.state == "error":
+                self._append_log(f"Neural net error: {engine.status}")
+                for line in engine.worker_output(4):
+                    self._append_log(f"  nn: {line}")
+            return
+
+        if not engine.ready:
+            self._refresh_neural_panel()
+            return
+        if not self.nn_prob_bars:
+            #  The worker has just reported its labels.
+            self._rebuild_nn_bars()
+            self._refresh_neural_panel()
+
+        rate = self.acq.stats()["rate"] or nominal_rate()
+        window_s = engine.window_s or (engine.win_samples / engine.model_fs)
+        want = int(window_s * rate * 1.25) + 4
+        emg, t = self.acq.ring.snapshot(max(8, want))
+        if emg.shape[0] < 4:
+            return
+        if t.size and (t[-1] - t[0]) > window_s:
+            keep = t >= (t[-1] - window_s)
+            emg, t = emg[keep], t[keep]
+        engine.submit(emg, t)
+        self._refresh_nn_perf()
+
+    def _show_nn_prediction(self, prediction: "NeuralPrediction") -> None:
+        """
+        Draw ONE neural-net answer. Writes only to this panel's own widgets.
+
+        Note what it does not do: it never appends to
+        `LivePredictor.history`, never calls `set_prediction_overlay` (the
+        graph overlay belongs to the deployed answer, and two labels fighting
+        over one corner is exactly the blurring section 8L exists to prevent),
+        and never touches `self.prob_bars`.
+        """
+        certain = prediction.certain
+        colour = COL_GOOD if certain else COL_WARN
+        self.nn_label.setText(prediction.label if certain
+                              else f"{prediction.label}?")
+        self.nn_label.setStyleSheet(
+            f"color: {colour}; background: transparent;")
+        self.nn_conf.setText(
+            f"{prediction.percent}"
+            + ("" if certain else "   (below the confidence threshold)")
+            + (f"   ·  {prediction.smoothed_over} window vote"
+               if prediction.smoothed_over > 1 else ""))
+        self.nn_conf.setStyleSheet(f"color: {colour}; background: transparent;")
+
+        for name, (bar, value) in self.nn_prob_bars.items():
+            if name in prediction.labels:
+                p = prediction.probabilities[prediction.labels.index(name)]
+            else:
+                p = float("nan")
+            if math.isnan(p):
+                bar.setValue(0)
+                value.setText("--")
+                continue
+            bar.setValue(int(np.clip(p, 0, 1) * 1000))
+            value.setText(f"{p * 100:.0f} %")
+            top = name == prediction.label
+            bar.setStyleSheet(
+                f"QProgressBar {{ background: #0b0e13; border: 1px solid "
+                f"{COL_BORDER}; border-radius: 3px; }}"
+                f"QProgressBar::chunk {{ background: "
+                f"{colour if top else COL_TEXT_DIM}; border-radius: 2px; }}")
+
+        #  Agreement, only when the classifier is actually running and its
+        #  answer is recent. Comparing against a prediction from a minute ago
+        #  would invent a disagreement out of two different moments.
+        other = self.predictor.last
+        fresh = (other is not None
+                 and abs(prediction.unix_time - other.unix_time) < 1.5)
+        if not fresh:
+            self.nn_agreement.setText("")
+        elif other.label == prediction.label:
+            self.nn_agreement.setText(
+                f"agrees with the classifier ({other.label})")
+            self.nn_agreement.setStyleSheet(
+                f"color: {COL_GOOD}; background: transparent;")
+        else:
+            self.nn_agreement.setText(
+                f"DISAGREES: the classifier says {other.label} "
+                f"{other.percent}, the net says {prediction.label} "
+                f"{prediction.percent}. The app's answer is the "
+                f"classifier's.")
+            self.nn_agreement.setStyleSheet(
+                f"color: {COL_WARN}; background: transparent;")
+        self._refresh_nn_perf()
+
+    def _refresh_nn_perf(self) -> None:
+        """The measured cost, next to the budget it has to fit in."""
+        engine = self.nn_engine
+        if engine is None or not hasattr(self, "nn_perf_label"):
+            return
+        summary = engine.stats_summary()
+        if math.isnan(summary["latency_ms"]):
+            self.nn_perf_label.setText("")
+            return
+        over = summary["latency_ms"] > NN_INTERVAL_MS
+        self.nn_perf_label.setText(
+            f"{summary['latency_ms']:6.1f} ms round trip "
+            f"({summary['infer_ms']:.2f} ms forward)  |  budget "
+            f"{NN_INTERVAL_MS} ms  |  {summary['answered']} answered, "
+            f"{summary['dropped']} dropped")
+        self.nn_perf_label.setStyleSheet(
+            f"color: {COL_WARN if over else COL_TEXT_DIM}; "
+            f"background: transparent;")
+
+    def show_neural_stats(self) -> None:
+        """
+        Open the net's own statistics. Not modal, for the same reason MODEL
+        STATS is not: you must be able to reach START NN while it is open.
+        """
+        if self.nn_stats_dialog is not None \
+                and self.nn_stats_dialog.isVisible():
+            self.nn_stats_dialog.raise_()
+            self.nn_stats_dialog.activateWindow()
+            return
+        dialog = NeuralStatsDialog(self.nn_engine, self,
+                                   predictor=self.predictor)
+        dialog.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
+        dialog.finished.connect(lambda *_: setattr(self, "nn_stats_dialog",
+                                                   None))
+        self.nn_stats_dialog = dialog
+        dialog.show()
+
+    # -- training -------------------------------------------------------------
+
+    def train_neural_net(self) -> None:
+        """
+        Sweep the architectures on everything on disk, in a subprocess.
+
+        A subprocess for the same two reasons RETRAIN is one -- it saturates
+        the machine, and a crash in training must not take the recorder down
+        -- plus a third that is specific to this one: it imports torch and
+        attaches a CUDA context, which is exactly what the recorder must not
+        do (section 13).
+        """
+        engine = self.nn_engine
+        if engine is None:
+            return
+        if self.nn_training_process is not None:
+            answer = QtWidgets.QMessageBox.question(
+                self, "Neural training in progress",
+                "The neural net is already training. Cancel it?",
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                QtWidgets.QMessageBox.No)
+            if answer == QtWidgets.QMessageBox.Yes:
+                self._nn_training_cancelled = True
+                self.nn_training_process.kill()
+            return
+        if self.training_process is not None:
+            QtWidgets.QMessageBox.information(
+                self, "Train neural net",
+                "The scikit-learn sweep is still running. One trainer at a "
+                "time -- they would fight over the machine.")
+            return
+        if self.sequence.running:
+            QtWidgets.QMessageBox.information(
+                self, "Train neural net",
+                "Finish or stop the recording session first.\n\n"
+                "Training saturates the CPU and the GPU and would disturb "
+                "the live stream, which could corrupt the recordings in "
+                "progress.")
+            return
+
+        script = os.path.join(PROJECT_DIR, "train_nn.py")
+        if not os.path.exists(script):
+            QtWidgets.QMessageBox.warning(
+                self, "Train neural net",
+                f"train_nn.py not found at:\n{script}")
+            return
+
+        summary = dataset_summary(os.path.join(PROJECT_DIR, DATA_FOLDER))
+        if summary["total_raw"] < 12:
+            QtWidgets.QMessageBox.information(
+                self, "Train neural net",
+                f"Only {summary['total_raw']} recordings on disk. A net "
+                "needs more than a handful before it can be validated.")
+            return
+
+        info = self.compute_info or {}
+        device_line = (
+            f"Runs on: GPU ({info.get('gpu')}) -- this trainer really does "
+            f"use CUDA, unlike RETRAIN."
+            if info.get("cuda") else
+            f"Runs on: CPU -- "
+            + (str(info.get("reason") or "no usable GPU found")
+               if info.get("probed") else "the device probe has not answered "
+                                          "yet") + ".")
+
+        box = QtWidgets.QMessageBox(self)
+        box.setWindowTitle("Train the neural network")
+        box.setIcon(QtWidgets.QMessageBox.Question)
+        box.setText(f"Train the neural net on all {summary['total_raw']} "
+                    f"recordings on disk.")
+        box.setInformativeText(
+            "This is the SEPARATE model. It writes its own checkpoint and "
+            "does not touch the deployed classifier -- after it finishes, "
+            "the LIVE CLASSIFIER still predicts with exactly the model it "
+            "predicts with now.\n\n"
+            f"Quick: the default architecture at one window length, about a "
+            f"minute.\n"
+            f"Full:  every architecture x window on the same folds, then the "
+            f"DC-only control and the per-wearer scores -- roughly 15-25 "
+            f"minutes.\n\n"
+            f"{device_line}\n\n"
+            f"Calibration: {CALIBRATION_MODE} (the same mode the classifier "
+            f"uses, so the two stay comparable).")
+        quick_button = box.addButton("Quick", QtWidgets.QMessageBox.AcceptRole)
+        full_button = box.addButton("Full sweep",
+                                    QtWidgets.QMessageBox.AcceptRole)
+        box.addButton(QtWidgets.QMessageBox.Cancel)
+        box.setDefaultButton(quick_button)
+        box.exec()
+        clicked = box.clickedButton()
+        if clicked not in (quick_button, full_button):
+            return
+        quick = clicked is quick_button
+
+        #  The worker holds the previous checkpoint open and a CUDA context on
+        #  the same card the trainer wants. Stop it first.
+        self.stop_neural()
+        self.expand_section("neural")
+        self.expand_section("training")
+        self.training_started_at = time.perf_counter()
+        self._reset_training_panel(
+            f"train_nn.py  --  {summary['total_raw']} recordings"
+            + (" (quick)" if quick else " (full sweep)"))
+        self.training_output = []
+        args = self._nn_train_args(script, quick)
+        self._launch_training_job("nn", [{"name": "nn",
+                                          "argv": [sys.executable] + args}])
+        self._after_nn_launch(summary, quick)
+
+    def _nn_train_args(self, script: str, quick: bool) -> List[str]:
+        """train_nn.py's command line, exactly as the GUI is configured."""
+        engine = self.nn_engine
+        root = os.path.join(PROJECT_DIR, DATA_FOLDER)
+        out_dir = os.path.dirname(os.path.abspath(
+            engine.full_model_path)) or PROJECT_DIR
+        #  The same paths the APP is configured with, for the same reason
+        #  RETRAIN passes them (section 13): otherwise a changed DATA_FOLDER
+        #  or NN_MODEL_PATH means the subprocess trains on, and overwrites,
+        #  something else.
+        args = ["-u", script, "--root", root, "--out-dir", out_dir,
+                "--model-path", engine.full_model_path,
+                "--calibration", CALIBRATION_MODE,
+                #  "auto" is an app-side convenience; the trainer is given a
+                #  real choice, and refuses rather than silently using the
+                #  CPU when CUDA was expected.
+                "--device", "cuda" if (self.compute_info or {}).get("cuda")
+                else "cpu"]
+        if quick:
+            args.append("--quick")
+        else:
+            args += nn_spec_args(load_nn_spec()[0])
+        return args
+
+    def _after_nn_launch(self, summary: dict, quick: bool) -> None:
+        self.training_phase_text = (
+            f"neural net: starting on {summary['total_raw']} recordings"
+            + (" (quick)" if quick else " (full sweep)") + "...")
+        self.training_progress.setValue(0)
+        self.training_progress.setFormat("%p%")
+        self.training_progress.setVisible(True)
+        self.training_status.setStyleSheet(
+            f"color: {COL_WARN}; background: transparent;")
+        self._refresh_training_status()
+        self._refresh_neural_panel()
+        self._append_log(
+            f"Neural training started on all {summary['total_raw']} "
+            f"recordings ({'quick' if quick else 'full sweep'}). The "
+            f"deployed classifier is untouched.")
+
+    def _on_nn_training_lines(self, lines: List[str]) -> None:
+        """
+        Same pump as the sklearn trainer's, same two line formats.
+
+        `train_nn.py` prints `PROGRESS`/`TRAINEVENT` deliberately so that one
+        panel and one parser serve both trainers -- the only difference in
+        the events is that this one's `device` field can say cuda.
+        """
+        for line in lines:
+            line = line.rstrip()
+            if not line:
+                continue
+            if line.startswith("PROGRESS "):
+                self._update_training_progress(line)
+                continue
+            if line.startswith("TRAINEVENT "):
+                try:
+                    self._on_train_event(json.loads(line[len("TRAINEVENT "):]))
+                except (ValueError, TypeError, KeyError):
+                    pass
+                continue
+            self.training_output.append(line)
+            if len(self.training_output) > 4000:
+                del self.training_output[:2000]
+            if any(key in line for key in (
+                    "BEST", "window ", "vote ", "DC only", "subject-",
+                    "Saved", "COMPUTE", "recordings", "WARNING", "MIXED")):
+                self._append_log(f"nn: {line.strip()}")
+            self.training_phase_text = "nn: " + line.strip()[:86]
+            self._refresh_training_status()
+
+    def _on_nn_training_finished(self, exit_code: int, _status=None) -> None:
+        self.nn_training_process = None
+        self.training_progress.setVisible(False)
+        cancelled = bool(getattr(self, "_nn_training_cancelled", False))
+        self._nn_training_cancelled = False
+        took = fmt_duration(time.perf_counter() - self.training_started_at)
+        tail = "\n".join(self.training_output[-25:])
+        self._refresh_neural_panel()
+
+        if cancelled:
+            self._set_train_field("status", "cancelled", COL_WARN)
+            self.train_message.setText("Neural training cancelled. The "
+                                       "previous checkpoint is untouched.")
+            self.training_status.setStyleSheet(
+                f"color: {COL_WARN}; background: transparent;")
+            self.training_status.setText(
+                f"neural training cancelled after {took}")
+            self._append_log(f"Neural training cancelled after {took}.")
+            return
+
+        if exit_code == TRAIN_EXIT_NEED_MORE_DATA:
+            self._set_train_field("status", "not trained", COL_WARN)
+            self.training_status.setStyleSheet(
+                f"color: {COL_WARN}; background: transparent;")
+            self.training_status.setText(
+                "neural net not trained: fewer than two gesture classes")
+            self._append_log("Neural training skipped: a classifier needs at "
+                             "least two gestures.")
+            return
+
+        if exit_code != 0:
+            self._set_train_field("status", "failed", COL_BAD)
+            self.training_status.setStyleSheet(
+                f"color: {COL_BAD}; background: transparent;")
+            self.training_status.setText(
+                f"neural training failed (exit {exit_code})")
+            self._append_log(
+                f"Neural training failed with exit code {exit_code}.")
+            QtWidgets.QMessageBox.warning(
+                self, "Neural training failed",
+                f"train_nn.py exited with code {exit_code}.\n\n{tail}")
+            return
+
+        stats = (load_nn_stats(self.nn_engine.model_path) or {}).get("stats") \
+            or {}
+        self.training_status.setStyleSheet(
+            f"color: {COL_GOOD}; background: transparent;")
+        self.training_status.setText(
+            f"NN-{stats.get('kind', '?')}: "
+            f"{(stats.get('window_accuracy') or 0) * 100:.1f} % per window, "
+            f"took {took}")
+        self._append_log(
+            f"Neural training done: NN-{stats.get('kind')} "
+            f"{(stats.get('window_accuracy') or 0) * 100:.1f} % per window "
+            f"({stats.get('grouping', '?')}-grouped). The deployed "
+            f"classifier is unchanged.")
+
+        control = stats.get("dc_only_control") or {}
+        gain = ((stats.get("window_accuracy") or 0)
+                - (control.get("window_accuracy") or 0)) * 100
+        #  At the end of an ML + NN chain this is the one box for both, so it
+        #  carries the classifier's result too.
+        chain_note = getattr(self, "_chain_ml_note", "")
+        self._chain_ml_note = ""
+        QtWidgets.QMessageBox.information(
+            self, ("ML + neural training complete" if chain_note
+                   else "Neural training complete"),
+            (f"{chain_note}\n\n" if chain_note else "")
+            + f"New net: NN-{stats.get('kind', '?')} "
+            f"({stats.get('n_parameters', '?')} parameters)\n\n"
+            f"Per window  : {(stats.get('window_accuracy') or 0) * 100:.1f} %"
+            f"  ({stats.get('grouping', '?')}-grouped)\n"
+            f"Per gesture : "
+            f"{(stats.get('recording_vote_accuracy') or 0) * 100:.1f} %\n"
+            f"Baseline    : "
+            f"{(stats.get('majority_class_baseline') or 0) * 100:.1f} % "
+            f"(majority class)\n"
+            + (f"Time buys   : {gain:+.1f} points over the 8 channel means "
+               f"alone\n" if control else "")
+            + "\nThe deployed LIVE CLASSIFIER is unchanged -- this model is "
+              "kept separate and never votes. Press START NN to run it, or "
+              "NN STATS for the full breakdown.")
+        self._refresh_neural_panel()
+
     def _group_training(self):
         """
         What the trainer is doing right now.
@@ -13369,6 +17569,73 @@ class MainWindow(QtWidgets.QMainWindow):
             value.setText("--")
         self.train_message.setText("")
         self._set_train_field("status", "queued", COL_WARN)
+        self._train_stages = []
+        self._train_stage_clock = {}
+        self._train_eta_snapshot = None
+        self._train_live = False
+
+    def _estimate_training_remaining(self, event: dict, done: int, total: int,
+                                     now: float):
+        """
+        (seconds_left, is_lower_bound), or None while there is nothing to go on.
+
+        A unit of work costs very different amounts in different stages (the
+        A1 screen is cheap probes on half the windows; stage B fits every
+        model), so a single done/total rate is wrong in a predictable way: it
+        is optimistic early and then jumps. Each stage is timed on its own:
+
+          * the CURRENT stage's remaining units use the rate measured inside
+            that stage -- same kind of work, so that part is trustworthy;
+          * LATER stages have not run, so their cost is unknown. They are
+            counted at the slowest rate seen so far, which is a floor because
+            the stages get more expensive, and the result is flagged as a
+            lower bound ("at least") rather than presented as a prediction.
+        """
+        stages = self._train_stages
+        if not stages:
+            return None
+        names = [name for name, _units in stages]
+        phase = str(event.get("phase", ""))
+        current = phase if phase in names else "tail"
+        if current not in names:
+            return None
+        index = names.index(current)
+
+        clock = self._train_stage_clock.setdefault(
+            current, [now, done, now, done])
+        clock[2], clock[3] = now, done
+
+        rates = {}
+        for name, (t0, d0, t1, d1) in self._train_stage_clock.items():
+            if d1 - d0 >= 2 and t1 > t0:
+                rates[name] = (t1 - t0) / (d1 - d0)
+        if not rates:
+            return None
+
+        before = sum(units for _n, units in stages[:index])
+        left_here = max(0, stages[index][1] - max(0, done - before))
+        rate_here = rates.get(current)
+        slowest = max(rates.values())
+        remaining = left_here * (rate_here if rate_here else slowest)
+        later = sum(units for _n, units in stages[index + 1:])
+        remaining += later * slowest
+        return remaining, later > 0
+
+    def _tick_training_clock(self) -> None:
+        """Once a second: keep elapsed running and count the ETA down."""
+        if not self._train_live or not hasattr(self, "train_fields"):
+            return
+        now = time.perf_counter()
+        self._set_train_field("elapsed",
+                              fmt_duration(now - self.training_started_at))
+        snap = self._train_eta_snapshot
+        if snap is None:
+            return
+        taken_at, seconds, lower = snap
+        left = max(0.0, seconds - (now - taken_at))
+        text = f"{'at least ' if lower else 'about '}{fmt_duration(left)}"
+        self._set_train_field("eta", text)
+        self.train_bar.setFormat(f"%p%  ({fmt_duration(left)} left)")
 
     def _set_train_field(self, key: str, text: str, colour: str = None) -> None:
         widget = getattr(self, "train_fields", {}).get(key)
@@ -13427,12 +17694,30 @@ class MainWindow(QtWidgets.QMainWindow):
         self._set_train_field("elapsed", fmt_duration(elapsed))
         # ETA from the rate actually achieved, never a fixed guess, and only
         # once enough work is done for the rate to mean anything.
-        if done >= 5 and fraction > 0.01 and status == "running":
-            remaining = max(0.0, elapsed / fraction - elapsed)
-            self._set_train_field("eta", f"about {fmt_duration(remaining)}")
-            self.train_bar.setFormat(f"%p%  ({fmt_duration(remaining)} left)")
-        elif status == "running":
-            self._set_train_field("eta", "estimating...")
+        if isinstance(event.get("phases"), list):
+            try:
+                self._train_stages = [(str(n), int(u))
+                                      for n, u in event["phases"]]
+            except (TypeError, ValueError):
+                self._train_stages = []
+            self._train_stage_clock = {}
+        self._train_live = status == "running"
+        if status != "running":
+            self._train_eta_snapshot = None
+        else:
+            now = time.perf_counter()
+            estimate = self._estimate_training_remaining(event, done, total, now)
+            if estimate is None and not self._train_stages:
+                # A trainer that does not announce its stages (the neural-net
+                # one): the plain rate so far, once there is enough of it.
+                if done >= 5 and fraction > 0.01:
+                    estimate = (max(0.0, elapsed / fraction - elapsed), False)
+            if estimate is None:
+                self._train_eta_snapshot = None
+                self._set_train_field("eta", "estimating...")
+            else:
+                self._train_eta_snapshot = (now, estimate[0], estimate[1])
+                self._tick_training_clock()
 
         if event.get("artifact"):
             self._set_train_field("artifact", str(event["artifact"]), COL_GOOD)
@@ -13573,9 +17858,20 @@ class MainWindow(QtWidgets.QMainWindow):
         self.pred_timer = QtCore.QTimer(self)
         self.pred_timer.timeout.connect(self._tick_prediction)
 
+        # The neural net gets its OWN timer, not a share of the one above.
+        # Two reasons: the two models are meant to be runnable independently
+        # or together, and the net's cadence is a different question from the
+        # classifier's -- its round trip crosses a process boundary, so a
+        # slow worker must slow only itself down. It is created here and
+        # started by START NN.
+        self.nn_timer = QtCore.QTimer(self)
+        self.nn_timer.timeout.connect(self._tick_neural)
+
         # Ask what hardware the training will run on. Deferred so the window
         # is already on screen and streaming before the probe starts.
         QtCore.QTimer.singleShot(400, self.start_compute_probe)
+        #  A training run may have outlived the previous window.
+        QtCore.QTimer.singleShot(600, self._resume_training_job)
 
     def _tick_plot(self) -> None:
         if self.plot.review_mode:
@@ -13735,7 +18031,22 @@ class MainWindow(QtWidgets.QMainWindow):
         self.clear_button.setEnabled(bool(self.recordings))
         self.export_button.setEnabled(self.export_worker is None)
         self.retrain_button.setEnabled(
-            not self.sequence.running or self.training_process is not None)
+            (not self.sequence.running or self.training_process is not None)
+            # One trainer at a time: the two sweeps would fight over the
+            # machine, and the neural one also holds a CUDA context.
+            and self.nn_training_process is None)
+        if hasattr(self, "retrain_all_button"):
+            #  While a chain runs this is its cancel button, in either step.
+            chain = getattr(self, "_chain_job", None)
+            idle = (self.training_process is None
+                    and self.nn_training_process is None)
+            self.retrain_all_button.setEnabled(
+                chain is not None or (idle and not self.sequence.running))
+            self.retrain_all_button.setText(
+                "CANCEL ML + NN TRAINING" if chain is not None
+                else "RETRAIN ML + NEURAL NET")
+        if ENABLE_NEURAL_NET and hasattr(self, "nn_start_button"):
+            self._refresh_neural_panel(force=False)
         if hasattr(self, "spec_button"):
             # Editing the spec mid-training would be misleading: the running
             # sweep already has its copy.
@@ -13849,6 +18160,68 @@ class MainWindow(QtWidgets.QMainWindow):
             self.predictor.load()
             self._refresh_prediction_panel()
 
+    def edit_gestures(self) -> None:
+        """
+        Choose which gestures this session records.
+
+        Refuses while a session is running, for the same reason the subject
+        fields do: the plan is already built and half-walked, and changing the
+        label set under it would leave the remaining repetitions cueing
+        gestures the plan does not contain.
+        """
+        if self.sequence.running:
+            QtWidgets.QMessageBox.information(
+                self, "Gestures",
+                "Finish or stop the session first -- the plan is already "
+                "built from the current gesture list.")
+            return
+
+        dialog = GestureSetupDialog(self, selected=list(GESTURES))
+        if dialog.exec() != QtWidgets.QDialog.Accepted:
+            return
+        chosen = dialog.selected()
+        if not chosen or chosen == list(GESTURES):
+            return
+
+        before = list(GESTURES)
+        self._set_global("GESTURES", chosen)
+        added = [g for g in chosen if g not in before]
+        dropped = [g for g in before if g not in chosen]
+
+        #  Every place a label is offered has to follow, or the combos would
+        #  still be handing out labels that are no longer in the plan.
+        for combo in (getattr(self, "gesture_combo", None),
+                      getattr(self, "label_gesture_combo", None),
+                      getattr(self, "take_gesture_combo", None)):
+            if combo is None:
+                continue
+            keep = combo.currentText()
+            combo.blockSignals(True)
+            combo.clear()
+            combo.addItems(chosen)
+            if keep in chosen:
+                combo.setCurrentText(keep)
+            combo.blockSignals(False)
+
+        self._refresh_plan_info()
+        self._refresh_gesture_counts()
+        self._refresh_label_counts()
+        #  The classifier's bars are built from the MODEL's labels, not from
+        #  this list, so they are deliberately left alone -- a model trained
+        #  on six classes still predicts six whatever the plan now says.
+        parts = []
+        if added:
+            parts.append("added " + ", ".join(added))
+        if dropped:
+            parts.append("no longer cued: " + ", ".join(dropped))
+        self._append_log("Gestures: " + "; ".join(parts) + "."
+                         + (" Recordings already on disk are untouched."
+                            if dropped else ""))
+        if added:
+            self.status.showMessage(
+                "Added %s -- press START SESSION to record them."
+                % ", ".join(added), 8000)
+
     def _on_metadata_changed(self) -> None:
         self._set_global("HANDEDNESS", self.hand_combo.currentText())
         self._set_global("ARM_WORN_ON", self.arm_combo.currentText())
@@ -13858,6 +18231,11 @@ class MainWindow(QtWidgets.QMainWindow):
     def _refresh_plan_info(self) -> None:
         self._set_global("REPETITIONS", int(self.reps_spin.value()))
         self._set_global("GESTURE_ORDER", self.order_combo.currentText())
+        #  Mirrored like the rest: the duration goes into every recording's
+        #  config snapshot, so an edit here has to reach the global or the
+        #  stored metadata would claim a hold length that never happened.
+        if hasattr(self, "hold_spin"):
+            self._set_global("RECORD_TIME", float(self.hold_spin.value()))
         plan = build_plan()
         per_item = (REST_TIME + PREPARE_TIME + COUNTDOWN_TIME + RECORD_TIME
                     + POST_GESTURE_MS / 1000.0 + PAUSE_TIME)
@@ -14589,6 +18967,8 @@ class MainWindow(QtWidgets.QMainWindow):
         ready = self.predictor.ready
         self.predict_button.setEnabled(ready)
         self.pred_mode_combo.setEnabled(ready)
+        if hasattr(self, "test_button"):
+            self.test_button.setEnabled(ready)
         # The model just changed state, so the provenance line is stale.
         self._refresh_model_status(force=True)
 
@@ -14732,16 +19112,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _run_prediction(self):
         """Pull the newest window out of the ring and classify it."""
-        rate = self.acq.stats()["rate"] or nominal_rate()
-        want = int(self.predictor.window_seconds() * rate * 1.25) + 4
-        emg, t = self.acq.ring.snapshot(max(8, want))
-        if emg.shape[0] < 4:
-            return None
-
-        # Keep only the samples inside the model's own window length.
-        if t.size and (t[-1] - t[0]) > self.predictor.window_seconds():
-            keep = t >= (t[-1] - self.predictor.window_seconds())
-            emg, t = emg[keep], t[keep]
+        emg, t = latest_model_window(self.acq, self.predictor.window_seconds())
         if emg.shape[0] < 4:
             return None
 
@@ -14789,6 +19160,21 @@ class MainWindow(QtWidgets.QMainWindow):
         self.plot.set_prediction_overlay(
             f"{prediction.label}  {prediction.percent}", colour,
             "" if certain else "low confidence")
+
+    def open_model_test(self) -> None:
+        """TEST MODEL: a live, cued score of the saved model on this wearer."""
+        if not self.predictor.ready:
+            QtWidgets.QMessageBox.information(
+                self, "Test the model",
+                f"No usable model: {self.predictor.status}")
+            return
+        dialog = getattr(self, "model_test_dialog", None)
+        if dialog is None:
+            dialog = ModelTestDialog(self)
+            self.model_test_dialog = dialog
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
 
     def show_model_stats(self) -> None:
         """
@@ -15141,19 +19527,54 @@ class MainWindow(QtWidgets.QMainWindow):
             f"color: {color}; background: transparent;")
 
     def _refresh_take_history(self) -> None:
-        """Re-read _takes/ for the current subject and session."""
+        """Re-read every _takes/ folder under the dataset root."""
         if not hasattr(self, "take_list"):
             return
-        self.take_list.clear()
         try:
-            takes = self.writer.list_takes()
+            self._all_takes = list_all_takes(
+                os.path.join(PROJECT_DIR, DATA_FOLDER))
         except OSError as exc:                               # pragma: no cover
             self._append_log(f"could not read takes: {exc}")
+            self._all_takes = []
+
+        def day(info):
+            return datetime.fromtimestamp(info["created_unix"]).strftime(
+                "%Y-%m-%d")
+
+        persons = sorted({t["person_id"] for t in self._all_takes})
+        days = sorted({day(t) for t in self._all_takes}, reverse=True)
+        for combo, first, values in (
+                (self.take_person_filter, "All persons", persons),
+                (self.take_date_filter, "All dates", days)):
+            keep = combo.currentText()
+            combo.blockSignals(True)
+            combo.clear()
+            combo.addItems([first] + values)
+            combo.setCurrentIndex(max(0, combo.findText(keep)))
+            combo.blockSignals(False)
+        self._apply_take_filter()
+
+    def _apply_take_filter(self) -> None:
+        """Fill the list from the cached takes, narrowed by the two filters."""
+        if not hasattr(self, "take_list"):
             return
+        person = self.take_person_filter.currentText()
+        date = self.take_date_filter.currentText()
+        everything = getattr(self, "_all_takes", [])
+        takes = [
+            t for t in everything
+            if (person in ("", "All persons") or t["person_id"] == person)
+            and (date in ("", "All dates") or datetime.fromtimestamp(
+                t["created_unix"]).strftime("%Y-%m-%d") == date)
+        ]
+        self.take_list_header.setText(
+            f"TAKES ON DISK  --  {len(takes)} of {len(everything)}")
+        self._show_takes_elsewhere()
+        self.take_list.clear()
 
         if not takes:
             item = QtWidgets.QListWidgetItem(
-                "no takes yet for this subject/session")
+                "no takes match the filters" if everything else "no takes yet")
             item.setForeground(QtGui.QColor(COL_TEXT_DIM))
             self.take_list.addItem(item)
             return
@@ -15162,6 +19583,7 @@ class MainWindow(QtWidgets.QMainWindow):
             stamp = datetime.fromtimestamp(info["created_unix"]).strftime(
                 "%Y-%m-%d %H:%M")
             item = QtWidgets.QListWidgetItem(
+                f"{info['person_id']} / {info['session_id']}   "
                 f"{info['label']}   {stamp}   "
                 f"{fmt_duration(info['duration_s'])}   "
                 f"{info['n_samples']:,} samples")
@@ -15169,9 +19591,25 @@ class MainWindow(QtWidgets.QMainWindow):
             # The stem, not the path: DELETE TAKE(S) moves every format the
             # take was written in, and the list only carries one of them.
             item.setData(QtCore.Qt.UserRole + 1, info["stem"])
+            item.setData(QtCore.Qt.UserRole + 2, info["person_id"])
+            item.setData(QtCore.Qt.UserRole + 3, info["session_id"])
             item.setToolTip(info["path"])
             self.take_list.addItem(item)
         self.take_list.setCurrentRow(0)
+
+    def _show_takes_elsewhere(self) -> None:
+        """
+        Name this subject's other sessions that hold takes.
+
+        The message is deliberately about where they are and how to reach
+        them, not an offer to switch session: changing SESSION_ID is what
+        decides where the NEXT recording is written, so doing it silently to
+        make a list look right would be the wrong trade.
+        """
+        # The list now covers every subject and session, so there is no
+        # "elsewhere" to point at; the label stays (empty) for callers.
+        if hasattr(self, "take_elsewhere"):
+            self.take_elsewhere.setText("")
 
     def open_selected_take(self) -> None:
         """Open every selected take in turn and cut clips out of each."""
@@ -15189,6 +19627,13 @@ class MainWindow(QtWidgets.QMainWindow):
                 "select a take in the list first", COL_WARN)
             return
         self.open_takes_for_cutting(paths)
+
+    def _writer_for(self, person: str, session: str):
+        """A writer for the take's own subject/session, not the current one."""
+        if (person == self.writer.person_id
+                and session == self.writer.session_id):
+            return self.writer
+        return DatasetWriter(self.writer.root, person, session)
 
     def delete_selected_takes(self) -> None:
         """
@@ -15211,17 +19656,21 @@ class MainWindow(QtWidgets.QMainWindow):
         if not items:
             item = self.take_list.currentItem()
             items = [item] if item is not None else []
-        stems = [i.data(QtCore.Qt.UserRole + 1) for i in items]
-        stems = [s for s in stems if s]
+        targets = [(i.data(QtCore.Qt.UserRole + 1),
+                    i.data(QtCore.Qt.UserRole + 2),
+                    i.data(QtCore.Qt.UserRole + 3)) for i in items]
+        targets = [t for t in targets if t[0] and t[1] and t[2]]
+        stems = [t[0] for t in targets]
         if not stems:
             self._set_free_take_status(
                 "select a take in the list first", COL_WARN)
             return
 
         lines, total_clips = [], 0
-        for stem in stems:
+        for stem, person, session in targets:
             uid = take_uid_from_stem(stem)
-            n_clips = len(self.writer.clips_from_take(uid)) if uid else 0
+            n_clips = (len(self._writer_for(person, session)
+                           .clips_from_take(uid)) if uid else 0)
             total_clips += n_clips
             lines.append(f"    {stem}"
                          + (f"   ({n_clips} clip(s) cut from it)"
@@ -15247,8 +19696,8 @@ class MainWindow(QtWidgets.QMainWindow):
             return
 
         deleted, moved = 0, 0
-        for stem in stems:
-            result = self.writer.delete_take(stem)
+        for stem, person, session in targets:
+            result = self._writer_for(person, session).delete_take(stem)
             if result["moved"]:
                 deleted += 1
                 moved += len(result["moved"])
@@ -15676,6 +20125,17 @@ class MainWindow(QtWidgets.QMainWindow):
             self._append_log(
                 "  the loaded model is unchanged -- retrain to apply this.")
 
+    def edit_nn_setup(self) -> None:
+        """Open the neural-net setup; affects the next FULL SWEEP only."""
+        path = nn_spec_path()
+        dialog = NeuralSetupDialog(load_nn_spec(path)[0], path, self)
+        dialog.exec()
+        if not dialog.saved:
+            return
+        self.nn_setup_summary.setText(describe_nn_spec(dialog.spec))
+        self._append_log(f"Neural setup saved: {describe_nn_spec(dialog.spec)}"
+                         f" ({', '.join(dialog.spec['kinds'])}).")
+
     # -- per-wearer calibration ----------------------------------------------
 
     def open_calibration(self) -> None:
@@ -15739,6 +20199,18 @@ class MainWindow(QtWidgets.QMainWindow):
                     f"  the loaded model was trained with calibration "
                     f"{self.predictor.calibration_mode!r} -- retrain to use "
                     f"{CALIBRATION_MODE!r}.")
+            #  The net is fitted on a scale too, and it is running in another
+            #  process that already resolved this wearer's calibration. A new
+            #  calibration mid-run would leave it predicting on the old
+            #  numbers, so it is stopped rather than left wrong; START NN
+            #  re-resolves from the new record.
+            if self.nn_engine is not None and self.nn_engine.running:
+                self._append_log(
+                    "  the neural net was running on the previous "
+                    "calibration -- stopped. Press START NN to restart it on "
+                    "the new one.")
+                self.stop_neural()
+            self._refresh_neural_panel()
 
     def _refresh_calibration_panel(self) -> None:
         """One line: is this wearer calibrated, and is it being applied?"""
@@ -15872,21 +20344,39 @@ class MainWindow(QtWidgets.QMainWindow):
         self.compute_process.setArguments(["-c", COMPUTE_PROBE_SNIPPET])
         self.compute_process.setProcessChannelMode(
             QtCore.QProcess.MergedChannels)
-        self.compute_process.finished.connect(self._on_compute_probe_finished)
+        #  Both signals carry their own process, for the same reason the
+        #  timeout below does: a killed probe's `finished` arrives
+        #  asynchronously, so it can land after a replacement probe has
+        #  already started and would otherwise be read as that one answering
+        #  with empty output. Same family of bug as the stale timer.
+        probe_ref = self.compute_process
+        self.compute_process.finished.connect(
+            lambda *_: self._on_compute_probe_finished(probe_ref))
         self.compute_process.errorOccurred.connect(
-            lambda *_: self._finish_compute_probe(
-                blank_compute_info("the device probe could not be started",
-                                   failed=True)))
+            lambda *_: self._on_compute_probe_error(probe_ref))
         self.compute_process.start()
         # A probe that never answers would leave the badge saying "checking"
         # for the rest of the session. Say so instead.
+        #
+        # The timer is bound to THIS process, which is not a detail: a
+        # singleShot cannot be cancelled, so a probe that answered in 8 s
+        # still has a timer due to fire at 30 s. Without the identity check
+        # that stale timer kills whatever probe happens to be running when it
+        # lands -- so a second probe started 25 s after the first one
+        # finished was killed 5 s in and reported "did not answer", with a
+        # working GPU on the machine. Found by tests/test_gui.py once enough
+        # checks ran before the badge section to cross the 30 s mark.
+        probe = self.compute_process
         QtCore.QTimer.singleShot(
-            int(COMPUTE_PROBE_TIMEOUT_S * 1000), self._compute_probe_timeout)
+            int(COMPUTE_PROBE_TIMEOUT_S * 1000),
+            lambda: self._compute_probe_timeout(probe))
         self._apply_compute_badge()
 
-    def _compute_probe_timeout(self) -> None:
+    def _compute_probe_timeout(self, probe=None) -> None:
         if self.compute_process is None:
             return                      # it answered in time
+        if probe is not None and probe is not self.compute_process:
+            return                      # a stale timer from an earlier probe
         try:
             self.compute_process.kill()
         except RuntimeError:
@@ -15896,7 +20386,9 @@ class MainWindow(QtWidgets.QMainWindow):
                                f"{COMPUTE_PROBE_TIMEOUT_S:.0f} s",
                                failed=True))
 
-    def _on_compute_probe_finished(self, *_) -> None:
+    def _on_compute_probe_finished(self, probe=None) -> None:
+        if probe is not None and probe is not self.compute_process:
+            return              # a late signal from a probe we replaced
         text = ""
         if self.compute_process is not None:
             try:
@@ -15906,6 +20398,13 @@ class MainWindow(QtWidgets.QMainWindow):
             except RuntimeError:
                 text = ""
         self._finish_compute_probe(parse_compute_probe(text))
+
+    def _on_compute_probe_error(self, probe=None) -> None:
+        if probe is not None and probe is not self.compute_process:
+            return              # likewise: the error belongs to an old probe
+        self._finish_compute_probe(
+            blank_compute_info("the device probe could not be started",
+                               failed=True))
 
     def _finish_compute_probe(self, info: dict) -> None:
         if self.compute_process is not None:
@@ -15950,6 +20449,15 @@ class MainWindow(QtWidgets.QMainWindow):
             if answer == QtWidgets.QMessageBox.Yes:
                 self._training_cancelled = True
                 self.training_process.kill()
+            return
+
+        if self.nn_training_process is not None:
+            #  The button is disabled while the net trains, but `--train` on
+            #  the command line reaches this method directly.
+            QtWidgets.QMessageBox.information(
+                self, "Retrain",
+                "The neural net is still training. One trainer at a time -- "
+                "they would fight over the machine.")
             return
 
         if self.sequence.running:
@@ -16017,6 +20525,15 @@ class MainWindow(QtWidgets.QMainWindow):
                 f"Runs on: CPU ({os.cpu_count()} logical cores) -- "
                 "scikit-learn has no GPU backend, and there is no GPU build "
                 "of these algorithms for Windows/Python 3.14."
+                # Asked out loud the first time somebody saw the two panels,
+                # so it is answered in the dialog rather than only in the
+                # documentation: this button trains ONE of the two models.
+                + ("\n\nThis does NOT retrain the neural network. That is a "
+                   "separate model with its own TRAIN NEURAL NET button; "
+                   "after this finishes it will read OUT OF DATE until you "
+                   "train it too."
+                   if (self.nn_engine is not None
+                       and self.nn_engine.trained()) else "")
             )
             quick_button = box.addButton("Quick",
                                          QtWidgets.QMessageBox.AcceptRole)
@@ -16042,8 +20559,13 @@ class MainWindow(QtWidgets.QMainWindow):
             f"train_model.py  --  {summary['total_raw']} recordings"
             + (" (quick)" if quick else " (full sweep)"))
         self.training_output = []
-        self.training_process = QtCore.QProcess(self)
-        self.training_process.setProgram(sys.executable)
+        args = self._ml_train_args(script, quick)
+        self._launch_training_job("ml", [{"name": "ml",
+                                          "argv": [sys.executable] + args}])
+        self._after_ml_launch(summary, quick)
+
+    def _ml_train_args(self, script: str, quick: bool) -> List[str]:
+        """train_model.py's command line, exactly as the GUI is configured."""
         # Pass the paths the APP is configured with, rather than letting
         # train_model.py fall back to its own defaults -- otherwise a
         # changed DATA_FOLDER or MODEL_PATH would silently train on, and
@@ -16075,16 +20597,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if quick:
             args.append("--quick")
-        self.training_process.setArguments(args)
-        self.training_process.setWorkingDirectory(PROJECT_DIR)
-        self.training_process.setProcessChannelMode(
-            QtCore.QProcess.MergedChannels)
-        self.training_process.readyReadStandardOutput.connect(
-            self._on_training_output)
-        self.training_process.finished.connect(self._on_training_finished)
-        self.training_process.errorOccurred.connect(self._on_training_error)
-        self.training_process.start()
+        return args
 
+    def _after_ml_launch(self, summary: dict, quick: bool) -> None:
         self.retrain_button.setText("CANCEL TRAINING")
         self.training_started_at = time.perf_counter()
         self.training_phase_text = (
@@ -16101,12 +20616,277 @@ class MainWindow(QtWidgets.QMainWindow):
             f"({'quick' if quick else 'full sweep'}), on the CPU."
         )
 
-    def _on_training_output(self) -> None:
-        if self.training_process is None:
+    # -- background jobs -------------------------------------------------------
+    #
+    #  Every trainer the GUI starts runs as a job (train_job.py, detached), so
+    #  closing the window no longer kills it. The job's log is routed to the
+    #  same two line handlers the QProcess pumps used to feed, and each step's
+    #  end (JOBSTEPEND in the log) calls the same two finish handlers.
+
+    def _models_dir(self) -> str:
+        return (os.path.dirname(os.path.abspath(self.predictor.full_path))
+                or PROJECT_DIR)
+
+    def _launch_training_job(self, kind: str, steps: List[dict]) -> None:
+        job_dir = start_training_job(self._models_dir(), kind, steps,
+                                     cwd=PROJECT_DIR)
+        self._attach_training_job(job_dir)
+        self._append_log(
+            f"Training runs in the background (job {os.path.basename(job_dir)})"
+            f" -- closing the app will not stop it.")
+
+    def _attach_training_job(self, job_dir: str) -> "TrainingJobWatcher":
+        watcher = TrainingJobWatcher(job_dir, self)
+        self._job = watcher
+        self._job_step = ""
+        self._job_steps_ended = set()
+        first = (watcher.job.get("steps") or [{}])[0].get("name", "ml")
+        if watcher.kind == "all":
+            self._chain_job = watcher
+        if first == "nn":
+            self.nn_training_process = watcher
+        else:
+            self.training_process = watcher
+        watcher.lines.connect(self._on_job_lines)
+        watcher.finished.connect(self._on_job_finished)
+        watcher.start()
+        return watcher
+
+    def _on_job_lines(self, lines: List[str]) -> None:
+        """Route a batch of log lines to the handler of the step running."""
+        run: List[str] = []
+
+        def flush():
+            if run:
+                (self._on_nn_training_lines if self._job_step == "nn"
+                 else self._on_training_lines)(list(run))
+                run.clear()
+
+        for line in lines:
+            if line.startswith("JOBSTEP "):
+                flush()
+                parts = line.split()
+                self._job_step = parts[3] if len(parts) > 3 else ""
+                if (self._job_step == "nn" and self._job is not None
+                        and self._job.kind == "all"):
+                    self._begin_chained_nn_step()
+                continue
+            if line.startswith("JOBSTEPEND "):
+                flush()
+                parts = line.split()
+                name = parts[1] if len(parts) > 1 else ""
+                try:
+                    code = int(parts[2])
+                except (IndexError, ValueError):
+                    code = -1
+                self._job_steps_ended.add(name)
+                self._end_job_step(name, code)
+                continue
+            run.append(line)
+        flush()
+
+    def _end_job_step(self, name: str, code: int) -> None:
+        chained = self._job is not None and self._job.kind == "all"
+        if name == "nn":
+            self._on_nn_training_finished(code)
             return
-        raw = bytes(self.training_process.readAllStandardOutput())
-        text = raw.decode("utf-8", errors="replace")
-        for line in text.splitlines():
+        self._on_training_finished(code, announce=not chained)
+        if chained and code == 0:
+            self._chain_ml_note = getattr(self, "_last_ml_result", "")
+
+    def _begin_chained_nn_step(self) -> None:
+        """The classifier finished in an ML + NN chain; the net starts now."""
+        self.training_process = None
+        self.nn_training_process = self._job
+        if self.nn_engine is not None:
+            self.stop_neural()
+        self.expand_section("neural")
+        self.training_started_at = time.perf_counter()
+        self._reset_training_panel("train_nn.py  --  chained after the "
+                                   "classifier")
+        self.training_output = []
+        self.training_phase_text = "neural net: starting (step 2 of 2)..."
+        self.training_progress.setValue(0)
+        self.training_progress.setFormat("%p%")
+        self.training_progress.setVisible(True)
+        self.training_status.setStyleSheet(
+            f"color: {COL_WARN}; background: transparent;")
+        self._refresh_training_status()
+        self._refresh_neural_panel()
+        self._append_log("Classifier done -- the neural net is training now "
+                         "(step 2 of 2).")
+
+    def _on_job_finished(self, code: int, why) -> None:
+        """
+        The runner is done. Normally every step already reported through
+        JOBSTEPEND; this only finishes a step that never did -- a runner that
+        died, or a job cancelled before its step began.
+        """
+        watcher = self._job
+        steps = [s.get("name", "ml") for s in
+                 ((watcher.job.get("steps") if watcher else None) or [])]
+        pending = self._job_step or (steps[0] if steps else "ml")
+        if pending not in self._job_steps_ended:
+            if why not in ("finished", "cancelled"):
+                self._append_log(f"Training job ended abnormally: {why}.")
+            self._end_job_step(pending, code if code else -1)
+        self._job = None
+        self._chain_job = None
+        if self.training_process is watcher:
+            self.training_process = None
+        if self.nn_training_process is watcher:
+            self.nn_training_process = None
+        self._refresh_controls()
+        self._refresh_neural_panel()
+
+    def retrain_everything(self) -> None:
+        """
+        Retrain the classifier AND the neural net with one button: one job,
+        two steps, strictly in sequence. The net only starts if the
+        classifier succeeded.
+        """
+        chain = getattr(self, "_chain_job", None)
+        if chain is not None:
+            answer = QtWidgets.QMessageBox.question(
+                self, "Training in progress",
+                "The ML + neural net training is running. Cancel it?",
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                QtWidgets.QMessageBox.No)
+            if answer == QtWidgets.QMessageBox.Yes:
+                if self._job_step == "nn":
+                    self._nn_training_cancelled = True
+                else:
+                    self._training_cancelled = True
+                chain.kill()
+            return
+        if self.training_process is not None or \
+                self.nn_training_process is not None:
+            QtWidgets.QMessageBox.information(
+                self, "Retrain", "A training run is already going. One "
+                "trainer at a time.")
+            return
+        if self.sequence.running:
+            QtWidgets.QMessageBox.information(
+                self, "Retrain",
+                "Finish or stop the recording session first.\n\n"
+                "Training saturates the CPU and would disturb the live "
+                "stream, which could corrupt the recordings in progress.")
+            return
+        ml_script = os.path.join(PROJECT_DIR, "train_model.py")
+        nn_script = os.path.join(PROJECT_DIR, "train_nn.py")
+        missing = [p for p in (ml_script, nn_script) if not os.path.exists(p)]
+        if missing or self.nn_engine is None:
+            QtWidgets.QMessageBox.warning(
+                self, "Retrain",
+                "Cannot run both: "
+                + (f"not found: {', '.join(missing)}" if missing
+                   else "the neural net is disabled in the configuration."))
+            return
+        summary = dataset_summary(os.path.join(PROJECT_DIR, DATA_FOLDER))
+        if summary["total_raw"] < 12:
+            QtWidgets.QMessageBox.information(
+                self, "Retrain",
+                f"Only {summary['total_raw']} recordings on disk. Collect "
+                "more before training -- a handful cannot be validated.")
+            return
+
+        info = self.compute_info or {}
+        box = QtWidgets.QMessageBox(self)
+        box.setWindowTitle("Retrain the classifier AND the neural net")
+        box.setIcon(QtWidgets.QMessageBox.Question)
+        box.setText(f"Retrain both models on all {summary['total_raw']} "
+                    f"recordings on disk, one after the other.")
+        box.setInformativeText(
+            "1. the classifier (train_model.py, CPU) -- this is the model "
+            "the app predicts with\n"
+            "2. the neural net (train_nn.py, "
+            + ("GPU" if info.get("cuda") else "CPU")
+            + ") -- the separate second opinion, never part of the answer\n\n"
+            "Step 2 only starts if step 1 succeeds.\n\n"
+            "Quick: reduced grids, a few minutes in total.\n"
+            "Full:  both full sweeps, roughly 30-40 minutes.\n\n"
+            "Runs in the background: you can close the app and it keeps "
+            "going. Reopen it to see the progress.")
+        quick_button = box.addButton("Quick", QtWidgets.QMessageBox.AcceptRole)
+        full_button = box.addButton("Full sweep",
+                                    QtWidgets.QMessageBox.AcceptRole)
+        box.addButton(QtWidgets.QMessageBox.Cancel)
+        box.setDefaultButton(quick_button)
+        box.exec()
+        clicked = box.clickedButton()
+        if clicked not in (quick_button, full_button):
+            return
+        quick = clicked is quick_button
+
+        self.stop_prediction()
+        self.stop_neural()
+        self.expand_section("prediction")
+        self.expand_section("training")
+        self.training_started_at = time.perf_counter()
+        self._reset_training_panel(
+            f"ML + NN  --  {summary['total_raw']} recordings"
+            + (" (quick)" if quick else " (full sweep)") + ", step 1 of 2")
+        self.training_output = []
+        self._chain_ml_note = ""
+        steps = [
+            {"name": "ml", "argv": [sys.executable]
+             + self._ml_train_args(ml_script, quick)},
+            {"name": "nn", "argv": [sys.executable]
+             + self._nn_train_args(nn_script, quick)},
+        ]
+        self._launch_training_job("all", steps)
+        self._after_ml_launch(summary, quick)
+        self._refresh_controls()
+
+    def _resume_training_job(self) -> None:
+        """
+        At startup: reattach to a training run that outlived the previous
+        window, and report runs that finished while no window was open.
+        """
+        models_dir = self._models_dir()
+        for job_dir in unseen_finished_jobs(models_dir):
+            status = read_job_status(job_dir) or {}
+            kind = {"ml": "classifier", "nn": "neural net",
+                    "all": "classifier + neural net"}.get(
+                status.get("kind"), status.get("kind") or "training")
+            when = datetime.fromtimestamp(
+                status.get("finished_unix") or time.time()).strftime(
+                "%Y-%m-%d %H:%M")
+            self._append_log(
+                f"While the app was closed: {kind} training "
+                + ("finished" if status.get("state") == "finished"
+                   and not status.get("exit_code") else
+                   f"ended ({status.get('state')}, exit "
+                   f"{status.get('exit_code')})")
+                + f" at {when}. The models on disk are the ones it left.")
+            mark_job_seen(job_dir)
+
+        job_dir = active_training_job(models_dir)
+        if job_dir is None:
+            return
+        watcher = self._attach_training_job(job_dir)
+        self.training_started_at = (time.perf_counter()
+                                    - (time.time() - watcher.started_unix()))
+        self.expand_section("training")
+        self._reset_training_panel(
+            f"background job {os.path.basename(job_dir)} (reattached)")
+        self.training_output = []
+        self.training_phase_text = "reattached -- catching up with the log..."
+        self.training_progress.setValue(0)
+        self.training_progress.setVisible(True)
+        if self.training_process is not None:
+            self.retrain_button.setText("CANCEL TRAINING")
+        self.training_status.setStyleSheet(
+            f"color: {COL_WARN}; background: transparent;")
+        self._refresh_training_status()
+        self._refresh_controls()
+        self._append_log(
+            "A training run started before the app was closed is still going "
+            "-- reattached to it.")
+
+    def _on_training_lines(self, lines: List[str]) -> None:
+        """train_model.py's output, a batch of complete lines from the job log."""
+        for line in lines:
             line = line.rstrip()
             if not line:
                 continue
@@ -16174,13 +20954,13 @@ class MainWindow(QtWidgets.QMainWindow):
             f"[CPU]  [{fmt_duration(elapsed)} elapsed]  "
             f"{self.training_phase_text}")
 
-    def _on_training_error(self, _error) -> None:
-        if self.training_process is None:
-            return
-        self._append_log(
-            f"Training process error: {self.training_process.errorString()}")
-
-    def _on_training_finished(self, exit_code: int, _status) -> None:
+    def _on_training_finished(self, exit_code: int, _status=None,
+                              announce: bool = True) -> None:
+        """
+        The classifier step ended. `announce=False` inside an ML + NN chain:
+        the result still lands in the panel and the log, but the modal box
+        waits for the end of the chain instead of interrupting it.
+        """
         self.training_process = None
         self.retrain_button.setText("RETRAIN ON ALL DATA")
         self.training_progress.setVisible(False)
@@ -16264,6 +21044,10 @@ class MainWindow(QtWidgets.QMainWindow):
             self.decision_panel.load()
         self._rebuild_prob_bars()
         self._refresh_prediction_panel()
+        #  The dataset fingerprint has just been recomputed, and the net's
+        #  checkpoint was NOT part of this sweep -- so if the dataset grew,
+        #  this is the moment its panel should start saying OUT OF DATE.
+        self._refresh_neural_panel()
 
         if not ok:
             self.training_status.setStyleSheet(
@@ -16290,6 +21074,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self._append_log(
             f"Retraining done: {stats.get('model_name')} "
             f"{(after or 0) * 100:.1f} % per gesture{delta}")
+        self._last_ml_result = (
+            f"Classifier: {stats.get('model_name', '?')}, "
+            f"{(after or 0) * 100:.1f} % per gesture{delta}")
+        if not announce:
+            return
 
         QtWidgets.QMessageBox.information(
             self, "Retraining complete",
@@ -16327,12 +21116,49 @@ class MainWindow(QtWidgets.QMainWindow):
                 event.ignore()
                 return
 
+        #  A training job is NOT owned by the window: by default it keeps
+        #  going, and the next window reattaches to it. Asked rather than
+        #  assumed, because "stop it" is also a reasonable thing to want.
+        job = getattr(self, "_job", None)
+        if job is not None and not job.done:
+            box = QtWidgets.QMessageBox(self)
+            box.setWindowTitle("Training is running")
+            box.setIcon(QtWidgets.QMessageBox.Question)
+            box.setText("A training run is still going.")
+            box.setInformativeText(
+                "Keep it running in the background? It will finish and save "
+                "its model on its own; open the app again any time to see "
+                "the progress or the result.")
+            keep = box.addButton("Keep training",
+                                 QtWidgets.QMessageBox.AcceptRole)
+            stop = box.addButton("Stop training and quit",
+                                 QtWidgets.QMessageBox.DestructiveRole)
+            box.addButton(QtWidgets.QMessageBox.Cancel)
+            box.setDefaultButton(keep)
+            box.exec()
+            clicked = box.clickedButton()
+            if clicked is stop:
+                job.kill()
+            elif clicked is not keep:
+                event.ignore()
+                return
+            job.detach()
+            self._append_log("Window closing -- training "
+                             + ("cancelled." if clicked is stop
+                                else "continues in the background."))
+            self._job = None
+            self.training_process = None
+            self.nn_training_process = None
+
         self.sequence.stop()
         self.stop_prediction()
-        if self.training_process is not None:
-            self.training_process.kill()
-            self.training_process.waitForFinished(2000)
-            self.training_process = None
+        if getattr(self, "model_test_dialog", None) is not None:
+            self.model_test_dialog.close()
+        # The net's worker holds a CUDA context, so it is shut down
+        # explicitly rather than left to a dangling pipe: a subprocess that
+        # outlives the window keeps the GPU busy and the checkpoint open.
+        if self.nn_engine is not None:
+            self.stop_neural()
         if self.compute_process is not None:
             try:
                 self.compute_process.kill()
@@ -16341,7 +21167,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 pass
             self.compute_process = None
         for timer in (self.plot_timer, self.seq_timer, self.ui_timer,
-                      self.pred_timer):
+                      self.pred_timer, self.nn_timer):
             timer.stop()
         if self.export_worker is not None:
             self.export_worker.wait(3000)

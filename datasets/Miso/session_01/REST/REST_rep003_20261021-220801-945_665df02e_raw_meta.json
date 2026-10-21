@@ -1,0 +1,150 @@
+{
+  "uid": "665df02e",
+  "stage": "raw",
+  "label": "REST",
+  "label_index": 0,
+  "person_id": "Miso",
+  "session_id": "session_01",
+  "repetition": 3,
+  "n_samples": 151,
+  "n_channels": 8,
+  "channel_names": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5",
+    "CH6",
+    "CH7",
+    "CH8"
+  ],
+  "duration_s": 2.988178,
+  "sample_rate_measured": 50.198,
+  "created_unix": 1792613281.9459925,
+  "created_iso": "2026-10-21T22:08:01.945",
+  "start_unix": 1792515945.4819157,
+  "end_unix": 1792515948.4700937,
+  "start_iso": "2026-10-20T19:05:45.481",
+  "end_iso": "2026-10-20T19:05:48.470",
+  "label_start_index": 0,
+  "label_end_index": 151,
+  "amplitude_min": [
+    60,
+    17,
+    17,
+    18,
+    18,
+    59,
+    34,
+    58
+  ],
+  "amplitude_max": [
+    328,
+    34,
+    26,
+    28,
+    29,
+    171,
+    80,
+    127
+  ],
+  "quality_issues": [
+    {
+      "level": "info",
+      "code": "rest_not_quiet",
+      "message": "REST recording has a peak envelope of 179.7; the muscle was probably not fully relaxed."
+    }
+  ],
+  "quality_worst_level": "info",
+  "activity_detected": {
+    "found": false,
+    "start": 0,
+    "end": 151,
+    "core_start": 0,
+    "core_end": 151,
+    "threshold_high": 40.82038282761806,
+    "threshold_low": 24.49222969657084,
+    "baseline": 12.380306214598699,
+    "n_candidates": 0,
+    "reason": "no sample crossed the high threshold"
+  },
+  "files": {
+    "raw:csv": "Miso\\session_01\\REST\\REST_rep003_20261021-220801-945_665df02e_raw.csv",
+    "raw:npz": "Miso\\session_01\\REST\\REST_rep003_20261021-220801-945_665df02e_raw.npz"
+  },
+  "meta": {
+    "emg_mode": "filtered",
+    "handedness": "right",
+    "arm_worn_on": "right",
+    "device": "Myo armband",
+    "notes": "",
+    "capture_style": "cut_from_take",
+    "selected_by_operator": true,
+    "selection_seconds": 2.9882,
+    "parent_take_uid": "32cac94c",
+    "parent_take_label": "REST",
+    "parent_take_stage": "take",
+    "parent_take_file": "Miso\\session_01\\_takes\\REST_take001_20261020-190539-465_32cac94c_take.npz",
+    "parent_take_n_samples": 1592,
+    "take_start_index": 299,
+    "take_end_index": 450,
+    "take_start_s": 6.0129,
+    "take_end_s": 9.0011
+  },
+  "config": {
+    "app_version": "1.0.0",
+    "emg_mode": "filtered",
+    "nominal_sample_rate": 50.0,
+    "emg_range": [
+      0,
+      2047
+    ],
+    "gestures": [
+      "REST",
+      "FIST",
+      "OPEN",
+      "THUMB_UP",
+      "WAVE_LEFT",
+      "WAVE_RIGHT"
+    ],
+    "repetitions": 6,
+    "gesture_order": "interleaved",
+    "random_seed": 42,
+    "rest_time": 2.0,
+    "prepare_time": 0.8,
+    "countdown_time": 3.0,
+    "record_time": 2.5,
+    "pause_time": 1.0,
+    "pre_gesture_ms": 300,
+    "post_gesture_ms": 300,
+    "window_ms": 200,
+    "window_overlap": 0.5,
+    "auto_trim": true,
+    "default_cut_seconds": 3.0,
+    "model_spec_file": "model_spec.json",
+    "calibration_mode": "affine",
+    "calibration_target_level": 600.0,
+    "min_selection_seconds": 0.25,
+    "free_take_max_minutes": 15.0,
+    "trim": {
+      "envelope_ms": 50.0,
+      "baseline_ms": 200.0,
+      "threshold_high": 3.0,
+      "threshold_low": 1.8,
+      "abs_floor": 12.0,
+      "min_active_ms": 120.0,
+      "min_inactive_ms": 250.0,
+      "pre_padding_ms": 100.0,
+      "post_padding_ms": 150.0,
+      "min_active_channels": 2
+    },
+    "quality": {
+      "enabled": true,
+      "min_sample_fraction": 0.8,
+      "max_gap_ms": 120.0,
+      "max_saturated_fraction": 0.02,
+      "max_baseline_rms": 60.0,
+      "min_peak_amplitude": 40.0
+    }
+  }
+}

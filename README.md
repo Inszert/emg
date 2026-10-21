@@ -47,8 +47,7 @@ Needs a Myo armband and a Bluegiga BLED112 dongle. Windows, in practice — the
 COM-port handling has not been tried elsewhere. Only one process can hold the
 port, so close `test_myo.py` before starting the tool.
 
-**The recorder never imports torch.** It asks a subprocess whether a GPU
-exists, so the app starts, records and predicts identically with torch absent.
+**The recorder never imports torch.** It asks a subprocess whether a GPU exists, and runs the neural net in another one, so the app starts, records and predicts identically with torch absent.
 
 ---
 
@@ -214,7 +213,9 @@ Invariants. Breaking one is a bug, not a trade-off.
 | `explain_votes.py` | rebuilds the DECISION TRAIL side file without re-running a sweep |
 | `myo_raw.py` | the Myo BLE protocol wrapper — **the working communication layer** |
 | `tools/make_ui_guide.py` | regenerates the annotated screenshots in `docs/images/` |
-| `train_torch.py` | **retired** CUDA experiment, kept for the record |
+| **`train_nn.py`** | trains the **neural network** -- a separate second opinion, on CUDA, never part of the answer |
+| `nn_arch.py` / `nn_serve.py` | its architectures, and the subprocess that serves it live |
+| `train_torch.py` | **retired** CUDA experiment, superseded by `train_nn.py`, kept for the record |
 | `datasets/` | recorded data (`_`-prefixed folders are never discovered) |
 | `models/` | the model, the panel, timestamped archives, `reports/` |
 | `exports/` | combined ML bundles |
@@ -249,7 +250,8 @@ python tests\test_gui.py              #  91    python tests\test_sweep_cost.py  
 python tests\test_review.py           #  50    python tests\test_filters.py     #  52
 python tests\test_label_on_graph.py   #  48    python tests\test_predict.py     # 109
 python tests\test_markers.py          #  88    python tests\test_model_spec.py  # 346
-python tests\test_free_take.py        # 255    python tests\test_no_torch.py    #  11
+python tests\test_free_take.py        # 268    python tests\test_no_torch.py    #  11
+python tests\test_nn.py               # 158
 ```
 
 `test_torch.py` needs the GPU; `test_live*.py` need the armband.
