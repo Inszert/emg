@@ -1,0 +1,1483 @@
+{
+  "created_iso": "2026-10-22T11:49:12.613",
+  "dataset_root": "c:\\Users\\danie\\OneDrive\\Po\u010d\u00edta\u010d\\EMG\\datasets",
+  "model_spec": {
+    "version": 1,
+    "voting": {
+      "enabled": true,
+      "mode": "soft",
+      "always": true
+    },
+    "auto": {
+      "enabled": false,
+      "max_per_model": 8
+    },
+    "data": {
+      "include": [],
+      "calibration": "default"
+    },
+    "models": [
+      {
+        "name": "RF-500-leaf3",
+        "kind": "random_forest",
+        "enabled": true,
+        "scaler": "none",
+        "params": {
+          "n_estimators": 500,
+          "max_depth": 0,
+          "min_samples_leaf": 3,
+          "max_features": "sqrt",
+          "class_weight": "none"
+        },
+        "auto": true
+      },
+      {
+        "name": "ET-500",
+        "kind": "extra_trees",
+        "enabled": true,
+        "scaler": "none",
+        "params": {
+          "n_estimators": 500,
+          "max_depth": 0,
+          "min_samples_leaf": 1,
+          "class_weight": "none"
+        },
+        "auto": true
+      },
+      {
+        "name": "svm_rbf",
+        "kind": "svm_rbf",
+        "enabled": true,
+        "scaler": "standard",
+        "params": {
+          "C": 10.0,
+          "gamma": "scale",
+          "kernel": "rbf",
+          "class_weight": "none"
+        },
+        "auto": true
+      },
+      {
+        "name": "lda",
+        "kind": "lda",
+        "enabled": true,
+        "scaler": "standard",
+        "params": {
+          "solver": "lsqr",
+          "shrinkage": "auto"
+        },
+        "auto": true
+      }
+    ],
+    "setup": {
+      "window_s": 1.0,
+      "overlap": 0.75,
+      "representation": "bandpass",
+      "freq_features": false,
+      "feature_set": "level",
+      "exclude": "all"
+    },
+    "chosen_by": "nn_ml_comb_test 20261022-003918: 77.6% window subject-held-out (optimistic), 74.0% nested"
+  },
+  "model_spec_source": "c:\\Users\\danie\\OneDrive\\Po\u010d\u00edta\u010d\\EMG\\models\\model_spec.json",
+  "n_recordings_total": 211,
+  "subjects": [
+    "Barbora",
+    "Betka",
+    "Bruno",
+    "Dano",
+    "Miso"
+  ],
+  "n_sessions": 5,
+  "labels": [
+    "FIST",
+    "OPEN",
+    "REST",
+    "THUMB_UP",
+    "WAVE_LEFT",
+    "WAVE_RIGHT"
+  ],
+  "model_fs": 60.0,
+  "measured_rate_range": [
+    46.470728000789144,
+    51.220841813889116
+  ],
+  "validation": {
+    "protocol": "StratifiedGroupKFold grouped by SUBJECT across 5 wearers: the held-out person's data is never in training, so the winner is chosen for robustness across people rather than for within-subject fit",
+    "grouping": "subject",
+    "grouping_contrast": {
+      "n_splits": 6,
+      "grouping": "recording",
+      "window_accuracy": 0.9684835917178302,
+      "window_accuracy_std": 0.02057366060731854,
+      "window_macro_f1": 0.9591946126717001,
+      "recording_vote_accuracy": 0.9760765550239234,
+      "n_recordings_voted": 209,
+      "fold_accuracies": [
+        0.9702970297029703,
+        0.9572368421052632,
+        0.9825174825174825,
+        0.9295774647887324,
+        0.9930795847750865,
+        0.9781931464174455
+      ],
+      "confusion_matrix": [
+        [
+          301,
+          19,
+          0,
+          5,
+          0,
+          0
+        ],
+        [
+          4,
+          309,
+          2,
+          3,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          327,
+          0,
+          0,
+          0
+        ],
+        [
+          7,
+          9,
+          0,
+          207,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          3,
+          316,
+          0
+        ],
+        [
+          2,
+          2,
+          0,
+          0,
+          0,
+          271
+        ]
+      ]
+    },
+    "n_splits": 5,
+    "note": "Windows overlap, so grouping by recording is required; a random window split would leak and inflate scores.",
+    "subject_independent": {
+      "per_subject": {
+        "Barbora": 0.30952380952380953,
+        "Betka": 0.76875,
+        "Bruno": 0.8258575197889182,
+        "Dano": 0.8252212389380531,
+        "Miso": 0.7456140350877193
+      },
+      "mean": 0.6949933206677,
+      "std": 0.19528133438948966
+    },
+    "subject_independent_note": null
+  },
+  "best": {
+    "stage": "B",
+    "model": "Vote-soft-4",
+    "exclude": "all",
+    "window_s": 1.0,
+    "overlap": 0.75,
+    "representation": "bandpass",
+    "freq_features": false,
+    "feature_set": "level",
+    "n_windows": 1787,
+    "n_features": 50,
+    "n_recordings": 211,
+    "n_splits": 5,
+    "grouping": "subject",
+    "window_accuracy": 0.6949933206677,
+    "window_accuracy_std": 0.19528133438948966,
+    "window_macro_f1": 0.6760261089982272,
+    "recording_vote_accuracy": 0.7368421052631579,
+    "n_recordings_voted": 209,
+    "fold_accuracies": [
+      0.76875,
+      0.7456140350877193,
+      0.8258575197889182,
+      0.8252212389380531,
+      0.30952380952380953
+    ],
+    "confusion_matrix": [
+      [
+        202,
+        113,
+        0,
+        6,
+        4,
+        0
+      ],
+      [
+        99,
+        146,
+        0,
+        20,
+        0,
+        53
+      ],
+      [
+        1,
+        0,
+        242,
+        56,
+        28,
+        0
+      ],
+      [
+        20,
+        65,
+        5,
+        133,
+        0,
+        0
+      ],
+      [
+        1,
+        2,
+        4,
+        1,
+        309,
+        2
+      ],
+      [
+        1,
+        28,
+        0,
+        0,
+        0,
+        246
+      ]
+    ]
+  },
+  "best_per_model": {
+    "Vote-soft-4": {
+      "stage": "B",
+      "model": "Vote-soft-4",
+      "exclude": "all",
+      "window_s": 1.0,
+      "overlap": 0.75,
+      "representation": "bandpass",
+      "freq_features": false,
+      "feature_set": "level",
+      "n_windows": 1787,
+      "n_features": 50,
+      "n_recordings": 211,
+      "n_splits": 5,
+      "grouping": "subject",
+      "window_accuracy": 0.6949933206677,
+      "window_accuracy_std": 0.19528133438948966,
+      "window_macro_f1": 0.6760261089982272,
+      "recording_vote_accuracy": 0.7368421052631579,
+      "n_recordings_voted": 209,
+      "fold_accuracies": [
+        0.76875,
+        0.7456140350877193,
+        0.8258575197889182,
+        0.8252212389380531,
+        0.30952380952380953
+      ],
+      "confusion_matrix": [
+        [
+          202,
+          113,
+          0,
+          6,
+          4,
+          0
+        ],
+        [
+          99,
+          146,
+          0,
+          20,
+          0,
+          53
+        ],
+        [
+          1,
+          0,
+          242,
+          56,
+          28,
+          0
+        ],
+        [
+          20,
+          65,
+          5,
+          133,
+          0,
+          0
+        ],
+        [
+          1,
+          2,
+          4,
+          1,
+          309,
+          2
+        ],
+        [
+          1,
+          28,
+          0,
+          0,
+          0,
+          246
+        ]
+      ]
+    },
+    "ET-500": {
+      "stage": "B",
+      "model": "ET-500",
+      "exclude": "all",
+      "window_s": 1.0,
+      "overlap": 0.75,
+      "representation": "bandpass",
+      "freq_features": false,
+      "feature_set": "level",
+      "n_windows": 1787,
+      "n_features": 50,
+      "n_recordings": 211,
+      "n_splits": 5,
+      "grouping": "subject",
+      "window_accuracy": 0.7736375208444086,
+      "window_accuracy_std": 0.17943602780136772,
+      "window_macro_f1": 0.7432296053212178,
+      "recording_vote_accuracy": 0.8325358851674641,
+      "n_recordings_voted": 209,
+      "fold_accuracies": [
+        0.8375,
+        0.8918128654970761,
+        0.8100263852242744,
+        0.9070796460176991,
+        0.4217687074829932
+      ],
+      "confusion_matrix": [
+        [
+          211,
+          103,
+          5,
+          6,
+          0,
+          0
+        ],
+        [
+          65,
+          196,
+          0,
+          5,
+          0,
+          52
+        ],
+        [
+          1,
+          0,
+          301,
+          25,
+          0,
+          0
+        ],
+        [
+          20,
+          58,
+          0,
+          130,
+          15,
+          0
+        ],
+        [
+          0,
+          1,
+          2,
+          0,
+          316,
+          0
+        ],
+        [
+          1,
+          13,
+          0,
+          0,
+          1,
+          260
+        ]
+      ]
+    },
+    "RF-500-leaf3": {
+      "stage": "A",
+      "model": "RF-500-leaf3",
+      "exclude": "all",
+      "window_s": 1.0,
+      "overlap": 0.75,
+      "representation": "bandpass",
+      "freq_features": false,
+      "feature_set": "level",
+      "n_windows": 1787,
+      "n_features": 50,
+      "n_recordings": 211,
+      "n_splits": 5,
+      "grouping": "subject",
+      "window_accuracy": 0.7662535729912829,
+      "window_accuracy_std": 0.1596283003767169,
+      "window_macro_f1": 0.7411108038329315,
+      "recording_vote_accuracy": 0.8229665071770335,
+      "n_recordings_voted": 209,
+      "fold_accuracies": [
+        0.825,
+        0.8947368421052632,
+        0.7862796833773087,
+        0.8694690265486725,
+        0.4557823129251701
+      ],
+      "confusion_matrix": [
+        [
+          223,
+          80,
+          9,
+          7,
+          3,
+          3
+        ],
+        [
+          35,
+          177,
+          0,
+          37,
+          0,
+          69
+        ],
+        [
+          1,
+          0,
+          307,
+          19,
+          0,
+          0
+        ],
+        [
+          16,
+          23,
+          0,
+          138,
+          45,
+          1
+        ],
+        [
+          2,
+          0,
+          5,
+          0,
+          312,
+          0
+        ],
+        [
+          1,
+          31,
+          0,
+          0,
+          5,
+          238
+        ]
+      ]
+    },
+    "lda": {
+      "stage": "B",
+      "model": "lda",
+      "exclude": "all",
+      "window_s": 1.0,
+      "overlap": 0.75,
+      "representation": "bandpass",
+      "freq_features": false,
+      "feature_set": "level",
+      "n_windows": 1787,
+      "n_features": 50,
+      "n_recordings": 211,
+      "n_splits": 5,
+      "grouping": "subject",
+      "window_accuracy": 0.6311429183837161,
+      "window_accuracy_std": 0.1930046887883194,
+      "window_macro_f1": 0.6100649794083214,
+      "recording_vote_accuracy": 0.6889952153110048,
+      "n_recordings_voted": 209,
+      "fold_accuracies": [
+        0.665625,
+        0.631578947368421,
+        0.7889182058047494,
+        0.8008849557522124,
+        0.2687074829931973
+      ],
+      "confusion_matrix": [
+        [
+          183,
+          131,
+          0,
+          7,
+          4,
+          0
+        ],
+        [
+          141,
+          114,
+          0,
+          19,
+          0,
+          44
+        ],
+        [
+          2,
+          0,
+          200,
+          87,
+          38,
+          0
+        ],
+        [
+          18,
+          62,
+          5,
+          138,
+          0,
+          0
+        ],
+        [
+          2,
+          4,
+          5,
+          5,
+          303,
+          0
+        ],
+        [
+          1,
+          43,
+          0,
+          0,
+          0,
+          231
+        ]
+      ]
+    },
+    "svm_rbf": {
+      "stage": "B",
+      "model": "svm_rbf",
+      "exclude": "all",
+      "window_s": 1.0,
+      "overlap": 0.75,
+      "representation": "bandpass",
+      "freq_features": false,
+      "feature_set": "level",
+      "n_windows": 1787,
+      "n_features": 50,
+      "n_recordings": 211,
+      "n_splits": 5,
+      "grouping": "subject",
+      "window_accuracy": 0.6480843728248852,
+      "window_accuracy_std": 0.19816315246605165,
+      "window_macro_f1": 0.6108707236504493,
+      "recording_vote_accuracy": 0.6842105263157895,
+      "n_recordings_voted": 209,
+      "fold_accuracies": [
+        0.853125,
+        0.6403508771929824,
+        0.8073878627968337,
+        0.6504424778761062,
+        0.2891156462585034
+      ],
+      "confusion_matrix": [
+        [
+          202,
+          108,
+          5,
+          2,
+          5,
+          3
+        ],
+        [
+          105,
+          98,
+          0,
+          54,
+          0,
+          61
+        ],
+        [
+          35,
+          0,
+          241,
+          50,
+          1,
+          0
+        ],
+        [
+          54,
+          83,
+          24,
+          62,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          3,
+          0,
+          312,
+          3
+        ],
+        [
+          0,
+          12,
+          0,
+          0,
+          1,
+          262
+        ]
+      ]
+    }
+  },
+  "sweep": [
+    {
+      "stage": "B",
+      "model": "Vote-soft-4",
+      "exclude": "all",
+      "window_s": 1.0,
+      "overlap": 0.75,
+      "representation": "bandpass",
+      "freq_features": false,
+      "feature_set": "level",
+      "n_windows": 1787,
+      "n_features": 50,
+      "n_recordings": 211,
+      "n_splits": 5,
+      "grouping": "subject",
+      "window_accuracy": 0.6949933206677,
+      "window_accuracy_std": 0.19528133438948966,
+      "window_macro_f1": 0.6760261089982272,
+      "recording_vote_accuracy": 0.7368421052631579,
+      "n_recordings_voted": 209,
+      "fold_accuracies": [
+        0.76875,
+        0.7456140350877193,
+        0.8258575197889182,
+        0.8252212389380531,
+        0.30952380952380953
+      ],
+      "confusion_matrix": [
+        [
+          202,
+          113,
+          0,
+          6,
+          4,
+          0
+        ],
+        [
+          99,
+          146,
+          0,
+          20,
+          0,
+          53
+        ],
+        [
+          1,
+          0,
+          242,
+          56,
+          28,
+          0
+        ],
+        [
+          20,
+          65,
+          5,
+          133,
+          0,
+          0
+        ],
+        [
+          1,
+          2,
+          4,
+          1,
+          309,
+          2
+        ],
+        [
+          1,
+          28,
+          0,
+          0,
+          0,
+          246
+        ]
+      ]
+    },
+    {
+      "stage": "B",
+      "model": "ET-500",
+      "exclude": "all",
+      "window_s": 1.0,
+      "overlap": 0.75,
+      "representation": "bandpass",
+      "freq_features": false,
+      "feature_set": "level",
+      "n_windows": 1787,
+      "n_features": 50,
+      "n_recordings": 211,
+      "n_splits": 5,
+      "grouping": "subject",
+      "window_accuracy": 0.7736375208444086,
+      "window_accuracy_std": 0.17943602780136772,
+      "window_macro_f1": 0.7432296053212178,
+      "recording_vote_accuracy": 0.8325358851674641,
+      "n_recordings_voted": 209,
+      "fold_accuracies": [
+        0.8375,
+        0.8918128654970761,
+        0.8100263852242744,
+        0.9070796460176991,
+        0.4217687074829932
+      ],
+      "confusion_matrix": [
+        [
+          211,
+          103,
+          5,
+          6,
+          0,
+          0
+        ],
+        [
+          65,
+          196,
+          0,
+          5,
+          0,
+          52
+        ],
+        [
+          1,
+          0,
+          301,
+          25,
+          0,
+          0
+        ],
+        [
+          20,
+          58,
+          0,
+          130,
+          15,
+          0
+        ],
+        [
+          0,
+          1,
+          2,
+          0,
+          316,
+          0
+        ],
+        [
+          1,
+          13,
+          0,
+          0,
+          1,
+          260
+        ]
+      ]
+    },
+    {
+      "stage": "A",
+      "model": "RF-500-leaf3",
+      "exclude": "all",
+      "window_s": 1.0,
+      "overlap": 0.75,
+      "representation": "bandpass",
+      "freq_features": false,
+      "feature_set": "level",
+      "n_windows": 1787,
+      "n_features": 50,
+      "n_recordings": 211,
+      "n_splits": 5,
+      "grouping": "subject",
+      "window_accuracy": 0.7662535729912829,
+      "window_accuracy_std": 0.1596283003767169,
+      "window_macro_f1": 0.7411108038329315,
+      "recording_vote_accuracy": 0.8229665071770335,
+      "n_recordings_voted": 209,
+      "fold_accuracies": [
+        0.825,
+        0.8947368421052632,
+        0.7862796833773087,
+        0.8694690265486725,
+        0.4557823129251701
+      ],
+      "confusion_matrix": [
+        [
+          223,
+          80,
+          9,
+          7,
+          3,
+          3
+        ],
+        [
+          35,
+          177,
+          0,
+          37,
+          0,
+          69
+        ],
+        [
+          1,
+          0,
+          307,
+          19,
+          0,
+          0
+        ],
+        [
+          16,
+          23,
+          0,
+          138,
+          45,
+          1
+        ],
+        [
+          2,
+          0,
+          5,
+          0,
+          312,
+          0
+        ],
+        [
+          1,
+          31,
+          0,
+          0,
+          5,
+          238
+        ]
+      ]
+    },
+    {
+      "stage": "B",
+      "model": "lda",
+      "exclude": "all",
+      "window_s": 1.0,
+      "overlap": 0.75,
+      "representation": "bandpass",
+      "freq_features": false,
+      "feature_set": "level",
+      "n_windows": 1787,
+      "n_features": 50,
+      "n_recordings": 211,
+      "n_splits": 5,
+      "grouping": "subject",
+      "window_accuracy": 0.6311429183837161,
+      "window_accuracy_std": 0.1930046887883194,
+      "window_macro_f1": 0.6100649794083214,
+      "recording_vote_accuracy": 0.6889952153110048,
+      "n_recordings_voted": 209,
+      "fold_accuracies": [
+        0.665625,
+        0.631578947368421,
+        0.7889182058047494,
+        0.8008849557522124,
+        0.2687074829931973
+      ],
+      "confusion_matrix": [
+        [
+          183,
+          131,
+          0,
+          7,
+          4,
+          0
+        ],
+        [
+          141,
+          114,
+          0,
+          19,
+          0,
+          44
+        ],
+        [
+          2,
+          0,
+          200,
+          87,
+          38,
+          0
+        ],
+        [
+          18,
+          62,
+          5,
+          138,
+          0,
+          0
+        ],
+        [
+          2,
+          4,
+          5,
+          5,
+          303,
+          0
+        ],
+        [
+          1,
+          43,
+          0,
+          0,
+          0,
+          231
+        ]
+      ]
+    },
+    {
+      "stage": "B",
+      "model": "svm_rbf",
+      "exclude": "all",
+      "window_s": 1.0,
+      "overlap": 0.75,
+      "representation": "bandpass",
+      "freq_features": false,
+      "feature_set": "level",
+      "n_windows": 1787,
+      "n_features": 50,
+      "n_recordings": 211,
+      "n_splits": 5,
+      "grouping": "subject",
+      "window_accuracy": 0.6480843728248852,
+      "window_accuracy_std": 0.19816315246605165,
+      "window_macro_f1": 0.6108707236504493,
+      "recording_vote_accuracy": 0.6842105263157895,
+      "n_recordings_voted": 209,
+      "fold_accuracies": [
+        0.853125,
+        0.6403508771929824,
+        0.8073878627968337,
+        0.6504424778761062,
+        0.2891156462585034
+      ],
+      "confusion_matrix": [
+        [
+          202,
+          108,
+          5,
+          2,
+          5,
+          3
+        ],
+        [
+          105,
+          98,
+          0,
+          54,
+          0,
+          61
+        ],
+        [
+          35,
+          0,
+          241,
+          50,
+          1,
+          0
+        ],
+        [
+          54,
+          83,
+          24,
+          62,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          3,
+          0,
+          312,
+          3
+        ],
+        [
+          0,
+          12,
+          0,
+          0,
+          1,
+          262
+        ]
+      ]
+    }
+  ],
+  "screen": [
+    {
+      "stage": "A1",
+      "model": "RF-500-leaf3",
+      "exclude": "all",
+      "window_s": 1.0,
+      "overlap": 0.75,
+      "representation": "bandpass",
+      "feature_set": "level",
+      "freq_features": false,
+      "n_windows": 831,
+      "n_features": 50,
+      "n_recordings": 211,
+      "screen_fraction": 0.5,
+      "windows_before_dedup": 1846,
+      "windows_after_dedup": 1787,
+      "n_splits": 5,
+      "grouping": "subject",
+      "window_accuracy": 0.7399877289727259,
+      "window_accuracy_std": 0.17686424204486553,
+      "window_macro_f1": 0.7152629218711889,
+      "recording_vote_accuracy": 0.7942583732057417,
+      "n_recordings_voted": 209,
+      "fold_accuracies": [
+        0.7702702702702703,
+        0.8653846153846154,
+        0.8873239436619719,
+        0.7784090909090909,
+        0.39855072463768115
+      ],
+      "confusion_matrix": [
+        [
+          101,
+          40,
+          5,
+          7,
+          0,
+          0
+        ],
+        [
+          21,
+          86,
+          0,
+          15,
+          0,
+          28
+        ],
+        [
+          1,
+          0,
+          134,
+          13,
+          0,
+          0
+        ],
+        [
+          17,
+          10,
+          0,
+          60,
+          17,
+          0
+        ],
+        [
+          2,
+          0,
+          2,
+          0,
+          144,
+          0
+        ],
+        [
+          1,
+          18,
+          0,
+          0,
+          4,
+          105
+        ]
+      ]
+    }
+  ],
+  "elapsed_s": 48.83862319996115,
+  "cost_controls": {
+    "dedupe_windows": true,
+    "screen_fraction": 0.5,
+    "screen_probes": [
+      "RF-500-leaf3"
+    ],
+    "shortlist_size": 1,
+    "shortlist_random": 8,
+    "setups_total": 1,
+    "setups_fully_probed": 1,
+    "collapsed_excludes": {},
+    "note": "Stage A1 screened every setup on 50 % of the deduped windows with cheap probes; only the shortlist was probed on full data. A1 rows are in 'screen' and are NOT comparable with 'sweep' rows."
+  },
+  "calibration": {
+    "mode": "affine",
+    "requested": "affine",
+    "target_level": 600.0,
+    "calibrated_subjects": [
+      "Barbora",
+      "Betka",
+      "Bruno",
+      "Dano",
+      "Miso"
+    ],
+    "uncalibrated_subjects": [],
+    "records": {
+      "Barbora": {
+        "version": 1,
+        "person_id": "Barbora",
+        "session_id": "session_01",
+        "created_unix": 1792662455.307961,
+        "created_iso": "2026-10-22T11:47:35.307",
+        "emg_mode": "filtered",
+        "fs": 49.85398905914188,
+        "channel_names": [
+          "CH1",
+          "CH2",
+          "CH3",
+          "CH4",
+          "CH5",
+          "CH6",
+          "CH7",
+          "CH8"
+        ],
+        "rest": [
+          23.0,
+          46.0,
+          24.0,
+          19.0,
+          25.0,
+          25.0,
+          25.0,
+          25.0
+        ],
+        "reference": [
+          650.25,
+          378.0,
+          205.0,
+          462.25,
+          929.0,
+          596.0,
+          716.25,
+          596.0
+        ],
+        "rest_level": 26.5,
+        "reference_level": 566.59375,
+        "contrast": 21.380896226415093,
+        "target_level": 600.0,
+        "n_rest_samples": 5656,
+        "n_effort_samples": 5656,
+        "rest_percentile": 50.0,
+        "effort_percentile": 95.0,
+        "source": "derived_from_recordings",
+        "notes": "percentiles 10/95 over 43 recordings (5656 samples), labels not used",
+        "device": "Myo armband",
+        "arm_worn_on": "right",
+        "handedness": "right",
+        "derived_from": {
+          "n_recordings": 43,
+          "n_samples": 5656,
+          "rest_percentile": 10.0,
+          "effort_percentile": 95.0,
+          "sessions": [
+            "session_01"
+          ],
+          "uses_labels": false
+        }
+      },
+      "Betka": {
+        "version": 1,
+        "person_id": "Betka",
+        "session_id": "session_01",
+        "created_unix": 1792662455.3096156,
+        "created_iso": "2026-10-22T11:47:35.309",
+        "emg_mode": "filtered",
+        "fs": 49.86079061547024,
+        "channel_names": [
+          "CH1",
+          "CH2",
+          "CH3",
+          "CH4",
+          "CH5",
+          "CH6",
+          "CH7",
+          "CH8"
+        ],
+        "rest": [
+          19.0,
+          21.0,
+          22.0,
+          22.0,
+          22.0,
+          22.0,
+          26.0,
+          20.0
+        ],
+        "reference": [
+          397.0,
+          528.0,
+          285.0,
+          280.0,
+          910.5,
+          1077.0,
+          496.0,
+          471.0
+        ],
+        "rest_level": 21.75,
+        "reference_level": 555.5625,
+        "contrast": 25.54310344827586,
+        "target_level": 600.0,
+        "n_rest_samples": 5676,
+        "n_effort_samples": 5676,
+        "rest_percentile": 50.0,
+        "effort_percentile": 95.0,
+        "source": "derived_from_recordings",
+        "notes": "percentiles 10/95 over 41 recordings (5676 samples), labels not used",
+        "device": "Myo armband",
+        "arm_worn_on": "right",
+        "handedness": "right",
+        "derived_from": {
+          "n_recordings": 41,
+          "n_samples": 5676,
+          "rest_percentile": 10.0,
+          "effort_percentile": 95.0,
+          "sessions": [
+            "session_01"
+          ],
+          "uses_labels": false
+        }
+      },
+      "Bruno": {
+        "version": 1,
+        "person_id": "Bruno",
+        "session_id": "session_01",
+        "created_unix": 1792662455.3119118,
+        "created_iso": "2026-10-22T11:47:35.311",
+        "emg_mode": "filtered",
+        "fs": 49.77776089892548,
+        "channel_names": [
+          "CH1",
+          "CH2",
+          "CH3",
+          "CH4",
+          "CH5",
+          "CH6",
+          "CH7",
+          "CH8"
+        ],
+        "rest": [
+          19.0,
+          21.0,
+          21.0,
+          21.0,
+          24.0,
+          91.0,
+          77.0,
+          23.0
+        ],
+        "reference": [
+          615.0,
+          1220.0,
+          694.5499999999984,
+          511.84999999999945,
+          1392.8499999999995,
+          1181.0,
+          695.8499999999995,
+          617.0
+        ],
+        "rest_level": 37.125,
+        "reference_level": 866.0124999999996,
+        "contrast": 23.326936026936014,
+        "target_level": 600.0,
+        "n_rest_samples": 6764,
+        "n_effort_samples": 6764,
+        "rest_percentile": 50.0,
+        "effort_percentile": 95.0,
+        "source": "derived_from_recordings",
+        "notes": "percentiles 10/95 over 43 recordings (6764 samples), labels not used",
+        "device": "Myo armband",
+        "arm_worn_on": "right",
+        "handedness": "right",
+        "derived_from": {
+          "n_recordings": 43,
+          "n_samples": 6764,
+          "rest_percentile": 10.0,
+          "effort_percentile": 95.0,
+          "sessions": [
+            "session_01"
+          ],
+          "uses_labels": false
+        }
+      },
+      "Dano": {
+        "version": 1,
+        "person_id": "Dano",
+        "session_id": "session_01",
+        "created_unix": 1792662455.314404,
+        "created_iso": "2026-10-22T11:47:35.314",
+        "emg_mode": "filtered",
+        "fs": 49.89053937200666,
+        "channel_names": [
+          "CH1",
+          "CH2",
+          "CH3",
+          "CH4",
+          "CH5",
+          "CH6",
+          "CH7",
+          "CH8"
+        ],
+        "rest": [
+          20.0,
+          22.0,
+          21.0,
+          20.0,
+          22.0,
+          25.0,
+          20.0,
+          19.0
+        ],
+        "reference": [
+          553.0999999999995,
+          657.0999999999995,
+          154.0,
+          219.0,
+          919.0999999999995,
+          992.0,
+          364.0,
+          404.09999999999945
+        ],
+        "rest_level": 21.125,
+        "reference_level": 532.7999999999997,
+        "contrast": 25.221301775147918,
+        "target_level": 600.0,
+        "n_rest_samples": 7739,
+        "n_effort_samples": 7739,
+        "rest_percentile": 50.0,
+        "effort_percentile": 95.0,
+        "source": "derived_from_recordings",
+        "notes": "percentiles 10/95 over 44 recordings (7739 samples), labels not used",
+        "device": "Myo armband",
+        "arm_worn_on": "right",
+        "handedness": "right",
+        "derived_from": {
+          "n_recordings": 44,
+          "n_samples": 7739,
+          "rest_percentile": 10.0,
+          "effort_percentile": 95.0,
+          "sessions": [
+            "session_01"
+          ],
+          "uses_labels": false
+        }
+      },
+      "Miso": {
+        "version": 1,
+        "person_id": "Miso",
+        "session_id": "session_01",
+        "created_unix": 1792662455.3167775,
+        "created_iso": "2026-10-22T11:47:35.316",
+        "emg_mode": "filtered",
+        "fs": 49.89664724811354,
+        "channel_names": [
+          "CH1",
+          "CH2",
+          "CH3",
+          "CH4",
+          "CH5",
+          "CH6",
+          "CH7",
+          "CH8"
+        ],
+        "rest": [
+          30.0,
+          21.0,
+          21.0,
+          22.0,
+          23.0,
+          98.0,
+          50.0,
+          34.0
+        ],
+        "reference": [
+          465.0,
+          336.0,
+          91.0,
+          197.0,
+          1054.0,
+          836.0,
+          349.0,
+          282.0
+        ],
+        "rest_level": 37.375,
+        "reference_level": 451.25,
+        "contrast": 12.073578595317725,
+        "target_level": 600.0,
+        "n_rest_samples": 5981,
+        "n_effort_samples": 5981,
+        "rest_percentile": 50.0,
+        "effort_percentile": 95.0,
+        "source": "derived_from_recordings",
+        "notes": "percentiles 10/95 over 40 recordings (5981 samples), labels not used",
+        "device": "Myo armband",
+        "arm_worn_on": "right",
+        "handedness": "right",
+        "derived_from": {
+          "n_recordings": 40,
+          "n_samples": 5981,
+          "rest_percentile": 10.0,
+          "effort_percentile": 95.0,
+          "sessions": [
+            "session_01"
+          ],
+          "uses_labels": false
+        }
+      }
+    },
+    "protocol_note": "A calibrated subject-grouped score is not zero-shot: the held-out wearer's own unlabelled signal set their gain. It answers 'how well does this work on a new wearer who calibrates first'. Compare against the --calibration off run for the zero-shot number."
+  },
+  "confound": {
+    "majority_class": 0.182988248461108,
+    "dc_only_control": {
+      "n_features": 8,
+      "feature_names": [
+        "CH1_mean",
+        "CH2_mean",
+        "CH3_mean",
+        "CH4_mean",
+        "CH5_mean",
+        "CH6_mean",
+        "CH7_mean",
+        "CH8_mean"
+      ],
+      "grouping": "subject",
+      "window_accuracy": 0.7464141055629343,
+      "recording_vote_accuracy": 0.784688995215311
+    },
+    "warning": "Each active gesture in this dataset is a single continuous take, so label is confounded with electrode state and wall-clock block. Compare any score against dc_only_control before reading it as gesture recognition. See docs/EDA.md."
+  }
+}

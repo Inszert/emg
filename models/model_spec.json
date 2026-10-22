@@ -1,54 +1,78 @@
 {
- "version": 1,
- "voting": {
-  "enabled": true,
-  "mode": "soft",
-  "always": true
- },
- "auto": {
-  "enabled": false,
-  "max_per_model": 8
- },
- "data": {
-  "include": [],
-  "calibration": "default"
- },
- "setup": {
-  "window_s": 1.0,
-  "overlap": 0.75,
-  "representation": "bandpass",
-  "freq_features": false,
-  "feature_set": "level",
-  "exclude": "all"
- },
- "models": [
-  {
-   "name": "RF-500-leaf3",
-   "kind": "random_forest",
-   "enabled": true,
-   "scaler": "none",
-   "params": {
-    "n_estimators": 500,
-    "max_depth": 0,
-    "min_samples_leaf": 3,
-    "max_features": "sqrt",
-    "class_weight": "none"
-   },
-   "auto": true
+  "version": 1,
+  "voting": {
+    "enabled": true,
+    "mode": "soft",
+    "always": true
   },
-  {
-   "name": "ET-500",
-   "kind": "extra_trees",
-   "enabled": true,
-   "scaler": "none",
-   "params": {
-    "n_estimators": 500,
-    "max_depth": 0,
-    "min_samples_leaf": 1,
-    "class_weight": "none"
-   },
-   "auto": true
-  }
- ],
- "chosen_by": "nn_ml_comb_test 20261022-003918: 77.6% window subject-held-out (optimistic), 74.0% nested"
+  "auto": {
+    "enabled": false,
+    "max_per_model": 8
+  },
+  "data": {
+    "include": [],
+    "calibration": "default"
+  },
+  "models": [
+    {
+      "name": "RF-500-leaf3",
+      "kind": "random_forest",
+      "enabled": true,
+      "scaler": "none",
+      "params": {
+        "n_estimators": 500,
+        "max_depth": 0,
+        "min_samples_leaf": 3,
+        "max_features": "sqrt",
+        "class_weight": "none"
+      },
+      "auto": true
+    },
+    {
+      "name": "ET-500",
+      "kind": "extra_trees",
+      "enabled": true,
+      "scaler": "none",
+      "params": {
+        "n_estimators": 500,
+        "max_depth": 0,
+        "min_samples_leaf": 1,
+        "class_weight": "none"
+      },
+      "auto": true
+    },
+    {
+      "name": "svm_rbf",
+      "kind": "svm_rbf",
+      "enabled": true,
+      "scaler": "standard",
+      "params": {
+        "C": 10.0,
+        "gamma": "scale",
+        "kernel": "rbf",
+        "class_weight": "none"
+      },
+      "auto": true
+    },
+    {
+      "name": "lda",
+      "kind": "lda",
+      "enabled": true,
+      "scaler": "standard",
+      "params": {
+        "solver": "lsqr",
+        "shrinkage": "auto"
+      },
+      "auto": true
+    }
+  ],
+  "setup": {
+    "window_s": 1.0,
+    "overlap": 0.75,
+    "representation": "bandpass",
+    "freq_features": false,
+    "feature_set": "level",
+    "exclude": "all"
+  },
+  "chosen_by": "nn_ml_comb_test 20261022-003918: 77.6% window subject-held-out (optimistic), 74.0% nested"
 }
