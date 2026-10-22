@@ -56,7 +56,7 @@ This answers two questions:
 2. How does it make the classifier work for a new wearer **without retraining
    the model every time?**
 
-It supersedes the placeholder in [`docs/EDA.md`](docs/EDA.md) §11, and it
+It supersedes the placeholder in [`docs/EDA.md`](EDA.md) §11, and it
 answers the open question that section left standing. The headline is that
 **the obvious scheme — normalise each wearer's amplitude — would do almost
 nothing on this hardware**, and the measurements below are why.

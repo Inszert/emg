@@ -49,6 +49,16 @@ FS = 50.0
 TMP = []
 
 
+
+def app_source_text():
+    """The whole application: the entry point plus every emg_app module."""
+    import glob
+    paths = [os.path.join(PROJECT, "emg_dataset_tool.py")] + sorted(
+        glob.glob(os.path.join(PROJECT, "emg_app", "**", "*.py"),
+                  recursive=True))
+    return "\n".join(open(p, encoding="utf-8").read() for p in paths)
+
+
 def check(name, cond, detail=""):
     global PASS, FAIL
     if cond:
@@ -917,8 +927,7 @@ window.free_capture = None
 
 check("the retrain command passes the mode to the trainer, so the "
        "subprocess cannot calibrate differently from the GUI",
-      "--calibration" in open(os.path.join(PROJECT, "emg_dataset_tool.py"),
-                              encoding="utf-8").read())
+      "--calibration" in app_source_text())
 window.close()
 window.deleteLater()
 

@@ -202,7 +202,7 @@ check("slice copies data (no view aliasing)",
 
 print("\n--- link stability settings (no hardware needed) ---")
 import importlib                                                 # noqa: E402
-import myo_raw                                                   # noqa: E402
+from emg_app.myo import myo_raw                                  # noqa: E402
 
 importlib.reload(myo_raw)
 check("myo_raw keeps its original defaults",

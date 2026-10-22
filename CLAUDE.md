@@ -137,68 +137,96 @@ Rules — the first two were learned the hard way on real hardware:
    the console 200×/s. No existing behaviour changes.
 2. `vibrate()` used Python 2 `xrange` and always raised `NameError`;
    now `range`.
+3. (2026-10-22) moved to `emg_app/myo/` with `common.py`; the only edit is
+   its import line, `from emg_app.myo.common import *`.
 
-`common.py`, `myo.py` (the old k-NN demo) and `test_myo.py` are untouched and
-still run.
+`common.py` is untouched. `legacy/myo.py` (the old k-NN demo) and
+`legacy/test_myo.py` changed only their imports (a project-root `sys.path`
+line and `emg_app.myo.*`) and still run.
 
 ## 4. Important files
 
+**Project layout (reorganised 2026-10-22).** Only the entry point and the
+top-level docs live in the root; everything else is in a folder.
+
+```
+emg_dataset_tool.py   THE ENTRY POINT and stable import surface (see below)
+emg_app/              the application, as a package -- emg_app/README.md
+training/             trainers, the job runner, the NN worker, the comb test
+tools/                report / screenshot generators
+tests/                runnable check scripts
+docs/                 every other document
+legacy/               retired code kept for the record (not run)
+datasets/ models/ exports/   data
+```
+
 | File | Role |
 |---|---|
-| **`emg_dataset_tool.py`** | The whole application. Single file by design, internally split into numbered sections so it can be broken into modules later. |
-| **`train_model.py`** | **Three-stage** model sweep (screen → shortlist probe → full) + honest validation + saves `models/gesture_model.joblib`. Imports the data layer from `emg_dataset_tool`. Builds its candidates from `models/model_spec.json` when the GUI passes `--spec`. See §8g for the cost controls. |
-| **`how_to_fix_long_training.md`** | **Why the sweep took 3h 16m and what was done about it.** The four issues, the measured regret of shortlisting, and what dedup costs in accuracy. Read it before touching `DEDUPE_WINDOWS` or `A2_SHORTLIST`. See §8g. |
-| **`explain_votes.py`** | Rebuilds `models/gesture_panel.joblib` for the model that is *already* saved, without re-running the sweep. For a model trained before the panel existed, or a panel that was deleted. `--json` also writes `models/reports/decisions.json`. See §8e. |
-| **`train_job.py`** | **The background job runner.** Every trainer the GUI starts runs through it, detached, so closing the app does not stop training; also chains ML + NN. Talks to the GUI only through files in `models/jobs/<id>/`. See §8m. |
-| **`train_nn.py`** | **The neural-net trainer (CUDA).** The separate second opinion: sweeps five small sequence architectures under the *same* protocol as `train_model.py` (dedup, subject-grouped folds, calibration, DC-only control) and saves `models/gesture_nn.pt` + a plain-JSON stats sidecar. Its output is **never** fused into the deployed answer. See §8L. |
-| **`nn_arch.py`** | The five architectures, and the only place a layer is defined. Imports **torch and nothing else** — shared by the trainer and the inference worker so a checkpoint cannot be rebuilt onto a differently-wired net. §8L. |
-| **`nn_serve.py`** | **The live inference worker.** The only process that imports torch: loads the checkpoint and answers one window per line on stdin/stdout. This is what lets the net run on CUDA while the recorder keeps its no-torch invariant. §8L. |
-| `train_torch.py` | **RETIRED and SUPERSEDED by `train_nn.py`.** The original CUDA neural-net experiment (1D-CNN / LSTM / CNN-LSTM). Kept for the record only: it lost to a plain LDA and, unlike `train_nn.py`, it had no dedup and no subject-grouped selection, so its numbers are not comparable with anything current. See §8b. |
-| `myo_raw.py` | Myo BLE protocol wrapper. **The working communication layer.** |
-| `common.py` | `pack`/`unpack` helpers used by `myo_raw.py`. |
-| `myo.py` | Original k-NN pose demo. Not part of the tool; kept for reference. |
-| `test_myo.py` | Original matplotlib live monitor. Kept as the reference for "the connection definitely works like this". |
-| `GUIDE.md` | **User-facing manual**: what every file and setting does, and how to set the tool up for different jobs. |
-| **`docs/MANUAL.md`** | **The complete manual.** Install, architecture, the interface, the ML pipeline, the honesty machinery, and a condensed engineering record of every problem solved. Start here for the whole picture; this file stays the place for invariants. |
-| **`docs/UI_GUIDE.md`** | **The UI, screen by screen, with annotated screenshots.** Every arrow is placed from the widget's real geometry, so a renamed control breaks the generator instead of producing a picture that points at the wrong thing. |
-| `tools/make_ui_guide.py` | Regenerates `docs/images/`. Points `MYO_PORT` at a port that cannot exist (no hardware is touched) and renders with `WA_DontShowOnScreen`. Uses the **native** Qt platform plugin, not `offscreen` — offscreen ships no font database and renders every glyph as a tofu box. |
+| **`emg_dataset_tool.py`** | **The entry point** (`python emg_dataset_tool.py`) **and the one import surface**: it re-exports every name in `emg_app`, so `import emg_dataset_tool as T` works as it did when the whole tool was this one file. USER CONFIGURATION names are forwarded live in both directions -- `T.CALIBRATION_MODE = "off"` sets `emg_app.config.CALIBRATION_MODE`, which is what every module reads. |
+| **`emg_app/`** | The application, split by topic (it was one 21 400-line file until 2026-10-22). **Module map and the two rules that keep it correct: `emg_app/README.md`.** Settings are read as `cfg.NAME` at call time, never copied; imports point one way (config → data layer → acquisition/neural/jobs → prediction → gui); the data layer imports no Qt and no torch. `MainWindow` is `gui/main_window/window.py` plus one mixin per feature. |
+| **`training/train_model.py`** | **Three-stage** model sweep (screen → shortlist probe → full) + honest validation + saves `models/gesture_model.joblib`. Imports the data layer from `emg_dataset_tool`. Builds its candidates from `models/model_spec.json` when the GUI passes `--spec`; honours a pinned `setup` (§8n). See §8g for the cost controls. |
+| **`training/train_nn.py`** | **The neural-net trainer (CUDA).** The separate second opinion, under the *same* protocol as `train_model.py`; saves `models/gesture_nn.pt` + a plain-JSON stats sidecar. Its output is **never** fused into the deployed answer. See §8L. |
+| **`training/train_job.py`** | **The background job runner.** Every trainer the GUI starts runs through it, detached, so closing the app does not stop training; also chains ML + NN. Talks to the GUI only through files in `models/jobs/<id>/`. See §8m. |
+| **`training/explain_votes.py`** | Rebuilds `models/gesture_panel.joblib` for the model that is *already* saved, without re-running the sweep. `--json` also writes `models/reports/decisions.json`. See §8e. |
+| **`training/nn_arch.py`** | The NN architectures, and the only place a layer is defined. Imports **torch and nothing else** — shared by the trainer and the inference worker. §8L. |
+| **`training/nn_serve.py`** | **The live inference worker.** The only process that imports torch; the app starts it (`NN_WORKER_SCRIPT`). §8L. |
+| **`training/nn_ml_comb_test.py`** | The ML + NN combination search (§8n), with its plain-text progress view. `tools/comb_test_report.py` turns a run into xlsx/csv + `docs/COMB_TEST.md`. |
+| **`emg_app/myo/myo_raw.py`** | Myo BLE protocol wrapper. **The working communication layer** (§3). `common.py` beside it has the `pack`/`unpack` helpers. |
+| `legacy/` | Retired, kept for the record: `train_torch.py` (**SUPERSEDED by `train_nn.py`**, §8b), `myo.py` (the original k-NN demo), `test_myo.py` (the original matplotlib monitor -- the reference for "the connection definitely works like this"), `myo64.dll` (unused Myo SDK leftover). |
+| `docs/GUIDE.md` | **User-facing manual**: what every file and setting does, and how to set the tool up for different jobs. |
+| **`docs/MANUAL.md`** | **The complete manual.** Install, architecture, the interface, the ML pipeline, the honesty machinery, and a condensed engineering record of every problem solved. |
+| **`docs/UI_GUIDE.md`** | **The UI, screen by screen, with annotated screenshots** (regenerated by `tools/make_ui_guide.py`, which uses the **native** Qt platform plugin — offscreen renders every glyph as a tofu box). |
+| **`docs/COMB_TEST.md`** | The 2026-10-22 ML + NN combination test: every number. §8n. |
+| **`docs/how_to_fix_long_training.md`** | **Why the sweep took 3h 16m and what was done about it.** Read it before touching `DEDUPE_WINDOWS` or `A2_SHORTLIST`. §8g. |
+| **`docs/calib_plan.md`** | **Per-wearer calibration: the design study.** Tier 1 of it is built — §8k; tiers 2–3 are not. |
+| `docs/problems.md`, `docs/recommendation.md` | Earlier problem log and recommendations, kept for the record. |
 | `docs/DATASET.md` | On-disk format, filenames, CSV/NPZ schema. |
-| **`docs/EDA.md`** | **What is actually in `datasets/` — measured.** Inventory, provenance, the class↔take confound, duplicate clips, drift, and numbered recommendations. Read it before quoting any accuracy number. See §8f. |
-| **`calib_plan.md`** | **Per-wearer calibration: the design study.** Measures what calibration would have to fix (rest is identical between wearers, global gain is 0.89×, it is not a band rotation) and concludes a per-channel spatial map is the only candidate. **Tier 1 of it is built — §8k;** tiers 2–3 are not. Its §5 leak gate is the reason §8k's headline number is +5.3 and not +6.6. |
+| **`docs/EDA.md`** | **What is actually in `datasets/` — measured.** Read it before quoting any accuracy number. §8f. |
 | `docs/ARCHITECTURE.md` | Threads, buffers, state machine, data flow. |
 | `docs/ML_PIPELINE.md` | From recordings to a validated model. |
 | `requirements.txt` | Dependencies. |
-| `tests/` | Nineteen runnable check scripts (~2039 checks total, three need the armband). The fifteen that need no hardware were green at **1787/1787** on 2026-10-19. See `tests/README.md`. |
-| `datasets/` | Recorded data (created on first run). Also `<person>/calibration.json` + `calibration_log.jsonl` — the per-wearer calibration, §8k. |
+| `tests/` | Runnable check scripts; see §10 and `tests/README.md`. They import trainers from `training/` themselves. |
+| `datasets/` | Recorded data. Also `<person>/calibration.json` + `calibration_log.jsonl` — the per-wearer calibration, §8k. |
 | `exports/` | Combined ML bundles from the EXPORT button. |
-| `models/` | `gesture_model.joblib` (loaded by the app), `gesture_panel.joblib` (the DECISION TRAIL side file, §8e), timestamped archives, and `reports/` with every sweep's full results. |
+| `models/` | `gesture_model.joblib` (loaded by the app), `gesture_nn.pt` + `.json`, `model_spec.json`, `nn_spec.json`, `gesture_panel.joblib` (§8e), timestamped archives, `reports/`, `comb_test/`, `jobs/`. |
 
-### Section map of `emg_dataset_tool.py`
+### Where the old sections went
+
+The single file's numbered sections map onto modules (full map:
+`emg_app/README.md`):
 
 ```
-USER CONFIGURATION          all tunables, top of file
-SECTION 1  helpers          paths, slugs, unique_path, time formatting
-SECTION 2  signal           moving RMS, envelope, normalisation,
-                            detect_activity, extract_features, windowing,
-                            augmentation
-SECTION 3  quality          check_quality + QualityIssue
-SECTION 4  dataset          Recording, DatasetWriter, loaders, make_windows,
-                            leave_one_person_out, dataset_summary,
-                            Marker + marker log + notes sidecar,
-                            free takes (save_take / list_takes)
-SECTION 5  acquisition      SampleRing, Capture, MyoAcquisition  (no Qt)
-SECTION 5b neural engine    nn_stats_path/load_nn_stats, the line protocol,
-                            NeuralPrediction, NeuralEngine  (no Qt, NO torch)
-SECTION 6  sequence         build_plan, SequenceController         (no Qt)
-SECTION 7  GUI              theme, EmgPlotWidget, StatusBanner,
-                            QualityDialog, TrimDialog, NeuralStatsDialog,
-                            MainWindow
-SECTION 8  entry point      main()
+USER CONFIGURATION   emg_app/config.py
+SECTION 1  helpers   emg_app/utils.py
+SECTION 2  signal    signal_processing.py, calibration.py (maths), features.py
+SECTION 3  quality   quality.py
+SECTION 4  dataset   recording.py, markers.py, calibration.py (storage),
+                     model_spec.py, compute.py, dataset.py
+SECTION 5  acq.      acquisition.py (+ myo/)
+SECTION 5b neural    neural.py, jobs.py
+SECTION 6  sequence  sequence.py, model_test.py
+SECTION 7  GUI       gui/ (qt, tokens, theme, widgets, plot, decision_trail,
+                     workers, dialogs/, main_window/), decision_panel.py,
+                     prediction.py
+SECTION 8  entry     app.py  (+ emg_dataset_tool.py at the root)
 ```
 
-Sections 1–6 are Qt-free and importable headless — that is what lets a
-training script do `import emg_dataset_tool as T; T.load_dataset(...)` on a
-machine with no display.
+Everything outside `gui/` is Qt-free and importable headless — that is what
+lets a training script do `import emg_dataset_tool as T; T.load_dataset(...)`
+on a machine with no display.
+
+**Rules this adds:**
+
+- **Read settings as `cfg.NAME`, never `from emg_app.config import NAME`.**
+  A from-import copies the value once; the GUI and the tests change settings
+  at runtime, and a copied one would silently keep the old value.
+- **Never write a setting through `globals()`** -- in a split module that
+  rebinds a private copy. `setattr(cfg, name, value)` (what
+  `MainWindow._set_global` does).
+- **Imports point one way.** A lower module never imports a higher one at
+  top level; a type hint that would is imported under `TYPE_CHECKING`.
+- **A new script outside the root** needs the project root on `sys.path`
+  before `import emg_dataset_tool` (see the top of `training/train_model.py`).
 
 ## 5. Data format
 
@@ -479,7 +507,7 @@ for train, test, held_out in T.leave_one_person_out(groups):
 In practice just run the trainer, which does all of this and sweeps models:
 
 ```powershell
-python train_model.py            # saves models/gesture_model.joblib
+python training/train_model.py            # saves models/gesture_model.joblib
 ```
 
 Then the app's LIVE CLASSIFIER panel works: one-shot or continuous mode, the
@@ -602,10 +630,10 @@ It fed the **windowed time series** `(win, 8)` to a neural net instead of the
 hand-crafted feature vector:
 
 ```powershell
-python train_torch.py                     # CUDA, full grid
-python train_torch.py --quick             # one model, one window
-python train_torch.py --device cpu        # no GPU
-python train_torch.py --epochs 80 --kind cnn_lstm --window 0.5
+python legacy/train_torch.py                     # CUDA, full grid
+python legacy/train_torch.py --quick             # one model, one window
+python legacy/train_torch.py --device cpu        # no GPU
+python legacy/train_torch.py --epochs 80 --kind cnn_lstm --window 0.5
 ```
 
 Three architectures (`cnn`, `lstm`, `cnn_lstm`) x three window lengths
@@ -2048,21 +2076,21 @@ These are invariants. Breaking one is a bug, not a trade-off.
 python -m pip install -r requirements.txt     # once
 python emg_dataset_tool.py                    # the application
 python emg_dataset_tool.py --summary          # dataset stats, no GUI
-python test_myo.py                            # original reference monitor
+python legacy/test_myo.py                            # original reference monitor
 
-python train_model.py --spec models\model_spec.json   # THE trainer (CPU)
-python train_model.py --quick --spec models\model_spec.json   # reduced grid
-python train_model.py --no-panel                      # skip the DECISION TRAIL file
-python train_model.py --calibration affine            # per-wearer calibration on (§8k)
-python explain_votes.py                               # rebuild it for the saved model
-python explain_votes.py --json                        # ...and a JSON copy of the trail
+python training/train_model.py --spec models\model_spec.json   # THE trainer (CPU)
+python training/train_model.py --quick --spec models\model_spec.json   # reduced grid
+python training/train_model.py --no-panel                      # skip the DECISION TRAIL file
+python training/train_model.py --calibration affine            # per-wearer calibration on (§8k)
+python training/explain_votes.py                               # rebuild it for the saved model
+python training/explain_votes.py --json                        # ...and a JSON copy of the trail
 
-python train_nn.py                      # THE NEURAL NET (CUDA) -- separate model, §8L
-python train_nn.py --quick              # the default architecture, one window
-python train_nn.py --device cpu         # no GPU
-python train_nn.py --kind tcn --window 0.5          # restrict the grid
-python train_nn.py --calibration off    # reproduce the uncalibrated numbers
-python nn_serve.py --model models\gesture_nn.pt --device auto   # the worker, by hand
+python training/train_nn.py                      # THE NEURAL NET (CUDA) -- separate model, §8L
+python training/train_nn.py --quick              # the default architecture, one window
+python training/train_nn.py --device cpu         # no GPU
+python training/train_nn.py --kind tcn --window 0.5          # restrict the grid
+python training/train_nn.py --calibration off    # reproduce the uncalibrated numbers
+python training/nn_serve.py --model models\gesture_nn.pt --device auto   # the worker, by hand
 
 python tests\test_datalayer.py                # 150 checks, no hardware
 python tests\test_gui.py                      # 91 checks, no hardware

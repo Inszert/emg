@@ -1,4 +1,10 @@
-from myo_raw import MyoRaw
+import os
+import sys
+
+# Kept for reference; the driver now lives in emg_app/myo/.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from emg_app.myo.myo_raw import MyoRaw
 
 import matplotlib.pyplot as plt
 from collections import deque

@@ -70,6 +70,11 @@ from datetime import datetime
 
 import numpy as np
 
+# The project root (one level up) holds emg_dataset_tool and emg_app.
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+
 import emg_dataset_tool as T
 
 # ==============================================================================

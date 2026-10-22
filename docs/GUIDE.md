@@ -33,7 +33,7 @@ python emg_dataset_tool.py
 
 ```powershell
 python emg_dataset_tool.py --summary     # print dataset stats, no GUI
-python test_myo.py                       # the old reference monitor
+python legacy/test_myo.py                       # the old reference monitor
 
 python tests\test_datalayer.py           # 150 checks, no armband needed
 python tests\test_gui.py                 # 91 checks, no armband needed
@@ -113,7 +113,7 @@ the port, close `test_myo.py` (and Myo Connect, if installed) first.
 | `datasets/<person>/calibration_log.jsonl` | Append-only: every calibration that wearer has ever had, including ones you cleared. |
 | `exports/` | Combined ML bundles from EXPORT DATASET. |
 | `models/` | `gesture_model.joblib` (what the app loads), timestamped archives, and `reports/` with every sweep's scores. Created by `train_model.py`. |
-| `models/gesture_panel.joblib` | Every candidate the sweep trained, for MODEL STATS → DECISION TRAIL. Currently 9.5 MB, and it follows what is in MODEL SPEC — it has been as large as 57 MB. The app predicts fine without it and never loads it to predict — delete it freely, or rebuild it with `python explain_votes.py`. |
+| `models/gesture_panel.joblib` | Every candidate the sweep trained, for MODEL STATS → DECISION TRAIL. Currently 9.5 MB, and it follows what is in MODEL SPEC — it has been as large as 57 MB. The app predicts fine without it and never loads it to predict — delete it freely, or rebuild it with `python training/explain_votes.py`. |
 
 ---
 
@@ -160,7 +160,7 @@ the port, close `test_myo.py` (and Myo Connect, if installed) first.
 ## Live prediction — the LIVE CLASSIFIER panel
 
 Right-hand panel, below the recordings list. It only works once you have
-trained a model (`python train_model.py`); with no model it says so and the
+trained a model (`python training/train_model.py`); with no model it says so and the
 buttons stay disabled. **It never shows an invented label or percentage.**
 
 ```
@@ -620,7 +620,7 @@ feature set — that is the point, because only one setup at a time makes the
 seven comparable.
 
 If the section says there is no decision panel, run a retrain (or
-`python explain_votes.py` to build one for the model you already have). The
+`python training/explain_votes.py` to build one for the model you already have). The
 first window after opening the dialog takes a moment while the candidates
 warm up; after that it keeps pace with the classifier.
 
@@ -676,9 +676,9 @@ cannot cancel out. A model trained before this existed shows
 ## Training a model
 
 ```powershell
-python train_model.py              # full sweep, saves the best model
-python train_model.py --quick      # fewer combinations, a minute or two
-python train_model.py --no-save    # evaluate only
+python training/train_model.py              # full sweep, saves the best model
+python training/train_model.py --quick      # fewer combinations, a minute or two
+python training/train_model.py --no-save    # evaluate only
 ```
 
 It sweeps window length, overlap, signal representation, **feature set**,
@@ -811,9 +811,9 @@ Two numbers in NN STATS are worth reading anyway:
 ### Train it yourself
 
 ```powershell
-python train_nn.py                 # the full sweep on the GPU, ~7 minutes
-python train_nn.py --quick         # one architecture, one window
-python train_nn.py --device cpu    # no GPU
+python training/train_nn.py                 # the full sweep on the GPU, ~7 minutes
+python training/train_nn.py --quick         # one architecture, one window
+python training/train_nn.py --device cpu    # no GPU
 ```
 
 It writes `models/gesture_nn.pt` plus `models/gesture_nn.json` — the second
@@ -1663,7 +1663,7 @@ A local path is safer for long sessions; copy it to the cloud afterwards.
 | Gestures appear seconds late | Watch the `lag` readout in the status bar. `MYO_BULK_READ` must be `True`; if lag still grows, lower `MYO_MAX_BACKLOG_BYTES` so the guard kicks in sooner. |
 | Live prediction is wrong a lot | Check MODEL STATS first — if the cross-validated accuracy is low, the live behaviour is simply honest. Fix the data (see "If the accuracy is low" above), not the model. |
 | Everything gets predicted as REST | Your contractions are too weak to separate from rest. This is the most common failure and it is a recording problem. |
-| PREDICT button is greyed out | No model loaded. Run `python train_model.py`, then MODEL STATS → Reload model (or restart the app). |
+| PREDICT button is greyed out | No model loaded. Run `python training/train_model.py`, then MODEL STATS → Reload model (or restart the app). |
 | Retrain button greyed out | A recording session is running. Stop it first — training would saturate the CPU and disturb the live stream. |
 | Did the retrain use my new recordings? | Yes, and all the old ones too. The confirmation dialog lists every subject and session it will use, and MODEL STATS shows the final count. |
 | Prediction says a label but a different one has a higher bar | It cannot: the panel soft-votes the probability vectors, so the label shown is always the argmax of the bars shown. If you see this, it is a bug. |

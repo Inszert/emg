@@ -30,6 +30,8 @@ import shutil
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))), "training"))
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -546,7 +548,7 @@ section("the real models/gesture_panel.joblib")
 real_path = T.panel_path()
 if not os.path.exists(real_path):
     print("  (no real panel on disk; skipped. Build one with "
-          "python explain_votes.py)")
+          "python training/explain_votes.py)")
 else:
     real = T.DecisionPanel()
     check("it loads", real.load(), real.status)
@@ -554,8 +556,9 @@ else:
     live.load()
     check("it matches the deployed model", real.matches(live),
           real.stale_reason(live))
-    check("the deployed winner is a member, and the vote is not it",
-          real.winner in real.names and real.winner != real.vote_name,
+    #  A spec with voting.always (CLAUDE.md 7b) deploys the vote itself.
+    check("the deployed winner is a member or the vote",
+          real.winner in real.names or real.winner == real.vote_name,
           f"{real.winner} vs {real.vote_name}")
     check("its fusion check passed", real.fusion.get("verified") is True,
           f"max|diff| = {real.fusion.get('max_abs_diff_vs_mean')}")

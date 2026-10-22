@@ -38,6 +38,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PROJECT = os.path.dirname(HERE)
 if PROJECT not in sys.path:
     sys.path.insert(0, PROJECT)
+sys.path.insert(0, os.path.join(PROJECT, "training"))   # the trainers
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 

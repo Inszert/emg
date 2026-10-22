@@ -225,10 +225,10 @@ train, test = np.flatnonzero(sessions != "session_03"), np.flatnonzero(sessions 
 `train_model.py` does all of the above and picks the winner for you.
 
 ```powershell
-python train_model.py              # full two-stage sweep, saves the best model
-python train_model.py --quick      # fewer combinations (a minute or two)
-python train_model.py --no-save    # evaluate only
-python train_model.py --person Dano
+python training/train_model.py              # full two-stage sweep, saves the best model
+python training/train_model.py --quick      # fewer combinations (a minute or two)
+python training/train_model.py --no-save    # evaluate only
+python training/train_model.py --person Dano
 ```
 
 It sweeps window length, overlap, representation, **feature set**, frequency
@@ -342,7 +342,7 @@ the rest of them afterwards, per window, instead of only at a table of means.
 
 `train_model.build_decision_panel()` writes `models/gesture_panel.joblib`
 after the model is saved (skip it with `--no-panel`;
-`python explain_votes.py` rebuilds it for a model that already exists). It
+`python training/explain_votes.py` rebuilds it for a model that already exists). It
 holds two different things, and the distinction is the whole point:
 
 ```python
@@ -393,10 +393,10 @@ time series** `(win, 8)` to a neural net rather than the hand-crafted feature
 vector.
 
 ```powershell
-python train_torch.py                     # CUDA, 3 architectures x 3 windows
-python train_torch.py --quick             # one model, one window
-python train_torch.py --device cpu        # no GPU (slow)
-python train_torch.py --kind cnn_lstm --window 0.5 --epochs 80
+python legacy/train_torch.py                     # CUDA, 3 architectures x 3 windows
+python legacy/train_torch.py --quick             # one model, one window
+python legacy/train_torch.py --device cpu        # no GPU (slow)
+python legacy/train_torch.py --kind cnn_lstm --window 0.5 --epochs 80
 ```
 
 Architectures: `cnn` (3 conv layers → global average pool), `lstm` (2 stacked

@@ -2,7 +2,7 @@
 train_job.py -- run one or more trainers in the background, independent of
 the GUI, so that closing the window does not stop a training run.
 
-    python train_job.py --job models/jobs/<id>/job.json
+    python training/train_job.py --job models/jobs/<id>/job.json
 
 The GUI writes `job.json` and starts this script DETACHED. From then on the
 two only talk through files in the job folder:

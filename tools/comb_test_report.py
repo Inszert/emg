@@ -22,6 +22,7 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJECT = os.path.dirname(HERE)
 sys.path.insert(0, PROJECT)
+sys.path.insert(0, os.path.join(PROJECT, "training"))
 
 import nn_ml_comb_test as C  # noqa: E402
 

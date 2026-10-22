@@ -37,6 +37,8 @@ import time
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))), "training"))
 
 import emg_dataset_tool as T                                       # noqa: E402
 
@@ -58,6 +60,15 @@ def skip(name, why):
 
 def section(title):
     print(f"\n--- {title} ---")
+
+
+def app_source_text():
+    """The whole application: the entry point plus every emg_app module."""
+    import glob
+    paths = [os.path.join(PROJECT, "emg_dataset_tool.py")] + sorted(
+        glob.glob(os.path.join(PROJECT, "emg_app", "**", "*.py"),
+                  recursive=True))
+    return "\n".join(open(p, encoding="utf-8").read() for p in paths)
 
 
 def source_of(obj):
@@ -114,8 +125,7 @@ section("1. THE SEPARATION RULE  (section 8L)")
 check("the net is enabled, so these checks mean something",
       T.ENABLE_NEURAL_NET, f"ENABLE_NEURAL_NET={T.ENABLE_NEURAL_NET}")
 
-app_source = open(os.path.join(PROJECT, "emg_dataset_tool.py"),
-                  encoding="utf-8").read()
+app_source = app_source_text()
 import_lines = [line.strip() for line in app_source.splitlines()
                 if line.strip().startswith(("import ", "from "))]
 check("the application has no torch import at all",
@@ -199,7 +209,7 @@ check("the net's tick never consults the classifier's predictor",
       "self.predictor" not in nn_tick)
 
 #  The trainers and the on-disk artefacts.
-train_model_source = open(os.path.join(PROJECT, "train_model.py"),
+train_model_source = open(os.path.join(PROJECT, "training", "train_model.py"),
                           encoding="utf-8").read()
 train_model_code = code_only(train_model_source)
 check("train_model.py never reads the neural checkpoint",
@@ -213,7 +223,7 @@ check("the two models are written to different files",
 check("the checkpoint is not a joblib payload LivePredictor could load",
       T.NN_MODEL_PATH.endswith(".pt") and T.MODEL_PATH.endswith(".joblib"))
 
-train_nn_source = open(os.path.join(PROJECT, "train_nn.py"),
+train_nn_source = open(os.path.join(PROJECT, "training", "train_nn.py"),
                        encoding="utf-8").read()
 check("train_nn.py says in words that its model does not vote",
       "DOES NOT VOTE" in train_nn_source)
@@ -778,7 +788,7 @@ if not HAVE_TORCH:
     skip("the real worker answers from the real checkpoint", "no torch")
 elif not os.path.exists(real_model):
     skip("the real worker answers from the real checkpoint",
-         f"no checkpoint yet -- run: python train_nn.py")
+         f"no checkpoint yet -- run: python training/train_nn.py")
 else:
     real = T.NeuralEngine(model_path=real_model, device="cpu", smoothing=1)
     #  A model trained with calibration needs this machine's own wearer to

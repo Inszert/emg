@@ -34,9 +34,9 @@ python -m pip install -r requirements.txt     # once
 python emg_dataset_tool.py                    # the application
 python emg_dataset_tool.py --summary          # dataset stats, no GUI
 
-python train_model.py --spec models\model_spec.json    # THE trainer (CPU)
-python train_model.py --quick --spec models\model_spec.json
-python explain_votes.py                       # rebuild the DECISION TRAIL file
+python training/train_model.py --spec models\model_spec.json    # THE trainer (CPU)
+python training/train_model.py --quick --spec models\model_spec.json
+python training/explain_votes.py                       # rebuild the DECISION TRAIL file
 ```
 
 Required: `pyserial`, `numpy`, `PySide6`, `pyqtgraph`.
@@ -45,7 +45,7 @@ Optional: `scikit-learn` + `joblib` (training and the live classifier),
 
 Needs a Myo armband and a Bluegiga BLED112 dongle. Windows, in practice — the
 COM-port handling has not been tried elsewhere. Only one process can hold the
-port, so close `test_myo.py` before starting the tool.
+port, so close `legacy/test_myo.py` before starting the tool.
 
 **The recorder never imports torch.** It asks a subprocess whether a GPU exists, and runs the neural net in another one, so the app starts, records and predicts identically with torch absent.
 
@@ -70,7 +70,7 @@ Eight dry EMG pods at ~50 Hz (`filtered` mode, rectified on-device) or 200 Hz
 annotation, export, a scikit-learn model sweep, and a live classifier with its
 own diagnostics.
 
-**Sections 1–6 of `emg_dataset_tool.py` are Qt-free** and importable headless,
+**Everything in `emg_app/` outside `gui/` is Qt-free** and importable headless,
 which is what lets a training script do `import emg_dataset_tool as T;
 T.load_dataset(...)` on a machine with no display.
 
@@ -132,7 +132,7 @@ In practice just press **RETRAIN ON ALL DATA**, which runs `train_model.py` as
 a subprocess. It is a **three-stage sweep** — cheap screen, shortlist probe,
 full evaluation — over window length × overlap × feature set × representation
 × frequency features. It went from a measured **3 h 16 m to ~14 min**; see
-[`how_to_fix_long_training.md`](how_to_fix_long_training.md).
+[`docs/how_to_fix_long_training.md`](docs/how_to_fix_long_training.md).
 
 Four representations: `raw`, `normalized`, `envelope`, `bandpass` (a hand-
 written zero-phase Butterworth that deliberately does not import scipy).
@@ -206,18 +206,32 @@ Invariants. Breaking one is a bug, not a trade-off.
 
 ## Where things live
 
+```
+emg_dataset_tool.py   the entry point: python emg_dataset_tool.py
+emg_app/              the application package (module map: emg_app/README.md)
+training/             trainers, job runner, NN worker, the comb test
+tools/                report and screenshot generators
+tests/                runnable check scripts
+docs/                 every other document
+legacy/               retired code, kept for the record
+datasets/ models/ exports/
+```
+
 | Path | Role |
 |---|---|
-| `emg_dataset_tool.py` | the whole application, one file by design, in numbered sections |
-| `train_model.py` | the three-stage sweep, honest validation, saves `models/gesture_model.joblib` |
-| `explain_votes.py` | rebuilds the DECISION TRAIL side file without re-running a sweep |
-| `myo_raw.py` | the Myo BLE protocol wrapper — **the working communication layer** |
+| `emg_dataset_tool.py` | the entry point, and `import emg_dataset_tool as T` still exposes every name in the package |
+| `emg_app/` | the application, split by topic: config, signal processing, calibration, features, dataset, acquisition, neural engine, jobs, prediction, and `gui/` (widgets, one file per dialog, the main window as one mixin per feature) |
+| `emg_app/myo/myo_raw.py` | the Myo BLE protocol wrapper — **the working communication layer** |
+| `training/train_model.py` | the three-stage sweep, honest validation, saves `models/gesture_model.joblib` |
+| `training/explain_votes.py` | rebuilds the DECISION TRAIL side file without re-running a sweep |
+| **`training/train_nn.py`** | trains the **neural network** -- a separate second opinion, on CUDA, never part of the answer |
+| `training/nn_arch.py` / `nn_serve.py` | its architectures, and the subprocess that serves it live |
+| `training/train_job.py` | runs training in the background, so closing the app does not stop it |
+| `training/nn_ml_comb_test.py` | the ML + NN combination search ([`docs/COMB_TEST.md`](docs/COMB_TEST.md)) |
 | `tools/make_ui_guide.py` | regenerates the annotated screenshots in `docs/images/` |
-| **`train_nn.py`** | trains the **neural network** -- a separate second opinion, on CUDA, never part of the answer |
-| `nn_arch.py` / `nn_serve.py` | its architectures, and the subprocess that serves it live |
-| `train_torch.py` | **retired** CUDA experiment, superseded by `train_nn.py`, kept for the record |
+| `legacy/` | the **retired** `train_torch.py`, the original `myo.py` demo and `test_myo.py` monitor |
 | `datasets/` | recorded data (`_`-prefixed folders are never discovered) |
-| `models/` | the model, the panel, timestamped archives, `reports/` |
+| `models/` | the models, specs, the panel, timestamped archives, `reports/`, `comb_test/` |
 | `exports/` | combined ML bundles |
 
 ---
@@ -228,15 +242,17 @@ Invariants. Breaking one is a bug, not a trade-off.
 |---|---|
 | [`docs/MANUAL.md`](docs/MANUAL.md) | **the complete manual** — install, architecture, the interface, the ML pipeline, and the full engineering record of what broke and how it was fixed |
 | [`docs/UI_GUIDE.md`](docs/UI_GUIDE.md) | **the UI, screen by screen, with annotated screenshots** |
-| [`GUIDE.md`](GUIDE.md) | user manual: every file, every setting, ready-made presets |
+| [`docs/GUIDE.md`](docs/GUIDE.md) | user manual: every file, every setting, ready-made presets |
 | [`CLAUDE.md`](CLAUDE.md) | orientation and the invariants — read before changing anything |
+| [`emg_app/README.md`](emg_app/README.md) | the package's module map and the two rules that keep the split correct |
+| [`docs/COMB_TEST.md`](docs/COMB_TEST.md) | the ML + NN combination test of 2026-10-22, every number |
 | [`docs/EDA.md`](docs/EDA.md) | **what is actually in `datasets/`, measured** — read before quoting any accuracy |
-| [`how_to_fix_long_training.md`](how_to_fix_long_training.md) | why the sweep took 3 h 16 m and what was done |
+| [`docs/how_to_fix_long_training.md`](docs/how_to_fix_long_training.md) | why the sweep took 3 h 16 m and what was done |
 | [`docs/DATASET.md`](docs/DATASET.md) | on-disk format, filenames, CSV/NPZ schema |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | threads, buffers, state machine, data flow |
 | [`docs/ML_PIPELINE.md`](docs/ML_PIPELINE.md) | recordings to a validated model |
-| [`problems.md`](problems.md) | every failure hit, the fix tried, and whether it worked |
-| [`tests/README.md`](tests/README.md) | sixteen check scripts; three need the armband |
+| [`docs/problems.md`](docs/problems.md) | every failure hit, the fix tried, and whether it worked |
+| [`tests/README.md`](tests/README.md) | the check scripts; three need the armband |
 
 ---
 

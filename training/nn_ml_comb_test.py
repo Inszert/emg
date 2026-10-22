@@ -2,13 +2,13 @@
 nn_ml_comb_test.py -- the long search for the best ML soft-vote and the best
 neural net, with a plain live progress view.
 
-    python nn_ml_comb_test.py                 run everything (ML on the CPU and
+    python training/nn_ml_comb_test.py                 run everything (ML on the CPU and
                                               the NN on the GPU, in parallel),
                                               then apply the winners and retrain
-    python nn_ml_comb_test.py --watch         progress view of the latest run
-    python nn_ml_comb_test.py --resume DIR    continue a run; finished work is
+    python training/nn_ml_comb_test.py --watch         progress view of the latest run
+    python training/nn_ml_comb_test.py --resume DIR    continue a run; finished work is
                                               kept on disk and skipped
-    python nn_ml_comb_test.py --no-apply      search only, change nothing
+    python training/nn_ml_comb_test.py --no-apply      search only, change nothing
 
 Everything is scored the way the trainers score (CLAUDE.md 8h, 8k, 8L): ALL
 recordings of all wearers, `affine` per-wearer calibration, window-level
@@ -51,11 +51,13 @@ from datetime import datetime
 
 import numpy as np
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-if HERE not in sys.path:
-    sys.path.insert(0, HERE)
+HERE = os.path.dirname(os.path.abspath(__file__))       # training/
+PROJECT = os.path.dirname(HERE)                          # the project root
+for _p in (HERE, PROJECT):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
-RUNS_DIR = os.path.join(HERE, "models", "comb_test")
+RUNS_DIR = os.path.join(PROJECT, "models", "comb_test")
 CALIBRATION = "affine"
 
 # ---- ML grid -----------------------------------------------------------------
@@ -118,7 +120,7 @@ if os.environ.get("COMB_SMOKE"):
     ML_TOP_SETUPS, ML_LONG_WINDOWS = 1, [0.7]
     NN_KINDS_DEFAULT, NN_WINDOWS, NN_EPOCHS = ["gru"], [0.5], 3
     NN_VARIANTS, NN_N2_TOP, NN_N3_TOP, NN_N3_SEEDS = NN_VARIANTS[:1], 1, 1, [1]
-    RUNS_DIR = os.path.join(HERE, "models", "comb_test_smoke")
+    RUNS_DIR = os.path.join(PROJECT, "models", "comb_test_smoke")
 
 
 # ==============================================================================
@@ -730,7 +732,7 @@ def apply_and_retrain(run_dir, st, do_apply=True, ml_only=False):
         st.update(status="done", stage="done (--no-apply: nothing changed)")
         return
 
-    models_dir = os.path.join(HERE, "models")
+    models_dir = os.path.join(PROJECT, "models")
     stamp = os.path.basename(run_dir)
     spec_path = os.path.join(models_dir, "model_spec.json")
     nn_spec_path = os.path.join(models_dir, "nn_spec.json")
@@ -790,7 +792,7 @@ def apply_and_retrain(run_dir, st, do_apply=True, ml_only=False):
     root = os.path.join(T.PROJECT_DIR, T.DATA_FOLDER)
     jobs = []
     if w and can_pin:
-        jobs.append(("retrain ML", [py, "-u", "train_model.py", "--root", root,
+        jobs.append(("retrain ML", [py, "-u", os.path.join(HERE, "train_model.py"), "--root", root,
                                     "--out-dir", models_dir, "--model-path",
                                     os.path.join(models_dir,
                                                  "gesture_model.joblib"),
@@ -798,7 +800,7 @@ def apply_and_retrain(run_dir, st, do_apply=True, ml_only=False):
                                     "--calibration", CALIBRATION]))
     if wn:
         spec, _ = T.load_nn_spec(nn_spec_path)
-        jobs.append(("retrain NN", [py, "-u", "train_nn.py", "--root", root,
+        jobs.append(("retrain NN", [py, "-u", os.path.join(HERE, "train_nn.py"), "--root", root,
                                     "--out-dir", models_dir,
                                     "--calibration", CALIBRATION,
                                     "--device", "cuda"]
@@ -809,7 +811,7 @@ def apply_and_retrain(run_dir, st, do_apply=True, ml_only=False):
         st.say(f"{name}: {' '.join(os.path.basename(a) for a in argv[:3])} ...")
         log_path = os.path.join(run_dir, f"log_{name.replace(' ', '_')}.txt")
         with open(log_path, "w", encoding="utf-8") as log:
-            proc = subprocess.Popen(argv, cwd=HERE, stdout=subprocess.PIPE,
+            proc = subprocess.Popen(argv, cwd=PROJECT, stdout=subprocess.PIPE,
                                     stderr=subprocess.STDOUT, text=True,
                                     encoding="utf-8", errors="replace",
                                     env=dict(os.environ,
@@ -975,7 +977,7 @@ def orchestrate(run_dir, do_apply, ml_only=False):
                    encoding="utf-8")
         kids[part] = subprocess.Popen(
             [sys.executable, "-u", me, "--part", part, "--run", run_dir],
-            cwd=HERE, stdout=out, stderr=subprocess.STDOUT, env=env)
+            cwd=PROJECT, stdout=out, stderr=subprocess.STDOUT, env=env)
     last_print = 0.0
     tty = sys.stdout.isatty()
     if tty:

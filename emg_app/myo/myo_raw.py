@@ -10,7 +10,7 @@ import time
 import serial
 from serial.tools.list_ports import comports
 
-from common import *
+from emg_app.myo.common import *
 
 
 # BLE connection parameters, in BGAPI units. Module-level so a caller can tune

@@ -18,9 +18,9 @@
  as it was; only the side file is written.
 
  Run:
-     python explain_votes.py                    # panel for the saved model
-     python explain_votes.py --json             # also a JSON copy of the trail
-     python explain_votes.py --out models/x.joblib
+     python training/explain_votes.py                    # panel for the saved model
+     python training/explain_votes.py --json             # also a JSON copy of the trail
+     python training/explain_votes.py --out models/x.joblib
 
  The --json copy is what the browser view of the same data reads; it is not
  used by the application.
@@ -34,6 +34,11 @@ import sys
 import time
 
 import numpy as np
+
+# The project root (one level up) holds emg_dataset_tool and emg_app.
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
 
 import emg_dataset_tool as T
 import train_model as TM
@@ -60,7 +65,7 @@ def setup_from_payload(payload: dict) -> dict:
         raise SystemExit(
             "This model does not record " + ", ".join(missing) +
             ", so the panel cannot be built for the same setup it used.\n"
-            "Retrain (python train_model.py) -- the sweep writes the panel "
+            "Retrain (python training/train_model.py) -- the sweep writes the panel "
             "itself.")
     return {
         "model": stats["model_name"],
@@ -170,7 +175,7 @@ def main(argv=None):
     root = args.root or os.path.join(T.PROJECT_DIR, T.DATA_FOLDER)
     if not os.path.exists(model_path):
         raise SystemExit(f"no model at {model_path}. Train one first:\n"
-                         "    python train_model.py")
+                         "    python training/train_model.py")
 
     started = time.time()
     print("=" * 78)

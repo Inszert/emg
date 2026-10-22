@@ -367,8 +367,8 @@ python tests\test_no_torch.py         #  11
 python tests\test_sweep_cost.py       #  48   (new: everything in this note)
 
 # the sweep itself
-python train_model.py --spec models\model_spec.json
-python train_model.py --quick --no-save --no-panel --spec models\model_spec.json
+python training/train_model.py --spec models\model_spec.json
+python training/train_model.py --quick --no-save --no-panel --spec models\model_spec.json
 ```
 
 Reproducing the old numbers: set `DEDUPE_WINDOWS = False` and

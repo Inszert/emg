@@ -28,6 +28,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PROJECT = os.path.dirname(HERE)
 if PROJECT not in sys.path:
     sys.path.insert(0, PROJECT)
+sys.path.insert(0, os.path.join(PROJECT, "training"))   # the trainers
 
 import emg_dataset_tool as T                                    # noqa: E402
 

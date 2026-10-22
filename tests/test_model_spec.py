@@ -28,6 +28,11 @@ import numpy as np
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 warnings.filterwarnings("ignore")
 
+PROJECT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+for _p in (PROJECT, os.path.join(PROJECT, "training")):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
 import emg_dataset_tool as T
 
 OK = []

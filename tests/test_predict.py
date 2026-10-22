@@ -469,6 +469,24 @@ def _fake_exec(self):
     return 0
 
 
+#  The trainer calibrates (CALIBRATION_MODE "affine") and LivePredictor then
+#  needs each wearer's SAVED calibration, exactly as in real use: calibrate,
+#  record, train, predict (CLAUDE.md 8k, 8n). So the fixture wearers calibrate.
+_fixture_recs = T.load_dataset(ROOT)
+for _person in sorted({r.person_id for r in _fixture_recs}):
+    _record = T.calibration_from_recordings(_fixture_recs, _person)
+    if _record:
+        #  The synthetic signal is flatter than a real arm, so its derived
+        #  reference can miss the 2x contrast gate; keep its rest level and
+        #  lift the reference just enough to pass, as a real squeeze would.
+        _rest = np.asarray(_record["rest"], float)
+        _ref = np.maximum(np.asarray(_record["reference"], float), 3 * _rest)
+        T.save_calibration(
+            T.calibration_record(_rest, _ref, person_id=_person,
+                                 n_rest=100, n_effort=100,
+                                 source="derived_from_recordings"),
+            ROOT, _person)
+
 QtWidgets.QMessageBox.exec = _fake_exec
 try:
     window.retrain_model()

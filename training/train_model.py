@@ -8,10 +8,10 @@
  emg_dataset_tool.py.
 
  Run:
-     python train_model.py                  # full sweep, saves the best model
-     python train_model.py --quick          # fewer combinations
-     python train_model.py --no-save        # evaluate only
-     python train_model.py --person Dano    # restrict to one subject
+     python training/train_model.py                  # full sweep, saves the best model
+     python training/train_model.py --quick          # fewer combinations
+     python training/train_model.py --no-save        # evaluate only
+     python training/train_model.py --person Dano    # restrict to one subject
 
  VALIDATION PROTOCOL -- the part that makes the numbers mean something
  --------------------------------------------------------------------
@@ -45,6 +45,11 @@ import warnings
 from collections import Counter, defaultdict
 
 import numpy as np
+
+# The project root (one level up) holds emg_dataset_tool and emg_app.
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
 
 import emg_dataset_tool as T
 

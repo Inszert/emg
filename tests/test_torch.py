@@ -36,6 +36,8 @@ import tempfile
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))), "legacy"))
 
 import emg_dataset_tool as T
 import train_torch as TT
@@ -191,8 +193,9 @@ failed_head, failed_detail, failed_sev = T.compute_badge(
 check("a failed probe is not shown as still checking",
       failed_head == "DEVICE UNKNOWN" and failed_sev == "warn", failed_head)
 check("a failed probe is not shown as CPU", "CPU ONLY" not in failed_head)
+#  It names the CURRENT GPU trainer; train_torch.py is retired (CLAUDE.md 8b).
 check("a failed probe says what to try",
-      "train_torch.py" in failed_detail,
+      "train_nn.py" in failed_detail,
       " ".join(failed_detail.split())[:70])
 check("a missing info dict does not crash the badge",
       T.compute_badge(None)[2] == "dim")

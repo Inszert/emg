@@ -499,7 +499,7 @@ cover the settle and the relaxed hold, not just the strong part.
 The saved model knows only FIST and REST. Retrain over all six classes so the
 LIVE CLASSIFIER matches the dataset, and make sure `dataset_fingerprint()`
 lands in the payload so the panel can report `current` / `stale` instead of
-`unknown`. Then rebuild `gesture_panel.joblib` (`python explain_votes.py`).
+`unknown`. Then rebuild `gesture_panel.joblib` (`python training/explain_votes.py`).
 Expect the reported accuracy to stay near 99 % and to mean no more than it
 does now, until R1 is done.
 

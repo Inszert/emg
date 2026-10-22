@@ -81,11 +81,11 @@
 
  Run:
 
-     python train_nn.py                       # full grid, CUDA
-     python train_nn.py --quick               # the default arch, one window
-     python train_nn.py --device cpu
-     python train_nn.py --kind tcn --kind gru --window 0.5
-     python train_nn.py --calibration off     # undo section 8k exactly
+     python training/train_nn.py                       # full grid, CUDA
+     python training/train_nn.py --quick               # the default arch, one window
+     python training/train_nn.py --device cpu
+     python training/train_nn.py --kind tcn --kind gru --window 0.5
+     python training/train_nn.py --calibration off     # undo section 8k exactly
 """
 from __future__ import annotations
 
@@ -100,6 +100,11 @@ from collections import Counter, defaultdict
 from datetime import datetime
 
 import numpy as np
+
+# The project root (one level up) holds emg_dataset_tool and emg_app.
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
 
 import emg_dataset_tool as T
 import nn_arch

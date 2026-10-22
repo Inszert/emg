@@ -133,7 +133,7 @@ python tests\test_gui.py                 # 91 checks, builds the real window
 Plug the dongle in, put the armband on, then:
 
 ```powershell
-python test_myo.py        # the original reference monitor
+python legacy/test_myo.py        # the original reference monitor
 ```
 
 If traces move, the link works. **Close it before starting the main tool** —
@@ -884,7 +884,7 @@ Eleven invariants. Breaking one is a bug, not a trade-off.
 
 ## 10. Problems solved, and how
 
-A condensed version of [`../problems.md`](../problems.md), which carries every
+A condensed version of [`../problems.md`](problems.md), which carries every
 entry with its verdict. Verdicts: **SOLVED** (root cause removed) ·
 **MITIGATED** (cause not removable, symptom handled) · **WORKAROUND** (the
 broken path is avoided, not fixed) · **ACCEPTED** (real, understood, left
@@ -1208,17 +1208,17 @@ That is the fix working, not breaking.
 ```powershell
 python emg_dataset_tool.py                             # the application
 python emg_dataset_tool.py --summary                   # dataset stats, no GUI
-python train_model.py --spec models\model_spec.json    # the trainer (CPU)
-python train_model.py --quick --spec models\model_spec.json
-python train_model.py --no-panel                       # skip the DECISION TRAIL file
-python explain_votes.py                                # rebuild it without a sweep
-python explain_votes.py --json                         # ...and a JSON copy
-python train_nn.py                                     # the NEURAL NET (CUDA)
-python train_nn.py --quick                             # one architecture
-python train_nn.py --device cpu                        # no GPU
-python train_nn.py --calibration off                   # uncalibrated numbers
+python training/train_model.py --spec models\model_spec.json    # the trainer (CPU)
+python training/train_model.py --quick --spec models\model_spec.json
+python training/train_model.py --no-panel                       # skip the DECISION TRAIL file
+python training/explain_votes.py                                # rebuild it without a sweep
+python training/explain_votes.py --json                         # ...and a JSON copy
+python training/train_nn.py                                     # the NEURAL NET (CUDA)
+python training/train_nn.py --quick                             # one architecture
+python training/train_nn.py --device cpu                        # no GPU
+python training/train_nn.py --calibration off                   # uncalibrated numbers
 python tools\make_ui_guide.py . docs\images            # regenerate screenshots
-python test_myo.py                                     # reference monitor
+python legacy/test_myo.py                                     # reference monitor
 ```
 
 ### Keyboard shortcuts
@@ -1242,7 +1242,7 @@ be swallowed while typing in the Notes field.
 ### Key settings
 
 All in the `USER CONFIGURATION` block. Full documentation in
-[`../GUIDE.md`](../GUIDE.md).
+[`../GUIDE.md`](GUIDE.md).
 
 | Setting | Default | Notes |
 |---|---|---|
@@ -1278,10 +1278,10 @@ python tests\test_free_take.py       # 255     python tests\test_no_torch.py    
 |---|---|
 | [`UI_GUIDE.md`](UI_GUIDE.md) | the UI, screen by screen |
 | [`../CLAUDE.md`](../CLAUDE.md) | orientation and the invariants |
-| [`../GUIDE.md`](../GUIDE.md) | every file and every setting |
+| [`../GUIDE.md`](GUIDE.md) | every file and every setting |
 | [`EDA.md`](EDA.md) | what is in `datasets/`, measured |
-| [`../problems.md`](../problems.md) | every failure, in full, with verdicts |
-| [`../how_to_fix_long_training.md`](../how_to_fix_long_training.md) | the sweep cost analysis |
+| [`../problems.md`](problems.md) | every failure, in full, with verdicts |
+| [`../how_to_fix_long_training.md`](how_to_fix_long_training.md) | the sweep cost analysis |
 | [`DATASET.md`](DATASET.md) | on-disk schema |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | threads, buffers, data flow |
 | [`ML_PIPELINE.md`](ML_PIPELINE.md) | recordings to a validated model |
