@@ -1,0 +1,33 @@
+{
+ "part": "ml",
+ "status": "done",
+ "stage": "done",
+ "done_w": 6293.0,
+ "total_w": 6293.0,
+ "items_done": 592,
+ "items_total": 592,
+ "current": "",
+ "current_frac": 0.0,
+ "started": 1792622358.9012516,
+ "eta_s": 0.0,
+ "best": {
+  "what": "vote of 2 on bandpass-level-w1-o0.75",
+  "window_accuracy": 0.7757917369319038,
+  "nested": 0.740346160795729
+ },
+ "lines": [
+  "11:11:39  best vote on bandpass-level-w1.3-o0.75: 2 model(s) 77.3% window, 82.2% vote  [RF-500, ET-500]",
+  "11:11:50  nested: held out Barbora: 37.1% (picked 1 on bandpass-level-w1.3-o0.75)",
+  "11:12:03  nested: held out Betka: 80.1% (picked 2 on bandpass-level-w1.3-o0.75)",
+  "11:12:14  nested: held out Bruno: 79.9% (picked 2 on bandpass-level-w1-o0.75)",
+  "11:12:25  nested: held out Dano: 89.2% (picked 2 on bandpass-level-w1-o0.75)",
+  "11:12:38  nested: held out Miso: 83.9% (picked 1 on raw-level-w1-o0.75)",
+  "11:12:38  ML WINNER bandpass-level-w1-o0.75: 77.6% optimistic, 74.0% nested (honest)",
+  "11:12:38  ML search finished."
+ ],
+ "work_s": 0.0,
+ "frac": 1.0,
+ "updated": 1792660358.3170056,
+ "current_elapsed": 0.0,
+ "sec_per_w": 0.24042443645398454
+}

@@ -1,0 +1,27 @@
+﻿item;value
+run;20261022-003918
+started;2026-10-22 00:39
+last update;2026-10-22 11:12
+duration (h);10,56
+protocol;all recordings, 5 wearers, affine calibration, window dedup, each fold holds out ONE PERSON (trained on the other four)
+;
+ML winner;soft vote of 2: ET-500, RF-500-leaf3
+ML setup;bandpass-level-w1-o0.75
+ML window accuracy %;77,58
+ML NESTED (honest) %;74,03
+ML per-recording vote %;83,73
+ML macro F1 %;74,78
+ML held out Barbora %;45,92
+ML held out Betka %;82,81
+ML held out Bruno %;79,95
+ML held out Dano %;89,16
+ML held out Miso %;90,06
+;
+NN winner;gru-w0.7-h32-d0.25-lr0.003-s0
+NN window accuracy % (mean of seeds);72,42
+NN seed scores %;72.4
+NN per-recording vote %;78,95
+NN macro F1 %;68,18
+NN epochs;150
+;
+goal;82 % (stretch 92 %), subject held out

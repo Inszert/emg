@@ -202,7 +202,9 @@ def main(argv=None):
     # on. Reading CALIBRATION_MODE here would silently produce a panel on a
     # different scale from the model it is supposed to explain.
     cal_mode = (payload.get("calibration") or {}).get("mode", "off")
-    cal_table = T.calibration_table(root, cal_mode)
+    people = sorted({r.person_id for r in recs})
+    cal_table, _notes, _used = T.training_calibrations(root, cal_mode, recs,
+                                                       people)
     print(f"  calibration  : mode {cal_mode}"
           + (f", wearers {', '.join(sorted(cal_table))}" if cal_table else ""))
     if cal_mode != "off" and not cal_table:

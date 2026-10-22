@@ -1561,13 +1561,11 @@ def main(argv=None):
         # The spec's own choice beats the app-wide setting the GUI passes.
         cal_requested = data_sel["calibration"]
         print(f"\nCalibration    : set by the model spec ({cal_requested})")
-    cal_table = T.calibration_table(args.root, cal_requested)
-    cal_records = T.load_calibrations(args.root)
-    #  Training wearers with no calibration get a base one (derived from their
-    #  own signal, else the mean of the others) instead of staying in device
-    #  counts, so the feature space is one scale. In memory only.
-    cal_table, cal_filled = T.fill_missing_calibrations(
-        cal_table, all_recs, people, cal_requested, cal_records)
+    #  Every training wearer is calibrated from their own recordings (one
+    #  method, one scale -- T.training_calibrations), falling back to the
+    #  saved record, then to the mean of the others. In memory only.
+    cal_table, cal_filled, cal_records = T.training_calibrations(
+        args.root, cal_requested, all_recs, people)
     cal_missing = [p for p in people if p not in cal_table]
     #  The payload must record what was DONE, not what was asked for. With a
     #  mode set but no usable calibration for anybody, nothing is applied --
@@ -1588,15 +1586,14 @@ def main(argv=None):
     else:
         for person in people:
             record = cal_records.get(person)
-            if person in cal_table:
+            if person in cal_filled:
+                print(f"                 {person:<10} {cal_filled[person]}")
+            elif person in cal_table:
                 print(f"                 {person:<10} "
                       f"{T.describe_calibration(record, cal_mode)}")
             elif record is None:
                 print(f"                 {person:<10} NO CALIBRATION -- "
                       f"left in device counts")
-            if person in cal_filled:
-                print(f"                 {person:<10} no saved calibration: "
-                      f"{cal_filled[person]}")
             else:
                 _ok, _why = T.validate_calibration(record)
                 print(f"                 {person:<10} REFUSED -- "
@@ -1630,6 +1627,25 @@ def main(argv=None):
     feature_sets = FEATURE_SETS[:2] if args.quick else FEATURE_SETS
     exclude_sets = ({"clean": EXCLUDE_SETS["clean"]} if args.quick
                     else EXCLUDE_SETS)
+    # PINNED SETUP: a spec can name ONE preprocessing setup (written by
+    # nn_ml_comb_test.py once a combination has been measured). The sweep
+    # then trains exactly that setup instead of re-choosing one the chosen
+    # members were never scored on -- and runs in minutes, not a quarter of
+    # an hour.
+    pinned = spec.get("setup")
+    if pinned:
+        windows, overlaps = [pinned["window_s"]], [pinned["overlap"]]
+        representations = [pinned["representation"]]
+        freq_options = [pinned["freq_features"]]
+        feature_sets = [pinned["feature_set"]]
+        exclude_sets = {pinned["exclude"]: EXCLUDE_SETS[pinned["exclude"]]}
+        print(f"\nSetup          : PINNED by the spec -- "
+              f"{pinned['representation']}/{pinned['feature_set']}"
+              f"{' +freq' if pinned['freq_features'] else ''}, "
+              f"{pinned['window_s']:g} s @ {pinned['overlap']:g}, "
+              f"data '{pinned['exclude']}'")
+        if spec.get("chosen_by"):
+            print(f"                 chosen by {spec['chosen_by']}")
     # A classifier needs something to discriminate BETWEEN. Without this
     # check the sweep runs every model against a single class and prints a
     # wall of "The number of classes has to be greater than one", which says
@@ -1692,7 +1708,7 @@ def main(argv=None):
         1
         for _w in windows for _o in overlaps for _r in representations
         for _fs in feature_sets for _f in freq_options
-        if not (_fs == "level" and not _f))
+        if not (_fs == "level" and not _f and True in freq_options))
     n_setups_real = setups_per_filter * len(exclude_plan)
     total = n_setups_real * len(models)
     # Stage A probes only a few models per setup; stage B then runs every
@@ -1704,6 +1720,11 @@ def main(argv=None):
     # two reasons the bar used to stall below 100 %.
     probe_names = [n for n in ("LDA-shrinkage", "ExtraTrees-400", "SVM-rbf-C10")
                    if n in models]
+    if not probe_names:
+        # A spec with none of the named probes (e.g. one written by
+        # nn_ml_comb_test) would otherwise screen with nothing and stop at
+        # "Nothing could be evaluated". Probe with its first real model.
+        probe_names = [n for n in models if not n.startswith("Vote")][:1]
     n_probes = max(1, len(probe_names))
     n_best = 2 if args.quick else 5
     # A1 screens every setup with the cheap probes; A2 re-probes only the
@@ -1841,7 +1862,11 @@ def main(argv=None):
                   for feature_set in feature_sets:
                     for include_freq in freq_options:
                         # The frequency flag only affects the classic family.
-                        if feature_set == "level" and not include_freq:
+                        # A pinned setup may carry only False, so the
+                        # level-family copy is skipped only when its True twin
+                        # is going to run.
+                        if (feature_set == "level" and not include_freq
+                                and True in freq_options):
                             continue
                         key = (exclude_name, window_s, overlap, representation,
                                include_freq, feature_set)
@@ -2101,6 +2126,16 @@ def main(argv=None):
     # ties on the per-window score.
     results.sort(key=lambda r: (r["recording_vote_accuracy"],
                                 r["window_accuracy"]), reverse=True)
+    # `voting.always`: the ensemble is saved even if a member scored higher.
+    # Documented since the spec existed, but the sweep never honoured it --
+    # the winner was always simply the top row.
+    if (spec.get("voting") or {}).get("always"):
+        votes = [r for r in results if str(r["model"]).startswith("Vote-")]
+        if votes:
+            results.remove(votes[0])
+            results.insert(0, votes[0])
+            print(f"\n  voting.always: {votes[0]['model']} is saved "
+                  f"regardless of rank.")
 
     print("\n" + "=" * 78)
     print(f" TOP {args.top} COMBINATIONS")
@@ -2301,7 +2336,7 @@ def main(argv=None):
             "target_level": float(T.CALIBRATION_TARGET_LEVEL),
             "calibrated_subjects": sorted(cal_table),
             "uncalibrated_subjects": cal_missing,
-            "records": {p: cal_records[p] for p in sorted(cal_table)},
+            "records": {p: cal_records.get(p) for p in sorted(cal_table)},
             "protocol_note": (
                 "A calibrated subject-grouped score is not zero-shot: the "
                 "held-out wearer's own unlabelled signal set their gain. It "
@@ -2371,7 +2406,7 @@ def main(argv=None):
             "target_level": float(T.CALIBRATION_TARGET_LEVEL),
             "subjects": sorted(cal_table),
             "uncalibrated_subjects": cal_missing,
-            "records": {p: cal_records[p] for p in sorted(cal_table)},
+            "records": {p: cal_records.get(p) for p in sorted(cal_table)},
             "note": ("the features were built on each wearer's own calibrated "
                      "scale; a new wearer must calibrate before this model "
                      "can be used on them"

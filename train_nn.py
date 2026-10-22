@@ -694,13 +694,12 @@ def main(argv=None):
     # ---- calibration ------------------------------------------------------
     requested_mode = (args.calibration if args.calibration is not None
                       else T.CALIBRATION_MODE) or "off"
-    cal_table = T.calibration_table(args.root, requested_mode)
-    #  Wearers with no saved calibration get a base one (derived from their
-    #  own signal, else the mean of the others); in memory only.
-    cal_table, cal_filled = T.fill_missing_calibrations(
-        cal_table, recs, people, requested_mode, T.load_calibrations(args.root))
+    #  Same calibrations as train_model.py: each wearer derived from their own
+    #  recordings (T.training_calibrations); in memory only.
+    cal_table, cal_filled, _cal_used = T.training_calibrations(
+        args.root, requested_mode, recs, people)
     for _p, _how in cal_filled.items():
-        print(f"  {_p}: no saved calibration -- {_how}")
+        print(f"  {_p}: {_how}")
     applied_mode = requested_mode if cal_table else "off"
     print("\nCalibration")
     print(f"  requested     : {requested_mode}")

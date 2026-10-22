@@ -1,0 +1,2 @@
+﻿config;mean_window_acc_%;seed_scores_%;mean_vote_%;mean_macro_F1_%
+gru-w0.7-h32-d0.25-lr0.003-s0;72,42;72.4;78,95;68,18

@@ -1,0 +1,28 @@
+nn_ml_comb_test report
+============================================================
+
+ML  (subject held out, affine calibration)
+  winner     : soft vote of 2: ET-500, RF-500-leaf3
+  setup      : bandpass-level-w1-o0.75
+  window acc : 77.6%  (+- 16.3)  OPTIMISTIC: picked as the best of many on these folds
+  NESTED     : 74.0%  <- the honest number for this whole selection
+  vote / F1  : 83.7% per recording, 74.8% macro F1
+  per person : Barbora 46%, Betka 83%, Bruno 80%, Dano 89%, Miso 90%
+
+  best single models:
+     77.4%  ET-500         bandpass-level-w1-o0.75
+     76.9%  RF-500         raw-level-w1-o0.75
+     76.8%  RF-500         bandpass-level-w1.3-o0.75
+     76.8%  ET-500         raw-level-w1-o0.75
+     76.8%  ET-500         bandpass-level-w1.3-o0.75
+     76.6%  RF-500-leaf3   bandpass-level-w1-o0.75
+     76.6%  RF-500         bandpass-level-w1-o0.75
+     76.6%  ET-500         raw-level-w1.3-o0.75
+     76.4%  ET-500-leaf3   raw-level-w1-o0.75
+     76.3%  RF-500         raw-level-w1.3-o0.75
+     76.2%  RF-500-leaf3   raw-level-w1-o0.75
+     75.6%  ET-500-leaf3   raw-level-w1.3-o0.75
+     75.6%  ET-500-leaf3   bandpass-level-w1-o0.75
+     75.5%  ET-500-leaf3   bandpass-level-w0.7-o0.75
+     75.4%  RF-500-leaf3   raw-level-w1.3-o0.75
+

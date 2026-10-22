@@ -1,0 +1,16 @@
+{
+  "kinds": [
+    "gru"
+  ],
+  "windows": [
+    0.7
+  ],
+  "overlap": 0.75,
+  "epochs": 150,
+  "hidden": 32,
+  "dropout": 0.25,
+  "learning_rate": 0.003,
+  "weight_decay": 0.001,
+  "batch_size": 64,
+  "label_smoothing": 0.05
+}

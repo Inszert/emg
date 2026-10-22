@@ -847,6 +847,12 @@ CALIBRATION_ENABLED = True
 # scale. Set this back to "off" and retrain to undo it exactly.
 CALIBRATION_MODE = "affine"
 
+# Which calibration the TRAINERS apply to recorded data: "derived" (from each
+# wearer's own recordings, labels unused -- one method for everybody) or
+# "saved" (calibration.json, which may be a live REST+SQUEEZE). Predicting
+# always uses the saved one. See training_calibrations().
+TRAINING_CALIBRATION_SOURCE = "derived"
+
 # File names. The record lives in the WEARER's folder, not next to the model,
 # because it belongs to the person: that is what lets the trainer calibrate
 # each training subject with their own numbers and the GUI calibrate whoever
@@ -905,6 +911,13 @@ CALIBRATION_GESTURE_SECONDS = 2.5
 # A shorter list is a valid trade: three well-spread gestures cover the eight
 # channels better than six sloppy ones.
 CALIBRATION_GESTURES = None
+
+# Show the guided gesture sweep in the CALIBRATE dialog. It was hidden earlier
+# on 2026-10-22 (calibration = REST + one SQUEEZE) and switched back on the same
+# day at the operator's request: calibrate from every gesture in GESTURES, not
+# just rest and a squeeze. One squeeze under-scales the channels it leaves
+# quiet (CLAUDE.md 8k). The quick path stays below the sweep.
+CALIBRATION_GUIDED_SWEEP = True
 
 # A short "GET READY: FIST" beat before each capture, so the countdown does
 # not start while the hand is still moving.
@@ -3122,6 +3135,54 @@ def validate_data_selection(raw, problems: list) -> dict:
     return {"include": clean, "calibration": mode}
 
 
+#  The values train_model.py sweeps, repeated here because this module must
+#  not import the trainer (no sklearn in the app).
+SPEC_SETUP_REPRESENTATIONS = ("raw", "normalized", "envelope", "bandpass")
+SPEC_SETUP_FEATURE_SETS = ("level", "both", "classic")
+SPEC_SETUP_EXCLUDES = ("all", "no_errors", "clean")
+
+
+def validate_setup(raw, problems: list) -> Optional[dict]:
+    """
+    The spec's optional `setup` block: ONE preprocessing setup to train on
+    instead of sweeping them all. None when absent -- the sweep as always.
+
+    It exists so that a combination measured once (nn_ml_comb_test.py) can be
+    made the default and REPRODUCED by every later RETRAIN, rather than the
+    sweep re-choosing a setup the chosen members were never scored on.
+    Anything unusable drops the pin, never the run.
+    """
+    if not isinstance(raw, dict):
+        return None
+    try:
+        out = {"window_s": round(float(raw["window_s"]), 3),
+               "overlap": round(float(raw.get("overlap", 0.75)), 3),
+               "representation": str(raw.get("representation", "raw")),
+               "freq_features": bool(raw.get("freq_features", False)),
+               "feature_set": str(raw.get("feature_set", "level")),
+               "exclude": str(raw.get("exclude", "all"))}
+    except (KeyError, TypeError, ValueError):
+        problems.append("setup: needs at least a numeric window_s; pin "
+                        "dropped, the sweep chooses the setup")
+        return None
+    bad = []
+    if not 0.1 <= out["window_s"] <= 2.0:
+        bad.append(f"window_s {out['window_s']}")
+    if not 0.0 <= out["overlap"] <= 0.9:
+        bad.append(f"overlap {out['overlap']}")
+    if out["representation"] not in SPEC_SETUP_REPRESENTATIONS:
+        bad.append(f"representation {out['representation']!r}")
+    if out["feature_set"] not in SPEC_SETUP_FEATURE_SETS:
+        bad.append(f"feature_set {out['feature_set']!r}")
+    if out["exclude"] not in SPEC_SETUP_EXCLUDES:
+        bad.append(f"exclude {out['exclude']!r}")
+    if bad:
+        problems.append(f"setup: {', '.join(bad)} not usable; pin dropped, "
+                        "the sweep chooses the setup")
+        return None
+    return out
+
+
 def default_model_spec() -> dict:
     """The roster the sweep has always run, as a spec."""
     return {
@@ -3338,10 +3399,16 @@ def validate_model_spec(spec: dict):
                         "so there is something to train")
         models[0]["enabled"] = True
 
-    return {"version": MODEL_SPEC_VERSION, "voting": voting,
-            "auto": auto,
-            "data": validate_data_selection(spec.get("data"), problems),
-            "models": models}, problems
+    clean = {"version": MODEL_SPEC_VERSION, "voting": voting,
+             "auto": auto,
+             "data": validate_data_selection(spec.get("data"), problems),
+             "models": models}
+    setup = validate_setup(spec.get("setup"), problems)
+    if setup is not None:
+        clean["setup"] = setup
+    if spec.get("chosen_by"):
+        clean["chosen_by"] = str(spec["chosen_by"])
+    return clean, problems
 
 
 def model_search_space(kind: str) -> dict:
@@ -3970,6 +4037,10 @@ def describe_model_spec(spec: dict) -> str:
             text += " (always used)"
         else:
             text += " (competing)"
+    setup = clean.get("setup")
+    if setup:
+        text += (f"; setup pinned: {setup['representation']}/"
+                 f"{setup['feature_set']} {setup['window_s']:g} s")
     return text
 
 
@@ -5165,6 +5236,48 @@ def fill_missing_calibrations(table: Dict[str, dict], recordings, people,
                     notes[person] = (f"base: mean of {len(base)} other "
                                      f"wearer(s)' calibrations")
     return table, notes
+
+
+def training_calibrations(root: str, mode: str, recordings, people,
+                          records: Dict[str, dict] = None):
+    """
+    The calibrations a TRAINER applies: (table, notes, records_used).
+
+    With TRAINING_CALIBRATION_SOURCE = "derived" every training wearer is
+    calibrated from their OWN RECORDINGS (labels unused), whatever is in
+    their calibration.json. Two reasons, both measured on 2026-10-22:
+    a live REST+SQUEEZE record measures maximum effort while the recordings
+    are relaxed holds (Dano: 1.2x-3.1x per channel apart), so mixing the two
+    methods puts wearers on different scales; and a live record describes
+    how the band sits TODAY, not how it sat when the data was recorded. The
+    saved live calibration is still what PREDICTING uses -- it describes the
+    band as it is being worn now. "saved" restores the old behaviour.
+    """
+    records = dict(records if records is not None else load_calibrations(root))
+    if (mode or "off") == "off":
+        return {}, {}, records
+    table: Dict[str, dict] = {}
+    notes: Dict[str, str] = {}
+    used: Dict[str, dict] = {}
+    if TRAINING_CALIBRATION_SOURCE == "derived":
+        for person in people:
+            derived = calibration_from_recordings(recordings, person)
+            resolved = resolve_calibration(derived, mode) if derived else None
+            if resolved is not None:
+                table[person] = resolved
+                used[person] = derived
+                notes[person] = ("derived from their recordings (labels "
+                                 "unused) -- training always uses this")
+    for person in people:
+        if person not in table and person in records:
+            resolved = resolve_calibration(records[person], mode)
+            if resolved is not None:
+                table[person] = resolved
+                used[person] = records[person]
+    table, filled = fill_missing_calibrations(table, recordings, people, mode,
+                                              records)
+    notes.update(filled)
+    return table, notes, used
 
 
 def calibration_status(root: str = None, person_id: str = None,
@@ -6718,17 +6831,20 @@ NN_BYE_PREFIX = "NNBYE"
 #  Mirrors nn_arch.KINDS. Not imported from there: nn_arch imports torch and
 #  the recorder must not (section 13).
 NN_KINDS = {
-    "tcn":     "dilated depthwise convs + attention pooling (smallest, default)",
-    "cnn_gru": "conv front end + GRU (best per-window in the last sweep)",
-    "gru":     "plain GRU",
+    "gru":     "plain GRU -- RECOMMENDED at 0.7 s (nn_ml_comb_test "
+               "2026-10-22: 72.4 % window / 78.9 % vote, person held out)",
+    "cnn_gru": "conv front end + GRU",
+    "tcn":     "dilated depthwise convs + attention pooling (smallest)",
     "lstm":    "plain LSTM (historical baseline)",
     "cnn":     "plain 1D CNN (historical baseline)",
 }
+# The default IS the recommendation: GRU at 0.7 s, 150 epochs. Chosen by
+# nn_ml_comb_test 20261022-003918 over gru/cnn_gru/tcn x 0.5-1.5 s windows.
 NN_SPEC_DEFAULTS = {
-    "kinds": ["tcn", "gru", "cnn_gru", "lstm", "cnn"],
-    "windows": [0.30, 0.40, 0.50],
+    "kinds": ["gru"],
+    "windows": [0.70],
     "overlap": 0.75,
-    "epochs": 80,
+    "epochs": 150,
     "hidden": 32,
     "dropout": 0.25,
     "learning_rate": 3e-3,
@@ -12039,6 +12155,7 @@ class CalibrationDialog(QtWidgets.QDialog):
         self.sweep_table.itemSelectionChanged.connect(self._refresh)
         outer.addWidget(self.sweep_table)
         layout.addWidget(box)
+        box.setVisible(CALIBRATION_GUIDED_SWEEP)
 
         self.countdown_label = make_label("", 22, True, COL_WARN)
         self.countdown_label.setAlignment(QtCore.Qt.AlignCenter)
@@ -12051,26 +12168,38 @@ class CalibrationDialog(QtWidgets.QDialog):
         layout.addWidget(self.live_label)
 
         # ---- the quick path --------------------------------------------
-        quick = QtWidgets.QGroupBox("QUICK  (rest + one strong squeeze)")
+        quick = QtWidgets.QGroupBox(
+            "QUICK  (rest + one strong squeeze)" if CALIBRATION_GUIDED_SWEEP
+            else "REST + SQUEEZE")
         grid = QtWidgets.QGridLayout(quick)
         grid.setSpacing(6)
+        #  One button for the whole thing: relax, then a "get ready" beat,
+        #  then squeeze. The two below redo either half on its own.
+        self.both_button = QtWidgets.QPushButton(
+            f"CALIBRATE  (relax {CALIBRATION_REST_SECONDS:.0f} s, then "
+            f"squeeze {CALIBRATION_EFFORT_SECONDS:.0f} s)")
+        self.both_button.setObjectName("primary")
+        self.both_button.setMinimumHeight(34)
+        self.both_button.clicked.connect(self.start_rest_squeeze)
+        grid.addWidget(self.both_button, 0, 0, 1, 2)
+
         self.rest_button = QtWidgets.QPushButton(
             f"RELAX ({CALIBRATION_REST_SECONDS:.0f} s)")
         self.rest_button.setMinimumHeight(30)
         self.rest_button.clicked.connect(lambda: self._start("rest"))
-        grid.addWidget(self.rest_button, 0, 0)
+        grid.addWidget(self.rest_button, 1, 0)
         self.rest_result = make_label("not measured", 10, False, COL_TEXT_DIM)
         self.rest_result.setWordWrap(True)
-        grid.addWidget(self.rest_result, 0, 1)
+        grid.addWidget(self.rest_result, 1, 1)
 
         self.effort_button = QtWidgets.QPushButton(
             f"SQUEEZE HARD ({CALIBRATION_EFFORT_SECONDS:.0f} s)")
         self.effort_button.setMinimumHeight(30)
         self.effort_button.clicked.connect(lambda: self._start("effort"))
-        grid.addWidget(self.effort_button, 1, 0)
+        grid.addWidget(self.effort_button, 2, 0)
         self.effort_result = make_label("not measured", 10, False, COL_TEXT_DIM)
         self.effort_result.setWordWrap(True)
-        grid.addWidget(self.effort_result, 1, 1)
+        grid.addWidget(self.effort_result, 2, 1)
         grid.setColumnStretch(1, 1)
         layout.addWidget(quick)
 
@@ -12304,6 +12433,15 @@ class CalibrationDialog(QtWidgets.QDialog):
         self._queue = ["rest"] + self.sweep_gestures()
         self._advance_sweep()
 
+    def start_rest_squeeze(self) -> None:
+        """REST, then SQUEEZE, from one press -- the whole calibration."""
+        if self.phase != self.IDLE:
+            return
+        self.gesture_blocks = {}
+        self.effort_block = None
+        self._queue = ["rest", "effort"]
+        self._advance_sweep()
+
     def abort_sweep(self) -> None:
         """Stop cueing. Whatever was captured so far is kept."""
         self._queue = []
@@ -12417,7 +12555,7 @@ class CalibrationDialog(QtWidgets.QDialog):
             f"color: {COL_GOOD if ok else COL_WARN}; background: transparent;")
         busy = self.phase != self.IDLE
         for widget in (self.sweep_button, self.rest_button,
-                       self.effort_button):
+                       self.effort_button, self.both_button):
             widget.setEnabled(ok and not busy)
         self.redo_button.setEnabled(ok and not busy
                                     and bool(self.selected_gesture()))

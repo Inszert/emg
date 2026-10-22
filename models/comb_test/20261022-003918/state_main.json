@@ -1,0 +1,27 @@
+{
+ "part": "main",
+ "status": "running",
+ "stage": "retrain ML (1/1)",
+ "done_w": 0.0,
+ "total_w": 1.0,
+ "items_done": 0,
+ "items_total": 0,
+ "current": "retrain ML",
+ "current_frac": 0.0,
+ "started": 1792622358.4688473,
+ "eta_s": null,
+ "best": null,
+ "lines": [
+  "Stage B        : all 3 models on the best setups",
+  "Window dedup   : ON -- overlapping clips share real samples; see dedupe_windows()",
+  "Nothing could be evaluated.",
+  "  Every candidate returned no score with folds subject-grouped.",
+  "  The usual cause is a subject whose recordings cannot form a fold.",
+  "  Set SELECTION_GROUPING = \"recording\" in train_model.py to score",
+  "  within-subject instead, and read CLAUDE.md section 8h for what that costs.",
+  "11:12:48  retrain ML: exit 1 -- see models\\comb_test\\20261022-003918\\log_retrain_ML.txt"
+ ],
+ "work_s": 0.0,
+ "frac": 0.0,
+ "updated": 1792660368.9696753
+}

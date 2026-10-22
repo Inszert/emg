@@ -829,6 +829,29 @@ check("and the sweep record is buildable again",
 sweep.rest_block = good_rest
 sweep._refresh()
 
+#  The one-button path: REST, then SQUEEZE, and the sweep hidden by default.
+both = T.CalibrationDialog(None, acq, "Squeezer", gui_root, "affine")
+check("the guided sweep is hidden unless CALIBRATION_GUIDED_SWEEP is on",
+      both.sweep_button.parentWidget().isHidden()
+      == (not T.CALIBRATION_GUIDED_SWEEP))
+both.start_rest_squeeze()
+check("CALIBRATE starts with REST", both._target == "rest")
+for level in (np.full(8, 21.0), np.full(8, 21.0),
+              np.asarray([500, 600, 300, 300, 800, 900, 400, 400], float),
+              np.asarray([500, 600, 300, 300, 800, 900, 400, 400], float)):
+    acq.ring.level = level
+    both._deadline = 0.0
+    both._on_tick()
+check("...then SQUEEZE, from the same press, and both land",
+      both.rest_block is not None and both.effort_block is not None
+      and both.phase == both.IDLE, both.phase)
+squeezed = both.pending_record()
+check("the record is the rest + squeeze one, and it validates",
+      squeezed and squeezed.get("source") == "live"
+      and T.validate_calibration(squeezed)[0],
+      str(squeezed and squeezed.get("source")))
+both.deleteLater()
+
 #  Losing the stream mid-capture must abandon it, not store a stub.
 sweep.gesture_blocks.pop("FIST")
 sweep._start("FIST")

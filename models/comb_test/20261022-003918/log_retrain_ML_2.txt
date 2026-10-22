@@ -1,0 +1,175 @@
+==============================================================================
+ EMG GESTURE MODEL TRAINING
+==============================================================================
+
+Dataset        : C:/Users/danie/OneDrive/Počítač/EMG/datasets
+Recordings     : 211
+Subjects       : 5  ['Barbora', 'Betka', 'Bruno', 'Dano', 'Miso']
+Sessions       : 5
+Labels         : ['FIST', 'OPEN', 'REST', 'THUMB_UP', 'WAVE_LEFT', 'WAVE_RIGHT']
+Measured rate  : 46-51 Hz (median 50); resampling everything to 60 Hz
+
+Calibration    : mode affine
+                 Barbora    derived from their recordings (labels unused) -- training always uses this
+                 Betka      derived from their recordings (labels unused) -- training always uses this
+                 Bruno      derived from their recordings (labels unused) -- training always uses this
+                 Dano       derived from their recordings (labels unused) -- training always uses this
+                 Miso       derived from their recordings (labels unused) -- training always uses this
+
+  NOTE: a calibrated subject-grouped score is NOT zero-shot. The held-out
+        wearer's own signal set their gain, so the number answers "how well
+        does this work on a new wearer WHO CALIBRATES FIRST" -- which is a
+        real deployment, but a different question from the uncalibrated one.
+        The uncalibrated run is the comparison; --calibration off gives it.
+
+Setup          : PINNED by the spec -- bandpass/level, 1 s @ 0.75, data 'all'
+                 chosen by nn_ml_comb_test 20261022-003918: 77.6% window subject-held-out (optimistic), 74.0% nested
+
+Model spec     : C:/Users/danie/OneDrive/Počítač/EMG/models/model_spec.json
+                 2 of 2 models + soft vote (always used); setup pinned: bandpass/level 1 s
+  spec: Vote-soft-2 over RF-500-leaf3, ET-500
+                 candidates: RF-500-leaf3, ET-500, Vote-soft-2
+  [all] 211 recordings (0 dropped)
+PROGRESS 0 47 starting
+TRAINEVENT {"done": 0, "total": 47, "phase": "starting", "device": "cpu", "status": "running", "n_candidates": 47, "n_folds": 6, "phases": [["stage A1 screen", 1], ["stage A2 probe", 32], ["stage B", 10], ["tail", 4]], "message": "3 candidates x 1 setups"}
+
+Sweep          : 1 preprocessing setups x 3 models = 3 combinations, of which 47 are evaluated
+Validation     : StratifiedGroupKFold grouped by SUBJECT across 5 wearers: the held-out person's data is never in training, so the winner is chosen for robustness across people rather than for within-subject fit (6 folds max)
+                 (the per-recording vote is still counted per recording)
+
+Stage A1       : no cheap probe in this spec; screening with ['RF-500-leaf3']
+Stage A1 screen: all setups, 50% of windows, ['RF-500-leaf3']
+Stage A2 probe : best 32 setups, full data, ['RF-500-leaf3']
+Stage B        : all 3 models on the best setups
+
+Window dedup   : ON -- overlapping clips share real samples; see dedupe_windows()
+PROGRESS 1 47 stage A1 screen
+TRAINEVENT {"done": 1, "total": 47, "phase": "stage A1 screen", "device": "cpu", "model": "RF-500-leaf3", "candidate": 1, "n_candidates": 47, "window_s": 1.0, "overlap": 0.75, "representation": "bandpass", "feature_set": "level", "freq_features": false, "exclude": "all", "n_windows": 831, "n_features": 50, "n_folds": 5, "status": "running", "message": "screening RF-500-leaf3 on 1.00s bandpass/level"}
+
+Stage A1 done: 1 screens over 1 setups in 6 s
+Stage A2: 1 setups of 1 (24 best by screen + -23 sampled at random, seed 0)
+PROGRESS 2 47 stage A2 probe
+TRAINEVENT {"done": 2, "total": 47, "phase": "stage A2 probe", "device": "cpu", "model": "RF-500-leaf3", "candidate": 2, "n_candidates": 47, "window_s": 1.0, "overlap": 0.75, "representation": "bandpass", "feature_set": "level", "freq_features": false, "exclude": "all", "n_windows": 1787, "n_features": 50, "n_folds": 5, "status": "running", "message": "RF-500-leaf3 on the shortlist"}
+Stage A2 done: 1 full probes in 16 s
+
+Stage B: running all 3 models on 1 best setup(s)
+  setup: exclude=all win=1.0s ov=0.75 repr=bandpass feats=level -> 1787 x 50
+PROGRESS 3 47 stage B
+TRAINEVENT {"done": 3, "total": 47, "phase": "stage B", "device": "cpu", "model": "ET-500", "candidate": 3, "n_candidates": 47, "window_s": 1.0, "overlap": 0.75, "representation": "bandpass", "feature_set": "level", "freq_features": false, "exclude": "all", "n_windows": 1787, "n_features": 50, "n_folds": 5, "status": "running", "message": "ET-500 on the best setups"}
+PROGRESS 4 47 stage B
+TRAINEVENT {"done": 4, "total": 47, "phase": "stage B", "device": "cpu", "model": "Vote-soft-2", "candidate": 4, "n_candidates": 47, "window_s": 1.0, "overlap": 0.75, "representation": "bandpass", "feature_set": "level", "freq_features": false, "exclude": "all", "n_windows": 1787, "n_features": 50, "n_folds": 5, "status": "running", "message": "Vote-soft-2 on the best setups"}
+
+Evaluated 3 combinations in 33 s
+
+  voting.always: Vote-soft-2 is saved regardless of rank.
+
+==============================================================================
+ TOP 12 COMBINATIONS
+==============================================================================
+model                    win    ov repr        feats    data         window    vote
+------------------------------------------------------------------------------
+Vote-soft-2             1.00  0.75 bandpass    level    all          77.6%   83.7%
+ET-500                  1.00  0.75 bandpass    level    all          77.4%   83.3%
+RF-500-leaf3            1.00  0.75 bandpass    level    all          76.6%   82.3%
+
+--- best per model (ranked by per-recording vote) ---
+  Vote-soft-2            window  77.6% +-16.3   vote  83.7%   f1  74.8%   (1.00s bandpass/level)
+  ET-500                 window  77.4% +-17.9   vote  83.3%   f1  74.3%   (1.00s bandpass/level)
+  RF-500-leaf3           window  76.6% +-16.0   vote  82.3%   f1  74.1%   (1.00s bandpass/level)
+
+--- effect of each choice (mean per-recording vote) ---
+  feature_set:
+      level         83.1%  (best  83.7%, n=3)
+  representation:
+      bandpass      83.1%  (best  83.7%, n=3)
+  window_s:
+      1.0           83.1%  (best  83.7%, n=3)
+  overlap:
+      0.75          83.1%  (best  83.7%, n=3)
+  freq_features:
+      False         83.1%  (best  83.7%, n=3)
+  exclude:
+      all           83.1%  (best  83.7%, n=3)
+
+==============================================================================
+ WINNER
+==============================================================================
+  model              Vote-soft-2
+  feature_set        level
+  representation     bandpass
+  window_s           1.0
+  overlap            0.75
+  freq_features      False
+  exclude            all
+  n_windows          1787
+  n_features         50
+  n_recordings       211
+  per-window acc     77.6% +- 16.3
+  per-recording acc  83.7% (209 recordings)
+  macro F1           74.8%
+  folds              83%, 90%, 80%, 89%, 46%
+
+  confusion matrix (summed over folds, per window):
+               FIST   OPEN   REST THUMB_ WAVE_L WAVE_R    recall
+  FIST           222     89      7      3      1      3    68.3 %
+  OPEN            50    190      0     23      0     55    59.7 %
+  REST             1      0    304     22      0      0    93.0 %
+  THUMB_UP        19     50      0    132     22      0    59.2 %
+  WAVE_LEFT        0      1      4      0    314      0    98.4 %
+  WAVE_RIGHT       1     21      0      0      1    252    91.6 %
+              75.8%  54.1%  96.5%  73.3%  92.9%  81.3%   <- precision
+  spec: Vote-soft-2 over RF-500-leaf3, ET-500
+PROGRESS 5 47 scoring the winner
+TRAINEVENT {"done": 5, "total": 47, "phase": "scoring the winner", "device": "cpu", "status": "running", "model": "Vote-soft-2", "message": "subject-independent and contrast scores"}
+
+  within-subject contrast (recording-grouped): 97.4% per window, 98.1% per recording  (6 folds)
+     the two protocols disagree by 19.8 points -- quote the subject-independent one for anything about a NEW wearer.
+PROGRESS 6 47 DC-only control
+TRAINEVENT {"done": 6, "total": 47, "phase": "DC-only control", "device": "cpu", "status": "running", "model": "Vote-soft-2", "message": "re-scoring the winner on 8 channel means"}
+
+  majority-class baseline: 18.3%
+  DC-only control (8 channel means, subject-grouped like the winner): 77.8% per window, 83.3% per recording
+  -> the other 42 features add -0.2 points.
+     READ THIS: shape, spectrum and timing add almost nothing. On this
+     dataset each active gesture is a single take, so the classifier can
+     win by recognising WHICH 50-SECOND BLOCK it is looking at. Treat the
+     score as a dataset artefact, not as gesture recognition -- docs/EDA.md.
+
+  leave-one-subject-out: 77.6% +- 16.3
+      holding out Barbora       45.9%
+      holding out Betka         82.8%
+      holding out Bruno         79.9%
+      holding out Dano          89.2%
+      holding out Miso          90.1%
+
+  sweep report: models\reports\sweep_20261022-112009-361.json
+PROGRESS 7 47 final fit
+TRAINEVENT {"done": 7, "total": 47, "phase": "final fit", "device": "cpu", "status": "running", "model": "Vote-soft-2", "message": "fitting the winner on the whole dataset"}
+
+Fitting the winner on the whole dataset...
+  spec: Vote-soft-2 over RF-500-leaf3, ET-500
+  saved: models\gesture_model.joblib
+  archive: models\gesture_model_20261022-112009-361.joblib
+
+Building the decision panel (every candidate on the winner's setup)...
+  spec: Vote-soft-2 over RF-500-leaf3, ET-500
+    trail fold 1/6 done
+    trail fold 2/6 done
+    trail fold 3/6 done
+    trail fold 4/6 done
+    trail fold 5/6 done
+    trail fold 6/6 done
+    soft vote vs mean of members: max|diff| = 5.96e-08
+    projecting the feature space for MODEL STATS...
+      PCA on 50 features: PC1 39.3 %, PC2 22.1 % of the variance, 1787 points drawn
+    fitting each candidate on the whole dataset for live use...
+  decision panel: models\gesture_panel.joblib (37.3 MB, 2 members + Vote-soft-2)
+  MODEL STATS -> DECISION TRAIL now shows every candidate's live vote.
+PROGRESS 47 47 done
+TRAINEVENT {"done": 47, "total": 47, "phase": "done", "device": "cpu", "status": "completed", "model": "Vote-soft-2", "window_accuracy": 0.7757917369319037, "recording_vote_accuracy": 0.8373205741626795, "window_macro_f1": 0.7477931765302868, "n_recordings": 211, "artifact": "models\\gesture_model.joblib", "report": "models\\reports\\sweep_20261022-112009-361.json", "message": "saved Vote-soft-2"}
+
+  (training-set fit accuracy 100.0% -- this is NOT a performance estimate, it is only a sanity check that the model can represent the data at all.)
+
+To use it live, set in emg_dataset_tool.py:
+    ENABLE_LIVE_PREDICTION = True
+then run the app and press PREDICT.

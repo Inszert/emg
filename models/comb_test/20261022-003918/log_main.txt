@@ -1,0 +1,8 @@
+00:39:18  run folder C:\Users\danie\OneDrive\Počítač\EMG\models\comb_test\20261022-003918
+10:44:09  run folder models\comb_test\20261022-003918
+11:12:41  searches finished: {'ml': 0}
+11:12:42  report written: models\comb_test\20261022-003918\report.txt
+11:12:42  model_spec.json: 2 model(s) [ET-500, RF-500-leaf3], setup bandpass-level-w1-o0.75
+11:12:42  --ml-only: nn_spec.json and the net left as they are
+11:12:42  retrain ML: python.exe -u train_model.py ...
+11:12:48  retrain ML: exit 1 -- see models\comb_test\20261022-003918\log_retrain_ML.txt

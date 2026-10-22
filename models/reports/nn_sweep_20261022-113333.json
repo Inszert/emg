@@ -1,0 +1,259 @@
+{
+  "trainer": "train_nn.py",
+  "device": {
+    "device": "cuda:0",
+    "gpu": "NVIDIA GeForce GTX 1650",
+    "capability": "7.5",
+    "total_memory_mb": 4095,
+    "torch": "2.9.1+cu128",
+    "cuda_runtime": "12.8",
+    "cudnn": 91002
+  },
+  "chance": 0.20853080568720378,
+  "classes": [
+    "FIST",
+    "OPEN",
+    "REST",
+    "THUMB_UP",
+    "WAVE_LEFT",
+    "WAVE_RIGHT"
+  ],
+  "grouping": "subject",
+  "grouping_note": "grouped by SUBJECT across 5 wearers: the held-out person's data is never in training, so the winner is chosen for robustness across people rather than for within-subject fit",
+  "calibration": {
+    "mode": "affine",
+    "requested": "affine",
+    "subjects": [
+      "Barbora",
+      "Betka",
+      "Bruno",
+      "Dano",
+      "Miso"
+    ],
+    "target": 600.0
+  },
+  "results": [
+    {
+      "n_splits": 5,
+      "grouping": "subject",
+      "window_accuracy": 0.7242255576927084,
+      "window_accuracy_std": 0.13024517855906953,
+      "window_macro_f1": 0.6817595630308195,
+      "recording_vote_accuracy": 0.7894736842105263,
+      "n_recordings_voted": 209,
+      "fold_accuracies": [
+        0.874031007751938,
+        0.7700729927007299,
+        0.7026578073089701,
+        0.7866108786610879,
+        0.48775510204081635
+      ],
+      "confusion_matrix": [
+        [
+          252,
+          164,
+          5,
+          77,
+          0,
+          19
+        ],
+        [
+          107,
+          310,
+          1,
+          70,
+          0,
+          24
+        ],
+        [
+          9,
+          3,
+          493,
+          28,
+          0,
+          0
+        ],
+        [
+          29,
+          112,
+          18,
+          199,
+          9,
+          0
+        ],
+        [
+          0,
+          2,
+          1,
+          0,
+          470,
+          31
+        ],
+        [
+          6,
+          45,
+          0,
+          6,
+          8,
+          375
+        ]
+      ],
+      "n_parameters": 4455,
+      "kind": "gru",
+      "window_s": 0.7,
+      "win_samples": 42,
+      "overlap": 0.75,
+      "n_windows": 2873,
+      "seconds": 175.95073369995225,
+      "hidden": 32
+    }
+  ],
+  "grouping_contrast": {
+    "n_splits": 6,
+    "grouping": "recording",
+    "window_accuracy": 0.9526385104168793,
+    "window_accuracy_std": 0.023141896677676767,
+    "window_macro_f1": 0.9460824311065399,
+    "recording_vote_accuracy": 0.9665071770334929,
+    "n_recordings_voted": 209,
+    "fold_accuracies": [
+      0.9586056644880174,
+      0.9567307692307693,
+      0.9673202614379085,
+      0.9296577946768061,
+      0.917004048582996,
+      0.9865125240847784
+    ],
+    "confusion_matrix": [
+      [
+        460,
+        28,
+        5,
+        19,
+        2,
+        3
+      ],
+      [
+        19,
+        473,
+        3,
+        15,
+        0,
+        2
+      ],
+      [
+        0,
+        1,
+        532,
+        0,
+        0,
+        0
+      ],
+      [
+        13,
+        8,
+        3,
+        343,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        1,
+        3,
+        500,
+        0
+      ],
+      [
+        0,
+        4,
+        1,
+        0,
+        7,
+        428
+      ]
+    ],
+    "n_parameters": 4455
+  },
+  "dc_only_control": {
+    "n_splits": 5,
+    "grouping": "subject",
+    "window_accuracy": 0.6325404384840141,
+    "window_accuracy_std": 0.1809646546736203,
+    "window_macro_f1": 0.6019602944284299,
+    "recording_vote_accuracy": 0.6555023923444976,
+    "n_recordings_voted": 209,
+    "fold_accuracies": [
+      0.9050387596899225,
+      0.5346715328467153,
+      0.6943521594684385,
+      0.6694560669456067,
+      0.35918367346938773
+    ],
+    "confusion_matrix": [
+      [
+        236,
+        184,
+        0,
+        46,
+        7,
+        44
+      ],
+      [
+        36,
+        239,
+        1,
+        51,
+        0,
+        185
+      ],
+      [
+        14,
+        1,
+        351,
+        163,
+        4,
+        0
+      ],
+      [
+        26,
+        139,
+        70,
+        123,
+        0,
+        9
+      ],
+      [
+        0,
+        0,
+        3,
+        0,
+        475,
+        26
+      ],
+      [
+        2,
+        16,
+        0,
+        2,
+        10,
+        410
+      ]
+    ],
+    "n_parameters": 4455
+  },
+  "subject_independent": {
+    "per_subject": {
+      "Barbora": 0.2836734693877551,
+      "Betka": 0.9224806201550387,
+      "Bruno": 0.6976744186046512,
+      "Dano": 0.7391910739191074,
+      "Miso": 0.7463503649635036
+    },
+    "mean": 0.6778739894060111,
+    "std": 0.21169190331620238
+  },
+  "epochs": 150,
+  "deduped": true
+}

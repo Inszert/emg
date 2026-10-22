@@ -2,10 +2,10 @@
   "version": 1,
   "person_id": "Dano",
   "session_id": "session_01",
-  "created_unix": 1792620825.435029,
-  "created_iso": "2026-10-22T00:13:45.435",
+  "created_unix": 1792659502.3431916,
+  "created_iso": "2026-10-22T10:58:22.343",
   "emg_mode": "filtered",
-  "fs": 49.89053937200666,
+  "fs": 49.562222307844884,
   "channel_names": [
     "CH1",
     "CH2",
@@ -17,46 +17,129 @@
     "CH8"
   ],
   "rest": [
-    20.0,
+    19.0,
     22.0,
+    24.0,
     21.0,
-    20.0,
-    22.0,
-    25.0,
-    20.0,
-    19.0
+    26.0,
+    25.5,
+    21.0,
+    20.0
   ],
   "reference": [
-    553.0999999999995,
-    657.0999999999995,
-    154.0,
-    219.0,
-    919.0999999999995,
-    992.0,
-    364.0,
-    404.09999999999945
+    689.6,
+    966.4,
+    482.6,
+    438.6,
+    1097.8,
+    1180.4,
+    744.6,
+    596.0
   ],
-  "rest_level": 21.125,
-  "reference_level": 532.7999999999997,
-  "contrast": 25.221301775147918,
+  "rest_level": 22.3125,
+  "reference_level": 774.5,
+  "contrast": 34.71148459383753,
   "target_level": 600.0,
-  "n_rest_samples": 7739,
-  "n_effort_samples": 7739,
+  "n_rest_samples": 150,
+  "n_effort_samples": 626,
   "rest_percentile": 50.0,
   "effort_percentile": 95.0,
-  "source": "derived_from_recordings",
-  "notes": "percentiles 10/95 over 44 recordings (7739 samples), labels not used",
+  "source": "live_gesture_sweep",
+  "notes": "gesture sweep over 5 gesture(s): FIST, OPEN, THUMB_UP, WAVE_LEFT, WAVE_RIGHT",
   "device": "Myo armband",
   "arm_worn_on": "right",
   "handedness": "right",
-  "derived_from": {
-    "n_recordings": 44,
-    "n_samples": 7739,
-    "rest_percentile": 10.0,
-    "effort_percentile": 95.0,
-    "sessions": [
-      "session_01"
+  "gesture_sweep": {
+    "gestures": [
+      "FIST",
+      "OPEN",
+      "THUMB_UP",
+      "WAVE_LEFT",
+      "WAVE_RIGHT"
     ],
-    "uses_labels": false
+    "rejected": [],
+    "per_gesture": {
+      "FIST": {
+        "n_samples": 126,
+        "contrast": 27.361,
+        "peak_channel": 1,
+        "accepted": true,
+        "levels": [
+          610.5,
+          144.0,
+          58.75,
+          114.0,
+          369.0,
+          464.75,
+          571.0,
+          596.0
+        ]
+      },
+      "OPEN": {
+        "n_samples": 125,
+        "contrast": 48.305,
+        "peak_channel": 5,
+        "accepted": true,
+        "levels": [
+          349.4,
+          337.19999999999993,
+          108.6,
+          172.6,
+          1077.8,
+          999.8,
+          603.0,
+          226.59999999999997
+        ]
+      },
+      "THUMB_UP": {
+        "n_samples": 125,
+        "contrast": 26.389,
+        "peak_channel": 7,
+        "accepted": true,
+        "levels": [
+          584.8,
+          124.19999999999999,
+          74.6,
+          73.0,
+          217.2,
+          462.2,
+          588.8,
+          325.79999999999995
+        ]
+      },
+      "WAVE_LEFT": {
+        "n_samples": 125,
+        "contrast": 43.312,
+        "peak_channel": 2,
+        "accepted": true,
+        "levels": [
+          689.6,
+          966.4,
+          482.6,
+          119.6,
+          165.0,
+          377.2,
+          448.6,
+          230.8
+        ]
+      },
+      "WAVE_RIGHT": {
+        "n_samples": 125,
+        "contrast": 52.903,
+        "peak_channel": 6,
+        "accepted": true,
+        "levels": [
+          149.0,
+          113.0,
+          188.39999999999998,
+          438.6,
+          1097.8,
+          1180.4,
+          744.6,
+          271.8
+        ]
+      }
+    },
+    "reference_rule": "per channel, max over accepted gestures of the p95 level"
   }
 }

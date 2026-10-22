@@ -11,8 +11,8 @@
     "WAVE_RIGHT"
   ],
   "n_channels": 8,
-  "win_samples": 30,
-  "window_s": 0.5,
+  "win_samples": 42,
+  "window_s": 0.7,
   "overlap": 0.75,
   "model_fs": 60.0,
   "hidden": 32,
@@ -31,14 +31,14 @@
     "target": 600.0
   },
   "data": {
-    "root": "c:\\Users\\danie\\OneDrive\\Po\u010d\u00edta\u010d\\EMG\\datasets",
-    "n_recordings": 213,
+    "root": "C:\\Users\\danie\\OneDrive\\Po\u010d\u00edta\u010d\\EMG\\datasets",
+    "n_recordings": 211,
     "labels": {
       "FIST": 29,
       "OPEN": 35,
       "REST": 44,
-      "THUMB_UP": 33,
-      "WAVE_LEFT": 37,
+      "THUMB_UP": 32,
+      "WAVE_LEFT": 36,
       "WAVE_RIGHT": 35
     },
     "subjects": [
@@ -57,7 +57,7 @@
     ],
     "newest_stamp": "20261021-221112-488",
     "newest_unix": 1792613472.488,
-    "uid_digest": "4d7ae1af54b7bebc"
+    "uid_digest": "237a717be2327de9"
   },
   "stats": {
     "model_name": "NN-gru",
@@ -68,153 +68,153 @@
     "grouping_contrast": {
       "n_splits": 6,
       "grouping": "recording",
-      "window_accuracy": 0.9545809716436873,
-      "window_accuracy_std": 0.01547311475858854,
-      "window_macro_f1": 0.9351155707900122,
-      "recording_vote_accuracy": 0.9811320754716981,
-      "n_recordings_voted": 212,
+      "window_accuracy": 0.9526385104168793,
+      "window_accuracy_std": 0.023141896677676767,
+      "window_macro_f1": 0.9460824311065399,
+      "recording_vote_accuracy": 0.9665071770334929,
+      "n_recordings_voted": 209,
       "fold_accuracies": [
-        0.9362745098039216,
-        0.976303317535545,
-        0.9489528795811518,
-        0.9715994020926756,
-        0.9372128637059725,
-        0.9571428571428572
+        0.9586056644880174,
+        0.9567307692307693,
+        0.9673202614379085,
+        0.9296577946768061,
+        0.917004048582996,
+        0.9865125240847784
       ],
       "confusion_matrix": [
         [
-          652,
-          13,
-          0,
-          12,
-          9,
-          4
-        ],
-        [
-          16,
-          653,
-          4,
+          460,
+          28,
+          5,
           19,
           2,
-          4
+          3
         ],
         [
-          0,
-          0,
-          730,
+          19,
+          473,
           3,
-          6,
-          0
+          15,
+          0,
+          2
         ],
         [
-          18,
-          20,
+          0,
           1,
-          486,
-          2,
+          532,
+          0,
+          0,
           0
         ],
         [
-          7,
+          13,
+          8,
+          3,
+          343,
           0,
-          17,
-          2,
-          674,
-          6
+          0
         ],
         [
           0,
-          8,
-          2,
           0,
-          5,
-          586
+          1,
+          3,
+          500,
+          0
+        ],
+        [
+          0,
+          4,
+          1,
+          0,
+          7,
+          428
         ]
       ],
       "n_parameters": 4455
     },
     "subject_independent": {
       "per_subject": {
-        "Barbora": 0.5397973950795948,
-        "Betka": 0.9234042553191489,
-        "Bruno": 0.757985257985258,
-        "Dano": 0.6659793814432989,
-        "Miso": 0.5224071702944942
+        "Barbora": 0.2836734693877551,
+        "Betka": 0.9224806201550387,
+        "Bruno": 0.6976744186046512,
+        "Dano": 0.7391910739191074,
+        "Miso": 0.7463503649635036
       },
-      "mean": 0.681914692024359,
-      "std": 0.1483225201299683
+      "mean": 0.6778739894060111,
+      "std": 0.21169190331620238
     },
     "dc_only_control": {
       "n_splits": 5,
       "grouping": "subject",
-      "window_accuracy": 0.5909708232526991,
-      "window_accuracy_std": 0.15259263435089154,
-      "window_macro_f1": 0.5296843302137807,
-      "recording_vote_accuracy": 0.5990566037735849,
-      "n_recordings_voted": 212,
+      "window_accuracy": 0.6325404384840141,
+      "window_accuracy_std": 0.1809646546736203,
+      "window_macro_f1": 0.6019602944284299,
+      "recording_vote_accuracy": 0.6555023923444976,
+      "n_recordings_voted": 209,
       "fold_accuracies": [
-        0.8524822695035461,
-        0.45966709346991036,
-        0.6658476658476659,
-        0.534020618556701,
-        0.44283646888567296
+        0.9050387596899225,
+        0.5346715328467153,
+        0.6943521594684385,
+        0.6694560669456067,
+        0.35918367346938773
       ],
       "confusion_matrix": [
         [
-          322,
-          262,
+          236,
+          184,
           0,
-          80,
-          9,
-          17
+          46,
+          7,
+          44
         ],
         [
           36,
-          360,
-          0,
-          163,
-          3,
-          136
-        ],
-        [
-          48,
-          0,
-          451,
-          164,
-          73,
-          3
-        ],
-        [
-          63,
-          210,
-          95,
-          139,
-          3,
-          17
-        ],
-        [
-          9,
-          0,
-          66,
-          7,
-          581,
-          43
-        ],
-        [
-          4,
-          97,
-          3,
+          239,
           1,
-          23,
-          473
+          51,
+          0,
+          185
+        ],
+        [
+          14,
+          1,
+          351,
+          163,
+          4,
+          0
+        ],
+        [
+          26,
+          139,
+          70,
+          123,
+          0,
+          9
+        ],
+        [
+          0,
+          0,
+          3,
+          0,
+          475,
+          26
+        ],
+        [
+          2,
+          16,
+          0,
+          2,
+          10,
+          410
         ]
       ],
       "n_parameters": 4455
     },
-    "majority_class_baseline": 0.20657276995305165,
-    "train_fit_accuracy": 0.9929310780106034,
-    "n_recordings": 213,
-    "n_recordings_total": 213,
+    "majority_class_baseline": 0.20853080568720378,
+    "train_fit_accuracy": 1.0,
+    "n_recordings": 211,
+    "n_recordings_total": 211,
     "n_sessions": 5,
     "excluded": "no_errors",
     "subjects": [
@@ -232,448 +232,112 @@
       "WAVE_LEFT",
       "WAVE_RIGHT"
     ],
-    "epochs": 60,
+    "epochs": 150,
     "batch_size": 64,
     "learning_rate": 0.003,
     "weight_decay": 0.001,
     "label_smoothing": 0.05,
     "early_stopping": false,
     "deduped": true,
-    "candidates_evaluated": 15,
+    "candidates_evaluated": 1,
     "candidates": [
       {
         "n_splits": 5,
         "grouping": "subject",
-        "window_accuracy": 0.6825236521044853,
-        "window_accuracy_std": 0.11954476012416154,
-        "window_macro_f1": 0.6201309986009914,
-        "recording_vote_accuracy": 0.7169811320754716,
-        "n_recordings_voted": 212,
+        "window_accuracy": 0.7242255576927084,
+        "window_accuracy_std": 0.13024517855906953,
+        "window_macro_f1": 0.6817595630308195,
+        "recording_vote_accuracy": 0.7894736842105263,
+        "n_recordings_voted": 209,
         "fold_accuracies": [
-          0.8836879432624114,
-          0.5441741357234315,
-          0.7199017199017199,
-          0.6845360824742268,
-          0.5803183791606368
+          0.874031007751938,
+          0.7700729927007299,
+          0.7026578073089701,
+          0.7866108786610879,
+          0.48775510204081635
         ],
         "n_parameters": 4455,
         "kind": "gru",
-        "window_s": 0.5,
-        "win_samples": 30,
+        "window_s": 0.7,
+        "win_samples": 42,
         "overlap": 0.75,
-        "n_windows": 3961,
-        "seconds": 93.87132639996707,
-        "hidden": 32
-      },
-      {
-        "n_splits": 5,
-        "grouping": "subject",
-        "window_accuracy": 0.6543463138530403,
-        "window_accuracy_std": 0.1384928619437209,
-        "window_macro_f1": 0.6030740492700314,
-        "recording_vote_accuracy": 0.6509433962264151,
-        "n_recordings_voted": 212,
-        "fold_accuracies": [
-          0.8794326241134752,
-          0.5032010243277849,
-          0.726044226044226,
-          0.6391752577319587,
-          0.5238784370477568
-        ],
-        "n_parameters": 6503,
-        "kind": "cnn_gru",
-        "window_s": 0.5,
-        "win_samples": 30,
-        "overlap": 0.75,
-        "n_windows": 3961,
-        "seconds": 122.97550790000241,
-        "hidden": 32
-      },
-      {
-        "n_splits": 5,
-        "grouping": "subject",
-        "window_accuracy": 0.6411741679786419,
-        "window_accuracy_std": 0.1395339947812206,
-        "window_macro_f1": 0.6024350724795199,
-        "recording_vote_accuracy": 0.660377358490566,
-        "n_recordings_voted": 212,
-        "fold_accuracies": [
-          0.8553191489361702,
-          0.4519846350832266,
-          0.7027027027027027,
-          0.6618556701030928,
-          0.5340086830680174
-        ],
-        "n_parameters": 3943,
-        "kind": "tcn",
-        "window_s": 0.5,
-        "win_samples": 30,
-        "overlap": 0.75,
-        "n_windows": 3961,
-        "seconds": 201.09196150000207,
-        "hidden": 32
-      },
-      {
-        "n_splits": 5,
-        "grouping": "subject",
-        "window_accuracy": 0.6326210589674244,
-        "window_accuracy_std": 0.14164753395916238,
-        "window_macro_f1": 0.5846247196409783,
-        "recording_vote_accuracy": 0.6792452830188679,
-        "n_recordings_voted": 212,
-        "fold_accuracies": [
-          0.8621815806662312,
-          0.6860264519838988,
-          0.6405484818805093,
-          0.5217983651226158,
-          0.4525504151838671
-        ],
-        "n_parameters": 6503,
-        "kind": "cnn_gru",
-        "window_s": 0.3,
-        "win_samples": 18,
-        "overlap": 0.75,
-        "n_windows": 8466,
-        "seconds": 295.6973863999592,
-        "hidden": 32
-      },
-      {
-        "n_splits": 5,
-        "grouping": "subject",
-        "window_accuracy": 0.6313877341686014,
-        "window_accuracy_std": 0.1342794953080833,
-        "window_macro_f1": 0.5791439347470388,
-        "recording_vote_accuracy": 0.6367924528301887,
-        "n_recordings_voted": 212,
-        "fold_accuracies": [
-          0.8655967903711134,
-          0.49682107175295187,
-          0.6943462897526502,
-          0.5479041916167665,
-          0.5522703273495249
-        ],
-        "n_parameters": 6503,
-        "kind": "cnn_gru",
-        "window_s": 0.4,
-        "win_samples": 24,
-        "overlap": 0.75,
-        "n_windows": 5513,
-        "seconds": 267.84724029991776,
-        "hidden": 32
-      },
-      {
-        "n_splits": 5,
-        "grouping": "subject",
-        "window_accuracy": 0.6236310056310858,
-        "window_accuracy_std": 0.1807246574247007,
-        "window_macro_f1": 0.5787682340192574,
-        "recording_vote_accuracy": 0.6650943396226415,
-        "n_recordings_voted": 212,
-        "fold_accuracies": [
-          0.9078014184397163,
-          0.43149807938540335,
-          0.7542997542997543,
-          0.5556701030927835,
-          0.46888567293777134
-        ],
-        "n_parameters": 14022,
-        "kind": "lstm",
-        "window_s": 0.5,
-        "win_samples": 30,
-        "overlap": 0.75,
-        "n_windows": 3961,
-        "seconds": 92.2169432999799,
-        "hidden": 32
-      },
-      {
-        "n_splits": 5,
-        "grouping": "subject",
-        "window_accuracy": 0.6161475348970367,
-        "window_accuracy_std": 0.12743768667266744,
-        "window_macro_f1": 0.5743407908663875,
-        "recording_vote_accuracy": 0.6509433962264151,
-        "n_recordings_voted": 212,
-        "fold_accuracies": [
-          0.8144433299899699,
-          0.5140781108083561,
-          0.7058303886925795,
-          0.5785928143712575,
-          0.4677930306230201
-        ],
-        "n_parameters": 3943,
-        "kind": "tcn",
-        "window_s": 0.4,
-        "win_samples": 24,
-        "overlap": 0.75,
-        "n_windows": 5513,
-        "seconds": 229.46190649992786,
-        "hidden": 32
-      },
-      {
-        "n_splits": 5,
-        "grouping": "subject",
-        "window_accuracy": 0.6131968334174894,
-        "window_accuracy_std": 0.1504806779290047,
-        "window_macro_f1": 0.5641272872439574,
-        "recording_vote_accuracy": 0.6367924528301887,
-        "n_recordings_voted": 212,
-        "fold_accuracies": [
-          0.8961463096015676,
-          0.6336975273145485,
-          0.548971596474045,
-          0.4925068119891008,
-          0.49466192170818507
-        ],
-        "n_parameters": 14022,
-        "kind": "lstm",
-        "window_s": 0.3,
-        "win_samples": 18,
-        "overlap": 0.75,
-        "n_windows": 8466,
-        "seconds": 233.95191689999774,
-        "hidden": 32
-      },
-      {
-        "n_splits": 5,
-        "grouping": "subject",
-        "window_accuracy": 0.6111475727687596,
-        "window_accuracy_std": 0.16709854714162262,
-        "window_macro_f1": 0.557575415380551,
-        "recording_vote_accuracy": 0.6415094339622641,
-        "n_recordings_voted": 212,
-        "fold_accuracies": [
-          0.8967994774657086,
-          0.6808510638297872,
-          0.5768854064642507,
-          0.4652588555858311,
-          0.4359430604982206
-        ],
-        "n_parameters": 4455,
-        "kind": "gru",
-        "window_s": 0.3,
-        "win_samples": 18,
-        "overlap": 0.75,
-        "n_windows": 8466,
-        "seconds": 266.8590260000201,
-        "hidden": 32
-      },
-      {
-        "n_splits": 5,
-        "grouping": "subject",
-        "window_accuracy": 0.6082917049895498,
-        "window_accuracy_std": 0.11816441243555956,
-        "window_macro_f1": 0.5589463022249805,
-        "recording_vote_accuracy": 0.6556603773584906,
-        "n_recordings_voted": 212,
-        "fold_accuracies": [
-          0.7893681043129388,
-          0.4786557674841054,
-          0.6996466431095406,
-          0.5658682634730539,
-          0.5079197465681098
-        ],
-        "n_parameters": 18246,
-        "kind": "cnn",
-        "window_s": 0.4,
-        "win_samples": 24,
-        "overlap": 0.75,
-        "n_windows": 5513,
-        "seconds": 173.6933396999957,
-        "hidden": 32
-      },
-      {
-        "n_splits": 5,
-        "grouping": "subject",
-        "window_accuracy": 0.6062824336707061,
-        "window_accuracy_std": 0.17279937511002008,
-        "window_macro_f1": 0.5620340084196017,
-        "recording_vote_accuracy": 0.6462264150943396,
-        "n_recordings_voted": 212,
-        "fold_accuracies": [
-          0.9047141424272819,
-          0.4214350590372389,
-          0.6404593639575972,
-          0.6160179640718563,
-          0.44878563885955647
-        ],
-        "n_parameters": 14022,
-        "kind": "lstm",
-        "window_s": 0.4,
-        "win_samples": 24,
-        "overlap": 0.75,
-        "n_windows": 5513,
-        "seconds": 152.84520890004933,
-        "hidden": 32
-      },
-      {
-        "n_splits": 5,
-        "grouping": "subject",
-        "window_accuracy": 0.6054005070949602,
-        "window_accuracy_std": 0.1618445663739239,
-        "window_macro_f1": 0.5579462867748953,
-        "recording_vote_accuracy": 0.6226415094339622,
-        "n_recordings_voted": 212,
-        "fold_accuracies": [
-          0.8696088264794383,
-          0.4477747502270663,
-          0.715547703180212,
-          0.5157185628742516,
-          0.4783526927138332
-        ],
-        "n_parameters": 4455,
-        "kind": "gru",
-        "window_s": 0.4,
-        "win_samples": 24,
-        "overlap": 0.75,
-        "n_windows": 5513,
-        "seconds": 162.86267499998212,
-        "hidden": 32
-      },
-      {
-        "n_splits": 5,
-        "grouping": "subject",
-        "window_accuracy": 0.5989572902231143,
-        "window_accuracy_std": 0.14473297153101836,
-        "window_macro_f1": 0.5595884137398672,
-        "recording_vote_accuracy": 0.6415094339622641,
-        "n_recordings_voted": 212,
-        "fold_accuracies": [
-          0.8297872340425532,
-          0.45710627400768244,
-          0.6965601965601965,
-          0.5525773195876289,
-          0.45875542691751087
-        ],
-        "n_parameters": 18246,
-        "kind": "cnn",
-        "window_s": 0.5,
-        "win_samples": 30,
-        "overlap": 0.75,
-        "n_windows": 3961,
-        "seconds": 101.98264139995445,
-        "hidden": 32
-      },
-      {
-        "n_splits": 5,
-        "grouping": "subject",
-        "window_accuracy": 0.5849133840646429,
-        "window_accuracy_std": 0.1364256770021394,
-        "window_macro_f1": 0.5356880503978817,
-        "recording_vote_accuracy": 0.6273584905660378,
-        "n_recordings_voted": 212,
-        "fold_accuracies": [
-          0.8027433050293925,
-          0.679700977573318,
-          0.5190989226248776,
-          0.49182561307901906,
-          0.43119810201660735
-        ],
-        "n_parameters": 18246,
-        "kind": "cnn",
-        "window_s": 0.3,
-        "win_samples": 18,
-        "overlap": 0.75,
-        "n_windows": 8466,
-        "seconds": 269.7660564999096,
-        "hidden": 32
-      },
-      {
-        "n_splits": 5,
-        "grouping": "subject",
-        "window_accuracy": 0.5605435048522526,
-        "window_accuracy_std": 0.16161709024734128,
-        "window_macro_f1": 0.5127129518487703,
-        "recording_vote_accuracy": 0.5943396226415094,
-        "n_recordings_voted": 212,
-        "fold_accuracies": [
-          0.8151534944480732,
-          0.6682001150086256,
-          0.4515181194906954,
-          0.5054495912806539,
-          0.3623962040332147
-        ],
-        "n_parameters": 3943,
-        "kind": "tcn",
-        "window_s": 0.3,
-        "win_samples": 18,
-        "overlap": 0.75,
-        "n_windows": 8466,
-        "seconds": 373.82362789998297,
+        "n_windows": 2873,
+        "seconds": 175.95073369995225,
         "hidden": 32
       }
     ],
     "architecture_note": "single-layer GRU + attention pooling over time",
-    "selection_bias_note": "The winner was chosen as the best of 15 candidates scored on the same folds, so its number is optimistic. Leave-one-subject-out is the figure that did not pick its own folds.",
+    "selection_bias_note": "The winner was chosen as the best of 1 candidates scored on the same folds, so its number is optimistic. Leave-one-subject-out is the figure that did not pick its own folds.",
     "separation_note": "This net is NOT part of the deployed answer. It is saved to its own file, it is not a member of the decision panel's soft vote, and the app's LIVE CLASSIFIER prediction is produced entirely by the scikit-learn model.",
-    "created_iso": "2026-10-21T23:57:45.754",
-    "window_accuracy": 0.6825236521044853,
-    "window_accuracy_std": 0.11954476012416154,
-    "window_macro_f1": 0.6201309986009914,
-    "recording_vote_accuracy": 0.7169811320754716,
-    "n_recordings_voted": 212,
+    "created_iso": "2026-10-22T11:33:33.402",
+    "window_accuracy": 0.7242255576927084,
+    "window_accuracy_std": 0.13024517855906953,
+    "window_macro_f1": 0.6817595630308195,
+    "recording_vote_accuracy": 0.7894736842105263,
+    "n_recordings_voted": 209,
     "n_splits": 5,
     "fold_accuracies": [
-      0.8836879432624114,
-      0.5441741357234315,
-      0.7199017199017199,
-      0.6845360824742268,
-      0.5803183791606368
+      0.874031007751938,
+      0.7700729927007299,
+      0.7026578073089701,
+      0.7866108786610879,
+      0.48775510204081635
     ],
     "confusion_matrix": [
       [
-        474,
-        105,
-        0,
-        66,
-        13,
-        32
-      ],
-      [
+        252,
+        164,
+        5,
         77,
-        349,
         0,
-        147,
-        4,
-        121
+        19
       ],
       [
-        3,
+        107,
+        310,
+        1,
+        70,
         0,
-        604,
-        73,
-        59,
+        24
+      ],
+      [
+        9,
+        3,
+        493,
+        28,
+        0,
         0
       ],
       [
-        68,
-        196,
-        116,
-        134,
-        0,
-        13
+        29,
+        112,
+        18,
+        199,
+        9,
+        0
       ],
       [
-        8,
         0,
-        49,
-        4,
-        600,
-        45
-      ],
-      [
         2,
-        47,
-        3,
+        1,
         0,
-        11,
-        538
+        470,
+        31
+      ],
+      [
+        6,
+        45,
+        0,
+        6,
+        8,
+        375
       ]
     ],
-    "n_windows": 3961,
+    "n_windows": 2873,
     "n_parameters": 4455,
-    "window_s": 0.5,
+    "window_s": 0.7,
     "overlap": 0.75,
-    "win_samples": 30,
+    "win_samples": 42,
     "kind": "gru"
   },
   "device_trained_on": {
@@ -685,6 +349,6 @@
     "cuda_runtime": "12.8",
     "cudnn": 91002
   },
-  "created": "2026-10-21T23:57:45",
-  "created_iso": "2026-10-21T23:57:45.754"
+  "created": "2026-10-22T11:33:33",
+  "created_iso": "2026-10-22T11:33:33.402"
 }

@@ -1,0 +1,127 @@
+==============================================================================
+ NEURAL NETWORK TRAINER  --  separate model, separate numbers
+==============================================================================
+
++--------------------------------------------------------------------------+
+| COMPUTE:  >>> GPU <<<   NVIDIA GeForce GTX 1650                          |
+|           CUDA 12.8  |  torch 2.9.1+cu128  |  4095 MB  |  capability 7.5 |
++--------------------------------------------------------------------------+
+
+Compute
+  device        : cuda:0
+  gpu           : NVIDIA GeForce GTX 1650
+  capability    : 7.5
+  total_memory_mb: 4095
+  torch         : 2.9.1+cu128
+  cuda_runtime  : 12.8
+  cudnn         : 91002
+  host          : Windows-11-10.0.26300-SP0
+
+Dataset
+  root          : C:\Users\danie\OneDrive\Počítač\EMG\datasets
+  recordings    : 211 used, 0 dropped (filter: no_errors)
+  classes       : 6  FIST, OPEN, REST, THUMB_UP, WAVE_LEFT, WAVE_RIGHT
+      FIST         29
+      OPEN         35
+      REST         44
+      THUMB_UP     32
+      WAVE_LEFT    36
+      WAVE_RIGHT   35
+  subjects      : Barbora, Betka, Bruno, Dano, Miso
+  majority-class baseline: 20.9 %  (any model must beat this, not 1/n)
+  Bruno: no saved calibration -- derived from their own recordings (labels unused)
+  Miso: no saved calibration -- derived from their own recordings (labels unused)
+
+Calibration
+  requested     : affine
+  applied       : affine for Barbora, Betka, Bruno, Dano, Miso
+  NOTE: a calibrated subject-grouped score is NOT zero-shot. The held-out
+        wearer's own unlabelled signal set their gain, so it answers 'how
+        well does this work on a new wearer WHO CALIBRATES FIRST'.
+
+Protocol
+  resampled to  : 60 Hz before windowing
+  folds         : StratifiedGroupKFold, grouped by SUBJECT across 5 wearers: the held-out person's data is never in training, so the winner is chosen for robustness across people rather than for within-subject fit
+  dedup         : ON -- window-level, by source timeline (CLAUDE.md 8g)
+  epochs        : 150 fixed, no early stopping on the test fold
+  scaling       : log1p + standardise, fitted per training fold
+  grid          : 1 architecture(s) x 1 window(s) = 1 candidates
+      gru       single-layer GRU + attention pooling over time
+
+  THIS MODEL DOES NOT VOTE. It is saved to its own file, it is not a member
+  of the decision panel's soft vote, and the app's LIVE CLASSIFIER answer is
+  unchanged by it. Separate numbers, separate button, separate opinion.
+PROGRESS 0 3 nn sweep
+TRAINEVENT {"done": 0, "total": 3, "phase": "nn sweep", "device": "cuda", "trainer": "nn", "message": "loading windows"}
+
+--- window 0.70 s  (42 samples @ 60 Hz)   2873 windows from 209 recordings   (dedup 2968 -> 2873)
+PROGRESS 0 3 nn sweep
+TRAINEVENT {"done": 0, "total": 3, "phase": "nn sweep", "device": "cuda", "trainer": "nn", "model": "gru", "window_s": 0.7, "overlap": 0.75, "representation": "sequence", "feature_set": "42x8 samples", "n_windows": 2873, "n_folds": 6}
+  [1/1] gru       window  72.4 % +-13.0   vote  78.9 %   f1  68.2 %     4455 par   167.7 s
+
+==============================================================================
+ ALL CANDIDATES  (ranked by per-window accuracy, subject-grouped)
+==============================================================================
+  arch         win   window acc   vote acc  macro f1   params
+  gru        0.70s       72.4 %     78.9 %    68.2 %     4455
+
+==============================================================================
+ BEST: gru  at 0.70 s (42 samples, 4455 parameters)
+==============================================================================
+  single-layer GRU + attention pooling over time
+  grouping               : subject  (grouped by SUBJECT across 5 wearers: the held-out person's data is never in training, so the winner is chosen for robustness across people rather than for within-subject fit)
+  per-window accuracy    : 72.4 % +- 13.0
+  per-recording vote     : 78.9 % over 209 recordings
+  macro F1               : 68.2 %
+  folds                  : 5  (87%, 77%, 70%, 79%, 49%)
+  majority-class baseline: 20.9 %
+
+               FIST   OPEN   REST THUMB_ WAVE_L WAVE_R    recall
+  FIST           252    164      5     77      0     19    48.7 %
+  OPEN           107    310      1     70      0     24    60.5 %
+  REST             9      3    493     28      0      0    92.5 %
+  THUMB_UP        29    112     18    199      9      0    54.2 %
+  WAVE_LEFT        0      2      1      0    470     31    93.3 %
+  WAVE_RIGHT       6     45      0      6      8    375    85.2 %
+
+  The OTHER protocol, for contrast (not the selection key):
+      recording-grouped: 95.3 % per window, 96.7 % per recording
+      gap to the chosen protocol: -22.8 points   <-- that gap IS the subject-specificity
+PROGRESS 1 3 DC-only control
+TRAINEVENT {"done": 1, "total": 3, "phase": "DC-only control", "device": "cuda", "trainer": "nn", "model": "gru", "message": "temporal structure removed"}
+
+  DC-only control: the same net, every window replaced by its channel means
+      DC only  : 63.3 % per window (subject-grouped)
+      full      : 72.4 %
+      so the TEMPORAL STRUCTURE is worth +9.2 points
+      Reminder (CLAUDE.md 8k): a RISING DC-only score is not good news --
+      it means the wearers' levels transfer, not that gestures were learnt.
+PROGRESS 2 3 leave-one-subject-out
+TRAINEVENT {"done": 2, "total": 3, "phase": "leave-one-subject-out", "device": "cuda", "trainer": "nn", "model": "gru"}
+
+  subject-independent    : 67.8 % +- 21.2
+      held out Barbora       28.4 %
+      held out Betka         92.2 %
+      held out Bruno         69.8 %
+      held out Dano          73.9 %
+      held out Miso          74.6 %
+      (each held-out wearer calibrated with their OWN numbers -- see the
+       calibration note above: this is not zero-shot.)
+
+Saved checkpoint -> C:\Users\danie\OneDrive\Počítač\EMG\models\gesture_nn.pt  (25 KB)
+Archived copy    -> C:\Users\danie\OneDrive\Počítač\EMG\models\gesture_nn_20261022-104355.pt
+Saved sweep report -> C:\Users\danie\OneDrive\Počítač\EMG\models\reports\nn_sweep_20261022-104355.json
+Saved stats sidecar -> C:\Users\danie\OneDrive\Počítač\EMG\models\gesture_nn.json
+
++--------------------------------------------------------------------------+
+| COMPUTE:  >>> GPU <<<   NVIDIA GeForce GTX 1650                          |
+|           CUDA 12.8  |  torch 2.9.1+cu128  |  4095 MB  |  capability 7.5 |
++--------------------------------------------------------------------------+
+
+Total time: 621.8 s
+
+REMINDER: the app's LIVE CLASSIFIER still loads 'models/gesture_model.joblib' and is
+          unaffected by this file. The net has its own START button and its
+          own statistics; the two are never averaged together.
+PROGRESS 3 3 done
+TRAINEVENT {"done": 3, "total": 3, "phase": "done", "device": "cuda", "trainer": "nn", "status": "completed", "model": "NN-gru", "artifact": "C:\\Users\\danie\\OneDrive\\Po\u010d\u00edta\u010d\\EMG\\models\\gesture_nn.pt", "window_accuracy": 0.7242255576927084, "recording_vote_accuracy": 0.7894736842105263, "message": "NN-gru 72.4 % per window (subject-grouped)"}

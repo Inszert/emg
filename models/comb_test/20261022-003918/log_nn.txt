@@ -1,0 +1,14 @@
+00:39:35  device cuda:0 NVIDIA GeForce GTX 1650; 211 recordings, 5 wearers
+00:39:35  architectures (best three of the last sweep): gru, cnn_gru, tcn
+00:45:45  N1 gru-w0.5-h32-d0.25-lr0.003-s0       66.2% window   71.4% vote  (06:09)
+00:50:36  N1 gru-w0.7-h32-d0.25-lr0.003-s0       72.4% window   78.9% vote  (04:49)
+00:53:29  N1 gru-w0.9-h32-d0.25-lr0.003-s0       65.1% window   70.2% vote  (02:52)
+00:55:37  N1 gru-w1.1-h32-d0.25-lr0.003-s0       68.2% window   73.1% vote  (02:07)
+00:57:24  N1 gru-w1.3-h32-d0.25-lr0.003-s0       64.7% window   70.2% vote  (01:47)
+00:58:46  N1 gru-w1.5-h32-d0.25-lr0.003-s0       65.3% window   71.6% vote  (01:21)
+01:05:52  N1 cnn_gru-w0.5-h32-d0.25-lr0.003-s0   62.9% window   69.5% vote  (07:05)
+01:10:53  N1 cnn_gru-w0.7-h32-d0.25-lr0.003-s0   60.2% window   67.0% vote  (05:01)
+01:14:23  N1 cnn_gru-w0.9-h32-d0.25-lr0.003-s0   62.2% window   66.8% vote  (03:29)
+01:17:14  N1 cnn_gru-w1.1-h32-d0.25-lr0.003-s0   61.6% window   67.8% vote  (02:51)
+01:19:23  N1 cnn_gru-w1.3-h32-d0.25-lr0.003-s0   58.3% window   63.0% vote  (02:08)
+01:21:20  N1 cnn_gru-w1.5-h32-d0.25-lr0.003-s0   63.0% window   68.8% vote  (01:57)

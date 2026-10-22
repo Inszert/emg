@@ -1,0 +1,51 @@
+==============================================================================
+ EMG GESTURE MODEL TRAINING
+==============================================================================
+
+Dataset        : C:\Users\danie\OneDrive\Počítač\EMG\datasets
+Recordings     : 211
+Subjects       : 5  ['Barbora', 'Betka', 'Bruno', 'Dano', 'Miso']
+Sessions       : 5
+Labels         : ['FIST', 'OPEN', 'REST', 'THUMB_UP', 'WAVE_LEFT', 'WAVE_RIGHT']
+Measured rate  : 46-51 Hz (median 50); resampling everything to 60 Hz
+
+Calibration    : mode affine
+                 Barbora    Barbora  2026-10-19 22:04  rest 26 -> ref 567 (21.4x)  applied as affine
+                 Betka      Betka  2026-10-16 17:46  rest 22 -> ref 556 (25.5x)  applied as affine
+                 Bruno      no saved calibration: derived from their own recordings (labels unused)
+                 Dano       Dano  2026-10-22 10:58  rest 22 -> ref 774 (34.7x)  applied as affine
+                 Miso       no saved calibration: derived from their own recordings (labels unused)
+
+  NOTE: a calibrated subject-grouped score is NOT zero-shot. The held-out
+        wearer's own signal set their gain, so the number answers "how well
+        does this work on a new wearer WHO CALIBRATES FIRST" -- which is a
+        real deployment, but a different question from the uncalibrated one.
+        The uncalibrated run is the comparison; --calibration off gives it.
+
+Setup          : PINNED by the spec -- bandpass/level, 1 s @ 0.75, data 'all'
+                 chosen by nn_ml_comb_test 20261022-003918: 77.6% window subject-held-out (optimistic), 74.0% nested
+
+Model spec     : C:\Users\danie\OneDrive\Počítač\EMG\models\model_spec.json
+                 2 of 2 models + soft vote (always used); setup pinned: bandpass/level 1 s
+  spec: Vote-soft-2 over RF-500-leaf3, ET-500
+                 candidates: RF-500-leaf3, ET-500, Vote-soft-2
+  [all] 211 recordings (0 dropped)
+PROGRESS 0 52 starting
+TRAINEVENT {"done": 0, "total": 52, "phase": "starting", "device": "cpu", "status": "running", "n_candidates": 52, "n_folds": 6, "phases": [["stage A1 screen", 1], ["stage A2 probe", 32], ["stage B", 15], ["tail", 4]], "message": "3 candidates x 0 setups"}
+
+Sweep          : 1 preprocessing setups x 3 models = 0 combinations, of which 52 are evaluated
+Validation     : StratifiedGroupKFold grouped by SUBJECT across 5 wearers: the held-out person's data is never in training, so the winner is chosen for robustness across people rather than for within-subject fit (6 folds max)
+                 (the per-recording vote is still counted per recording)
+
+Stage A1       : no cheap probe in this spec; screening with []
+Stage A1 screen: all setups, 50% of windows, []
+Stage A2 probe : best 32 setups, full data, []
+Stage B        : all 3 models on the best setups
+
+Window dedup   : ON -- overlapping clips share real samples; see dedupe_windows()
+
+Nothing could be evaluated.
+  Every candidate returned no score with folds subject-grouped.
+  The usual cause is a subject whose recordings cannot form a fold.
+  Set SELECTION_GROUPING = "recording" in train_model.py to score
+  within-subject instead, and read CLAUDE.md section 8h for what that costs.

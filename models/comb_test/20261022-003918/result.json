@@ -1,0 +1,73 @@
+{
+ "ml": {
+  "winner": {
+   "setup": {
+    "window_s": 1.0,
+    "overlap": 0.75,
+    "representation": "bandpass",
+    "freq_features": false,
+    "feature_set": "level"
+   },
+   "members": [
+    "ET-500",
+    "RF-500-leaf3"
+   ],
+   "window_accuracy": 0.7757917369319038,
+   "window_accuracy_std": 0.16280259619050355,
+   "window_macro_f1": 0.7477931765302868,
+   "recording_vote_accuracy": 0.8373205741626795,
+   "per_subject": {
+    "Barbora": 0.45918367346938777,
+    "Betka": 0.828125,
+    "Bruno": 0.7994722955145118,
+    "Dano": 0.8915929203539823,
+    "Miso": 0.9005847953216374
+   }
+  },
+  "nested_mean": 0.740346160795729,
+  "nested": {
+   "Barbora": {
+    "accuracy": 0.37055837563451777,
+    "chosen_setup": "bandpass-level-w1.3-o0.75",
+    "chosen_members": [
+     "ET-500"
+    ]
+   },
+   "Betka": {
+    "accuracy": 0.8009259259259259,
+    "chosen_setup": "bandpass-level-w1.3-o0.75",
+    "chosen_members": [
+     "RF-500",
+     "ET-500"
+    ]
+   },
+   "Bruno": {
+    "accuracy": 0.7994722955145118,
+    "chosen_setup": "bandpass-level-w1-o0.75",
+    "chosen_members": [
+     "ET-500",
+     "RF-500-leaf3"
+    ]
+   },
+   "Dano": {
+    "accuracy": 0.8915929203539823,
+    "chosen_setup": "bandpass-level-w1-o0.75",
+    "chosen_members": [
+     "RF-500-leaf3",
+     "ET-500"
+    ]
+   },
+   "Miso": {
+    "accuracy": 0.8391812865497076,
+    "chosen_setup": "raw-level-w1-o0.75",
+    "chosen_members": [
+     "ET-500-leaf3"
+    ]
+   }
+  }
+ },
+ "nn": {
+  "winner": null,
+  "finalists": null
+ }
+}

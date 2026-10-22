@@ -1,18 +1,12 @@
 {
   "kinds": [
-    "tcn",
-    "cnn_gru",
-    "gru",
-    "lstm",
-    "cnn"
+    "gru"
   ],
   "windows": [
-    0.3,
-    0.4,
-    0.5
+    0.7
   ],
   "overlap": 0.75,
-  "epochs": 60,
+  "epochs": 150,
   "hidden": 32,
   "dropout": 0.25,
   "learning_rate": 0.003,

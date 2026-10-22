@@ -486,7 +486,14 @@ Then the app's LIVE CLASSIFIER panel works: one-shot or continuous mode, the
 prediction drawn over the graph, per-class probability bars, and a MODEL STATS
 dialog showing the cross-validated numbers with their protocol.
 
-**Current state of the model (2026-10-19, THREE subjects).** The payload on
+**Current state of the models (2026-10-22, FIVE subjects) -- see §8n.**
+ML: soft vote of `ET-500` + `RF-500-leaf3` on `bandpass` / `level`, 1.0 s
+windows at 0.75 overlap, 211 recordings from Barbora, Betka, Bruno, Dano and
+Miso: **77.6 % per window (74.0 % nested, the honest figure), 83.7 % per
+recording**, subject held out. NN: `gru` at 0.7 s, **72.4 % / 78.9 %**.
+Barbora held out is still the hard fold for both (46 % / 28 %).
+
+*(Superseded, kept for the trend:)* **State on 2026-10-19, THREE subjects.** The payload on
 disk is `SVM-rbf-C10` on `raw` / `both`, 0.5 s windows at 0.5 overlap with
 frequency features, six labels, trained on **128 recordings from three
 wearers** -- `Dano` 44, `Betka` 41, `Barbora` 43 (1313 deduped windows, 154
@@ -1936,6 +1943,51 @@ optimistic in exactly the §8f way: re-don the band and use a new Session id
 for an honest number. Every result is appended to
 `datasets/<person>/model_tests.jsonl` with the model it was measured on;
 nothing is recorded, trained or saved otherwise.
+
+## 8n. The ML + NN combination test, and what training calibrates with (2026-10-22)
+
+`nn_ml_comb_test.py` (plain-text progress view: `--watch`; resumable:
+`--resume DIR`; `--ml-only`; `COMB_ML_WORKERS=2` on this 8 GB machine, 5
+workers ran it out of memory) searched 16 classifiers x 37 setups with every
+soft vote scored from stored out-of-fold probabilities, plus a NESTED check
+that redoes the whole choice without each person. Full results:
+**`docs/COMB_TEST.md`** and `models/comb_test/20261022-003918/comb_test_results.xlsx`
+(regenerate with `python tools/comb_test_report.py <run dir>`).
+
+| | per window | nested | per recording |
+|---|---|---|---|
+| previous model | 56.5 % | -- | -- |
+| **ML: vote(ET-500, RF-500-leaf3), bandpass/level 1.0 s** | 77.6 % | **74.0 %** | 83.7 % |
+| best single (ET-500, same setup) | 77.4 % | -- | 83.3 % |
+| **NN: gru 0.7 s** (search stopped after N1 by choice) | 72.4 % | -- | 78.9 % |
+
+What it found: ML wants **longer windows** (1.0-1.3 s), **`level`** features
+win every top setup, **forests take the whole top 15**, and voting adds only
+0.2 points over the best single model. **Read the DC-only control:** at the
+winning setup the 8 channel means alone score 77.8 % -- the model is reading
+calibrated per-channel levels (§8f/§8k), not gesture shape. The NN's timing
+is worth +9.2 points over its own DC-only control.
+
+`model_spec.json` now carries a **`setup` pin** (`train_model.py` "PINNED
+SETUP" block: the sweep collapses to that one setup) and `voting.always`, so
+RETRAIN reproduces the winner rather than re-sweeping. Two trainer bugs this
+exposed, fixed: a pinned `level` setup with `freq_features: false` was
+skipped (the level family only ran with the flag on), and a spec with none of
+the named probe models screened with nothing ("Nothing could be evaluated").
+`nn_spec.json` / `NN_SPEC_DEFAULTS` hold `gru` @ 0.7 s, 150 epochs, the only
+architecture selected, marked RECOMMENDED in the dialog.
+
+**Training always calibrates with DERIVED calibrations**
+(`TRAINING_CALIBRATION_SOURCE = "derived"`, `training_calibrations()`),
+whatever `calibration.json` holds. A live REST+SQUEEZE record measures
+*maximum* effort while the recordings are relaxed holds -- Dano's live and
+derived references differ by **1.2x-3.1x per channel** -- and a live record
+describes how the band sits *today*, not when the data was recorded. Mixing
+the two put wearers on different scales. The saved (live) calibration is
+still what PREDICTING uses. **Open question, to measure with TEST MODEL:**
+does a model trained on the derived scale predict well on a live
+REST+SQUEEZE scale? If not, the live calibration should measure the way the
+derived one does.
 
 ## 9. Safety / data-preservation rules
 
