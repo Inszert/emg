@@ -11,7 +11,7 @@ from typing import List, Optional, TYPE_CHECKING, Tuple
 import numpy as np
 
 from emg_app import config as cfg
-from emg_app.model_spec import panel_path
+from emg_app.model_spec import panel_path, serialise_estimator
 
 if TYPE_CHECKING:                  # type hints only; avoids an import cycle
     from emg_app.prediction import LivePredictor
@@ -173,27 +173,8 @@ class DecisionPanel:
         rather than at training time because the saved estimator is also the
         one the sweep used, where many rows at once do want the cores.
         """
-        def walk(estimator, depth=0):
-            """Every estimator inside a pipeline or an ensemble."""
-            if estimator is None or depth > 4:
-                return
-            if getattr(estimator, "n_jobs", None) not in (None, 1):
-                try:
-                    estimator.n_jobs = 1
-                except Exception:                          # pragma: no cover
-                    pass
-            for step in (getattr(estimator, "named_steps", None) or {}).values():
-                walk(step, depth + 1)
-            #  VotingClassifier: `estimators_` is the fitted list, and it is
-            #  the one that runs; `estimators` holds (name, estimator) pairs.
-            for member in getattr(estimator, "estimators_", None) or []:
-                walk(member, depth + 1)
-            for entry in getattr(estimator, "estimators", None) or []:
-                walk(entry[1] if isinstance(entry, tuple) else entry,
-                     depth + 1)
-
         for model in self.members.values():
-            walk(model)
+            serialise_estimator(model)
 
     @property
     def ready(self) -> bool:

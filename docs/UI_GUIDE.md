@@ -104,9 +104,10 @@ state per row. `DELETE LAST` moves files to `_deleted/` — it never calls
 > is also unnecessary: a clip cut from a take has the whole clip as its label
 > window, so **your selection already is the trim.**
 
-**LIVE CLASSIFIER.** One-shot or continuous, drawn over the graph with
-per-class probability bars. The provenance line reads one of four states and
-never guesses:
+**LIVE CLASSIFIER.** The deployed ML model — the app's answer. One-shot or
+continuous, drawn over the graph with per-class probability bars. Every
+button is in [picture 6](#6-live-classifier-and-neural-network--every-button).
+The provenance line reads one of four states and never guesses:
 
 | State | Means |
 |---|---|
@@ -115,11 +116,15 @@ never guesses:
 | `UP TO DATE` | its dataset fingerprint matches the disk exactly |
 | `OUT OF DATE` | the dataset changed; the tooltip says how |
 
-**TRAINING.** `RETRAIN` runs `train_model.py` as a subprocess — not a thread,
-because scikit-learn with `n_jobs=-1` starves the acquisition thread, and a
-training crash must not take the recorder down. It runs on the **CPU** even
-when the GPU badge is green: sklearn has no GPU backend, and both the tooltip
-and the dialog say so rather than letting a green badge imply otherwise.
+**NEURAL NETWORK.** The GRU: a separate second opinion with its own START,
+bars and statistics, running in its own process on the GPU. It is never
+averaged into the answer above.
+
+**TRAINING.** Progress, ETA and the live log of whatever is training. The
+trainers run as a **background job** (`training/train_job.py`), not a thread
+and not a child of the window: closing the app does not stop them, and
+reopening it reattaches. The ML trainer runs on the **CPU** even when the GPU
+badge is green — scikit-learn has no GPU backend, and the dialog says so.
 
 ---
 
@@ -176,8 +181,9 @@ before the release. Keep it on the settled, **relaxed** part of the hold.
 Exclude flat rest at either edge — a pure-rest window labelled as a gesture is
 how you get false positives firing while your hand sits still.
 
-**How long:** about 2.5–3 s. At the winning setup (0.3 s windows, 0.75
-overlap) that is ~30–37 training windows. Going longer does not buy more data
+**How long:** about 2.5–3 s. The deployed ML model reads 1.0 s windows at
+0.75 overlap and the net 0.7 s, so a 3 s clip gives each about 9–13 training
+windows. Going longer does not buy more data
 — windows are deduplicated against the source timeline anyway — it just drags
 in ramp.
 
@@ -224,6 +230,118 @@ out-of-range value clamped, a duplicate name renamed, and a spec with
 everything disabled gets one model switched back on. Every correction is
 reported as a string the GUI shows and the trainer logs.
 
+## 6. LIVE CLASSIFIER and NEURAL NETWORK — every button
+
+![Classifier and neural net buttons](images/ui_classifier.png)
+
+The two panels hold the two models, in reading order: **the app's answer
+first, then the separate second opinion.**
+
+| Button | What it does |
+|---|---|
+| **Mode** | one-shot (one answer, then stop) or continuous |
+| **PREDICT** | starts the deployed ML model on the live stream. Needs a trained model **and** a calibration for the person in the SUBJECT box — without one it refuses rather than answer on the wrong scale |
+| **MODEL STATS** | the cross-validated numbers, the DECISION TRAIL and FEATURE SPACE (picture 3) |
+| **TEST MODEL…** | scores the model on *you*, live (picture 9) |
+| **RETRAIN ON ALL DATA** | retrains the ML model from MODEL SPEC (~1.5 min, CPU) |
+| **RETRAIN ML + NEURAL NET** | both models, one after the other (~12–14 min) |
+| **MODEL SPEC…** | which classifiers are in the vote, on which setup (picture 5) |
+| **CALIBRATE / RECALIBRATE…** | this wearer's rest and reference levels (picture 7) |
+| **START NN** | runs the GRU next to the classifier, in its own process on the GPU |
+| **NN STATS** | the net's own numbers, and the table against the deployed model — accuracy *and size* (picture 8) |
+| **TRAIN NEURAL NET** | trains the GRU 0.7 s (~10–12 min, GPU) |
+| **NEURAL SETUP…** | architecture and hyperparameters; GRU 0.7 s is the only one selected and the recommended one |
+
+**Training runs in the background.** RETRAIN, TRAIN NEURAL NET and RETRAIN
+ML + NEURAL NET start a detached job. Close the app and the job keeps going;
+open it again and the TRAINING panel reattaches and reports the result. On
+close the app asks whether to keep training or stop it. While a job runs, the
+button that started it becomes its CANCEL.
+
+**The two models are never combined.** The net has its own bars and its own
+statistics. Where the two disagree, the NEURAL NETWORK panel says so —
+"the classifier says OPEN 71 %, the net says WAVE_RIGHT 64 %" — and the
+app's answer is still the classifier's. How the two compare in accuracy,
+speed and size: [`MODELS_COMPARED.md`](MODELS_COMPARED.md).
+
+---
+
+## 7. CALIBRATE
+
+![Calibrate](images/ui_calibration.png)
+
+A calibration is two levels per channel — relaxed and under load — measured
+once per wearer, so that a number means the same effort on anybody. The
+models were trained on calibrated signal, so **every wearer must calibrate
+before PREDICT or START NN will run for them.**
+
+1. **START SWEEP** (recommended): it cues **REST**, then **each gesture** in
+   turn. Hold each one firmly until the next cue. Every channel's reference is
+   the loudest it got across all gestures, so no channel ends up scaled from
+   noise.
+2. A row that did not register is **rejected with the reason** — too weak,
+   or a REST that was not relaxed (any channel over 50 counts). Select it and
+   press **REDO SELECTED**.
+3. **SAVE CALIBRATION**. It is stored in
+   `datasets/<person>/calibration.json`, and every calibration also goes into
+   an append-only log next to it.
+
+**QUICK** (relax 3 s, then one hard squeeze) is the fast alternative. **DERIVE
+FROM RECORDED DATA** needs no armband: it estimates the levels from the
+person's recordings, which is exactly what the trainers use for training.
+
+**When to recalibrate:** every time the band is put back on. A calibration
+describes where the pods sit, and that changes with every fitting.
+
+---
+
+## 8. NN STATS — the neural net against the deployed model
+
+![NN stats](images/ui_nn_stats.png)
+
+The bottom table, **AGAINST THE DEPLOYED MODEL**, is the only place the two
+models appear side by side. Both are scored on the same protocol (a person
+held out), and the table says so — or warns when they were not.
+
+| Row | What it shows |
+|---|---|
+| per window / per gesture / macro F1 | the cross-validated accuracy of each |
+| input | 50 features from a 1.0 s window, against 42 × 8 raw samples (0.7 s) |
+| size on disk | the files, measured: ~18 MB against 25 KB |
+| learned numbers | what each model stores to predict — tree nodes, support vectors, weights — with **one row per member of the soft vote** |
+| relative size | the ML vote is ~300× the net |
+| runs on | scikit-learn on the CPU, against torch in a subprocess |
+
+Above the table: the net's per-gesture accuracy, its confusion matrix (rows
+are what was made, columns what it said), and its inference worker's state
+and measured latency.
+
+---
+
+## 9. TEST MODEL — the number cross-validation does not give you
+
+![Test model](images/ui_model_test.png)
+
+Cross-validation answers "how good is this on a stranger". TEST MODEL answers
+"how good is this **on me, now**":
+
+1. Calibrate first, with the band on as you will use it.
+2. Choose **Rounds** (how many times each gesture is cued) and **Hold**
+   (seconds per cue).
+3. **START TEST**, then make each gesture the big cue shows and hold it until
+   the next one. The first moment of each hold is not scored, while your hand
+   settles.
+4. **Results** gives three numbers, each with its confusion matrix:
+   - **per trial:** the majority of a hold's windows; comparable with the
+     trainer's per-recording vote;
+   - **smoothed:** what the panel shows you live;
+   - **per window:** the raw score.
+
+The orange line at the top says whether this person and session are in the
+model's training data. If they are, the score is optimistic: take the band
+off, put it back on, set a new Session id and calibrate again for an honest
+number. Every result is saved to `datasets/<person>/model_tests.jsonl`.
+
 ---
 
 ## Keyboard shortcuts
@@ -248,21 +366,27 @@ field.
 
 ## The five-minute version
 
-Recording one sitting, start to finish:
+**A new person, from nothing to live predictions:**
 
 1. Put the armband on. Wait for the link pill to go green.
 2. Set **Person id** and **Session id**. A new subject gets a new id.
-3. `START FREE TAKE` (`Ctrl+Shift+R`).
-4. Per repetition: rest ~3 s → make the gesture → let it settle → **hold it
-   relaxed for ~4 s at the effort you would really use** → release.
-   Interleave the gestures; do ~6 of each.
-5. `STOP & SAVE TAKE`.
-6. `OPEN TAKE(S) & CUT CLIPS` → cut ~3 s clips from the settled part of each
+3. **CALIBRATE** → START SWEEP → SAVE CALIBRATION (picture 7).
+4. **Record:** `START FREE TAKE` (`Ctrl+Shift+R`). Per repetition: rest ~3 s →
+   make the gesture → let it settle → **hold it relaxed for ~4 s at the effort
+   you would really use** → release. Interleave the gestures; do ~6 of each.
+   Then `STOP & SAVE TAKE`.
+5. `OPEN TAKE(S) & CUT CLIPS` → cut ~3 s clips from the settled part of each
    hold. **Do not press AUTO-TRIM ALL.**
-7. `RETRAIN ON ALL DATA`.
-8. **Take the armband off and walk away.** Repeat on another day.
+6. **RETRAIN ML + NEURAL NET** (~12–14 min). You may close the app; it keeps
+   training.
+7. **Restart the app.** Put the band back on and **CALIBRATE again** — the
+   band now sits differently.
+8. **PREDICT** (the ML answer) and/or **START NN** (the second opinion).
+   **TEST MODEL** tells you how well it works on you.
+9. **Take the armband off and walk away.** Record another sitting on another
+   day.
 
-Step 8 is not optional padding — it is the entire point. A gesture recorded
+Step 9 is not optional padding — it is the entire point. A gesture recorded
 on only one electrode fitting cannot be told apart from that fitting, no
 matter how good the model is. See [`EDA.md`](EDA.md) and
 [`../CLAUDE.md`](../CLAUDE.md) §8f.
@@ -272,7 +396,7 @@ matter how good the model is. See [`EDA.md`](EDA.md) and
 ## Regenerating these pictures
 
 ```powershell
-python tools\make_ui_guide.py . docs\images
+python tools/make_ui_guide.py . docs/images
 ```
 
 It builds the real window with `MYO_PORT` pointed at a port that cannot exist,

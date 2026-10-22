@@ -13,7 +13,7 @@ The native platform plugin is used, not `offscreen`, because offscreen ships
 no font database and renders every glyph as a tofu box. `WA_DontShowOnScreen`
 keeps the window off the operator's display while still running layout.
 
-Usage:  python toolsmake_ui_guide.py . docsimages
+Usage:  python tools/make_ui_guide.py . docs/images
 """
 import io
 import os
@@ -249,26 +249,28 @@ PANEL_SHOTS_2 = [
      "quarantines into _deleted/. AUTO-TRIM ALL is the one button to avoid "
      "on clips cut from a take: it keeps the STRONGEST region, and a "
      "relaxed hold is the weakest part of the clip."),
-    ("section:LIVE CLASSIFIER", "LIVE CLASSIFIER -- one-shot or continuous, "
-     "drawn over the graph with per-class probability bars. The provenance "
-     "line reads UP TO DATE / OUT OF DATE / TRAINED / NO MODEL, and MODEL "
-     "STATS opens the full cross-validated numbers. CALIBRATE measures this "
-     "wearer's rest and reference levels, optional and off by default, valid "
-     "until RECALIBRATE. It cannot fabricate a prediction."),
-    ("section:TRAINING", "TRAINING -- RETRAIN runs train_model.py as a "
-     "subprocess on the CPU (sklearn has no GPU backend, and the dialog "
-     "says so even when the badge is green). MODEL SPEC edits which "
-     "classifiers the sweep trains."),
+    ("section:LIVE CLASSIFIER", "LIVE CLASSIFIER -- the deployed ML model "
+     "(the app's answer): one-shot or continuous, drawn over the graph with "
+     "per-class probability bars. The provenance line reads UP TO DATE / "
+     "OUT OF DATE / TRAINED / NO MODEL. CALIBRATE is REQUIRED once per "
+     "wearer -- the model refuses to predict without it. Picture 6 has every "
+     "button."),
+    ("section:NEURAL NETWORK", "NEURAL NETWORK -- the GRU, a separate second "
+     "opinion with its own START, bars and NN STATS. It runs in its own "
+     "process on the GPU and is never averaged into the answer above; where "
+     "the two disagree, the panel says so."),
+    ("section:TRAINING", "TRAINING -- progress, ETA and the live log of the "
+     "running trainer. Training runs as a background job: close the app and "
+     "it keeps going; reopen and it reattaches."),
     ("section:LOG", "LOG -- every save, quarantine, reconnect and failure, "
      "in order."),
 ]
 
 for fname, shots, title in (
     ("ui_panel_1.png", PANEL_SHOTS,
-     "2a. CONTROL PANEL (top)  --  subject, labelling, takes, markers, plan"),
+     "2a. CONTROL PANEL (top)"),
     ("ui_panel_2.png", PANEL_SHOTS_2,
-     "2b. CONTROL PANEL (bottom)  --  channels, recordings, classifier, "
-     "training, log"),
+     "2b. CONTROL PANEL (bottom)"),
 ):
     wanted = {spec for spec, _ in shots}
     for sec in panel.findChildren(T.CollapsibleSection):
@@ -382,6 +384,125 @@ annotate(spec_dlg, spec_dlg, [
      "rather than hidden -- safety rule 11."),
 ], os.path.join(OUT, "ui_model_spec.png"),
     "5. MODEL SPEC  --  which classifiers the sweep trains, and in what modes")
+
+# ============================================ CLASSIFIER + NEURAL NET buttons
+for sec in panel.findChildren(T.CollapsibleSection):
+    title = sec.header.text().lower()
+    sec.header.setChecked(title.startswith(("live classifier",
+                                            "neural network")))
+    app.processEvents()
+panel.resize(panel.width(), panel.sizeHint().height())
+for _ in range(4):
+    app.processEvents()
+annotate(panel, win, [
+    ("pred_mode_combo", "ONE-SHOT or CONTINUOUS prediction."),
+    ("predict_button", "PREDICT -- starts the live classifier. Needs a "
+     "trained model AND a calibration for the person in the SUBJECT box."),
+    ("calibration_button", "CALIBRATE / RECALIBRATE -- REST, then every "
+     "gesture once (picture 7). Once per wearer; it stays valid until you "
+     "recalibrate. Do it again whenever the band is put back on."),
+    ("test_button", "TEST MODEL -- cues every gesture several times and "
+     "scores the model on YOU, live (picture 9). The number cross-validation "
+     "cannot give you."),
+    ("retrain_button", "RETRAIN ON ALL DATA -- the ML model only, from the "
+     "pinned spec (about 2 min). Runs in the background."),
+    ("retrain_all_button", "RETRAIN ML + NEURAL NET -- one button, both "
+     "models, one after the other (about 15 min). Closing the app does not "
+     "stop it."),
+    ("spec_button", "MODEL SPEC -- which classifiers are in the soft vote "
+     "and on which setup (picture 5)."),
+    ("nn_start_button", "START NN -- runs the GRU next to the classifier, on "
+     "the GPU. Its answer is shown separately, never mixed in."),
+    ("nn_stats_button", "NN STATS -- the net's own numbers and the side-by-"
+     "side table against the deployed model, including SIZE (picture 8)."),
+    ("nn_train_button", "TRAIN NEURAL NET -- the GRU 0.7 s only (about 10 "
+     "min on the GPU)."),
+    ("nn_setup_button", "NEURAL SETUP -- architecture and hyperparameters. "
+     "GRU at 0.7 s is the only one selected and the recommended one."),
+], os.path.join(OUT, "ui_classifier.png"),
+    "6. CLASSIFIER + NEURAL NET")
+
+# =============================================================== CALIBRATE
+cal = T.CalibrationDialog(win, win.acq, T.PERSON_ID)
+cal.setAttribute(QtCore.Qt.WA_DontShowOnScreen, True)
+cal.resize(1100, 900)
+cal.show()
+for _ in range(8):
+    app.processEvents()
+annotate(cal, cal, [
+    ("state_label", "WHO is being calibrated and what they have now. A "
+     "calibration belongs to the person in the SUBJECT box."),
+    ("stream_label", "Is the armband sending samples? A capture needs a live "
+     "stream -- a connected band that went to sleep sends nothing."),
+    ("sweep_button", "START SWEEP -- the recommended way: cues REST, then "
+     "each gesture in turn. Each channel's reference is the loudest it got "
+     "across ALL gestures, so no channel is scaled from noise."),
+    ("redo_button", "REDO SELECTED -- repeat one row. A capture that did not "
+     "register (too weak, or a tense REST over 50 counts) is rejected, shown "
+     "with the reason, and simply redone."),
+    ("both_button", "QUICK -- relax 3 s, then one strong squeeze 3 s. Faster, "
+     "but a squeeze leaves some channels quiet; the sweep above is better."),
+    ("derive_button", "DERIVE FROM RECORDED DATA -- no armband needed: "
+     "estimates the levels from this person's recordings. This is what "
+     "TRAINING always uses."),
+    ("save_button", "SAVE -- stores it in datasets/<person>/calibration.json "
+     "(every calibration also goes into an append-only log)."),
+    ("clear_button", "CLEAR -- removes it (the log keeps the record)."),
+], os.path.join(OUT, "ui_calibration.png"),
+    "7. CALIBRATE  --  rest + every gesture, once per wearer")
+
+# ================================================================== NN STATS
+nn_dlg = T.NeuralStatsDialog(win.nn_engine, win, predictor=win.predictor)
+nn_dlg.setAttribute(QtCore.Qt.WA_DontShowOnScreen, True)
+nn_dlg.resize(1150, 1180)
+nn_dlg.show()
+for _ in range(8):
+    app.processEvents()
+if hasattr(nn_dlg, "compare_table"):
+    for sa in nn_dlg.findChildren(QtWidgets.QScrollArea):
+        sa.ensureWidgetVisible(nn_dlg.compare_table, 0, 40)
+    for _ in range(6):
+        app.processEvents()
+    annotate(nn_dlg, nn_dlg, [
+        ("compare_table", "AGAINST THE DEPLOYED MODEL -- the two models side "
+         "by side, scored on the same protocol (a person held out). Accuracy "
+         "per window and per gesture, macro F1, the input each one reads, "
+         "SIZE on disk, LEARNED NUMBERS (tree nodes / weights) per vote "
+         "member, and what each needs to run. Two independent results, "
+         "never one blended figure."),
+    ], os.path.join(OUT, "ui_nn_stats.png"),
+        "8. NN STATS  --  the neural net against the deployed model")
+else:
+    print("  (no neural net trained -- skipped ui_nn_stats.png)")
+
+# ================================================================ TEST MODEL
+if win.predictor.ready:
+    test = T.ModelTestDialog(win)
+    test.setAttribute(QtCore.Qt.WA_DontShowOnScreen, True)
+    test.resize(1000, 860)
+    test.show()
+    for _ in range(8):
+        app.processEvents()
+    annotate(test, test, [
+        ("honesty", "Whether this sitting is in the model's training data. "
+         "If it is, the score is optimistic: re-don the band and use a new "
+         "Session id for an honest number."),
+        ("rounds_spin", "ROUNDS -- how many times every gesture is cued "
+         "(interleaved, never the same twice in a row)."),
+        ("hold_spin", "HOLD -- seconds per cue. The first moment of each "
+         "hold is skipped while the hand settles."),
+        ("cue", "THE CUE -- which gesture to make now."),
+        ("bar", "Progress through the cues."),
+        ("results", "RESULTS -- per trial (comparable with the trainer's "
+         "per-recording vote), smoothed (what you see live) and per window, "
+         "each with its confusion matrix. Saved to "
+         "datasets/<person>/model_tests.jsonl."),
+        ("start_button", "START TEST -- needs the armband streaming."),
+    ], os.path.join(OUT, "ui_model_test.png"),
+        "9. TEST MODEL  --  score the model on yourself, live")
+else:
+    print(f"  (model not usable here: {win.predictor.status} -- skipped "
+          "ui_model_test.png)")
 
 print("done")
 sys.stdout.flush()

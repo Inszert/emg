@@ -470,6 +470,7 @@ class NeuralStatsDialog(QtWidgets.QDialog):
              f"{stats.get('win_samples', '?')} x 8 raw samples"),
         ] + self._size_rows(stats)
         table = QtWidgets.QTableWidget(len(rows), 3)
+        self.compare_table = table
         table.setHorizontalHeaderLabels(
             ["", "LIVE CLASSIFIER (deployed)", "NEURAL NET (separate)"])
         table.verticalHeader().setVisible(False)

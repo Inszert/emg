@@ -18,6 +18,7 @@ from emg_app.calibration import (
 from emg_app.features import (
     model_feature_names, model_feature_vector, resample_uniform)
 from emg_app.dataset import model_data_status
+from emg_app.model_spec import serialise_estimator
 
 
 @dataclass
@@ -128,6 +129,9 @@ class LivePredictor:
             return False
 
         self.model = payload["model"]
+        #  One live row at a time: a joblib pool per call tripled the
+        #  forests' cost (serialise_estimator). Same answers.
+        serialise_estimator(self.model)
         self.labels = list(payload.get("labels", cfg.GESTURES))
         self.fs = float(payload.get("fs", nominal_rate()))
         self.window_s = float(payload.get(

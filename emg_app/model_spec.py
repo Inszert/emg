@@ -581,6 +581,36 @@ def _estimator_params(estimator) -> str:
     return ", ".join(bits)
 
 
+def serialise_estimator(estimator, depth: int = 0) -> None:
+    """
+    Make a fitted estimator predict on ONE thread, everywhere inside it.
+
+    A forest saved with `n_jobs=-1` stands up a joblib worker pool on every
+    predict call. For the many rows of a sweep that pays; for the single row
+    of a live window it is nearly all overhead -- measured 2026-10-22 on the
+    deployed 500-tree forests: 64 ms per window at -1, 20 ms at 1, and the
+    four-model vote 148 ms against a 150 ms prediction interval. `n_jobs`
+    changes only how a fitted model is evaluated, never what it answers.
+    Used by LivePredictor and by the DECISION TRAIL panel.
+    """
+    if estimator is None or depth > 4:
+        return
+    if getattr(estimator, "n_jobs", None) not in (None, 1):
+        try:
+            estimator.n_jobs = 1
+        except Exception:                                  # pragma: no cover
+            pass
+    for step in (getattr(estimator, "named_steps", None) or {}).values():
+        serialise_estimator(step, depth + 1)
+    #  VotingClassifier: `estimators_` is the fitted list, and it is the one
+    #  that runs; `estimators` holds (name, estimator) pairs.
+    for member in getattr(estimator, "estimators_", None) or []:
+        serialise_estimator(member, depth + 1)
+    for entry in getattr(estimator, "estimators", None) or []:
+        serialise_estimator(entry[1] if isinstance(entry, tuple) else entry,
+                            depth + 1)
+
+
 def _learned_numbers(obj, _seen=None) -> int:
     """
     How many numbers a fitted object stores to make its predictions.

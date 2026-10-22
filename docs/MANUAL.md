@@ -230,27 +230,30 @@ A **ring buffer** feeds the display; a **separate capture list** feeds
 recording. Dropping a display sample is cosmetic; dropping a recorded sample
 is data loss. The paths are deliberately not shared.
 
-### 5.4 Section map
+### 5.4 Module map
 
-`emg_dataset_tool.py` is one file by design, in strict section order:
+Until 2026-10-22 the application was one 21 400-line file. It is now the
+`emg_app` package, split by topic; `emg_dataset_tool.py` is still the entry
+point and still re-exports every name, so `import emg_dataset_tool as T`
+works unchanged. Full map: [`../emg_app/README.md`](../emg_app/README.md).
 
 ```
-USER CONFIGURATION    all tunables, top of file
-SECTION 1  helpers    paths, slugs, unique_path, time formatting
-SECTION 2  signal     moving RMS, envelope, bandpass, detect_activity,
-                      features, windowing, augmentation
-SECTION 3  quality    check_quality + QualityIssue
-SECTION 4  dataset    Recording, DatasetWriter, loaders, make_windows,
-                      leave_one_person_out, markers, free takes
-SECTION 5  acquisition SampleRing, Capture, MyoAcquisition      (no Qt)
-SECTION 6  sequence   build_plan, SequenceController            (no Qt)
-SECTION 7  GUI        theme, EmgPlotWidget, dialogs, MainWindow
-SECTION 8  entry      main()
+emg_app/config.py        all tunables (read live as cfg.NAME everywhere)
+emg_app/utils.py, signal_processing.py, calibration.py, features.py,
+        quality.py, markers.py, recording.py, model_spec.py, compute.py,
+        dataset.py                                   the data layer (no Qt)
+emg_app/acquisition.py + myo/                        the armband      (no Qt)
+emg_app/neural.py, jobs.py, sequence.py, model_test.py               (no Qt)
+emg_app/decision_panel.py, prediction.py             the live models  (no Qt)
+emg_app/gui/            widgets, plot, dialogs/ (one file per dialog),
+                        main_window/ (window.py + one mixin per feature)
+training/               train_model, train_nn, train_job, explain_votes,
+                        nn_arch, nn_serve, nn_ml_comb_test
 ```
 
-**Sections 1–6 are Qt-free and importable headless.** That is what lets a
-training script run `import emg_dataset_tool as T; T.load_dataset(...)` on a
-machine with no display.
+**Everything outside `gui/` is Qt-free and importable headless.** That is
+what lets a training script run `import emg_dataset_tool as T;
+T.load_dataset(...)` on a machine with no display.
 
 ### 5.5 On-disk format
 
@@ -1155,6 +1158,41 @@ more valuable half.
 
 ## 11. Current state
 
+**2026-10-22: five wearers, 211 recordings, both models trained on all of
+it.** The full comparison — accuracy, speed, size, training time — is
+[`MODELS_COMPARED.md`](MODELS_COMPARED.md); the search that chose the
+settings is [`COMB_TEST.md`](COMB_TEST.md).
+
+```
+                         per window (new person)   per gesture   per live window   size
+ML vote ET + RF          77.6 %  (74.0 % nested)    83.7 %        ~52 ms (CPU)      ~17.7 MB
+NN GRU 0.7 s             72.4 %                     78.9 %        1.8 ms (GPU)      25 KB
+```
+
+What changed that day, in one place:
+
+- **Settings chosen by a 10.5 h search** (16 classifiers × 37 setups, every
+  soft vote scored from stored out-of-fold probabilities, plus a nested
+  check), and **pinned** in `model_spec.json` so RETRAIN reproduces them in
+  ~1.5 min. The NN is GRU at 0.7 s, the only architecture selected.
+- **Training calibrates every wearer from their own recordings**, so a live
+  REST+SQUEEZE calibration (which measures maximum effort) cannot put one
+  person on a different scale. Predicting uses the live calibration.
+- **Training runs as a background job** (closing the app does not stop it),
+  **RETRAIN ML + NEURAL NET** does both, and **TEST MODEL** scores the model
+  on the wearer live.
+- **The live classifier is 3× faster** (148 → 53 ms per window): the saved
+  forests were evaluated with a worker pool per single row.
+- **The code was reorganised** into the `emg_app` package (§5.4), with the
+  trainers in `training/` and retired code in `legacy/`. All 17 test suites
+  pass (1912 checks).
+
+**Barbora, held out, scores 28–46 % with every model** while the other four
+score 70–92 %. That is the per-channel pattern of a rotated band, and the
+next real steps are more wearers and rotation augmentation, not tuning.
+
+### Earlier: mid re-record, one wearer (2026-10-15)
+
 **Mid re-record.** Take 1 of a planned 5.
 
 ```
@@ -1183,8 +1221,8 @@ That is the fix working, not breaking.
 
 ### Known limitations
 
-- **One subject.** `leave_one_person_out()` cannot split, so no
-  subject-independent estimate exists yet.
+- ~~**One subject.**~~ Five now (2026-10-22); subject-held-out numbers are
+  the headline.
 - **No contrast check at record time** — the highest-value open item.
 - **`EMG_MODE = "raw"` is the less-travelled path** — implemented and
   reviewed, never validated against a live armband over a long session.
@@ -1194,10 +1232,11 @@ That is the fix working, not breaking.
   once a second wearer exists.
 - **`gesture_panel.joblib` is ~12 MB** and is a desktop diagnostic — do not
   copy it to the robot.
-- **The neural net loses to the LDA by 29 points** (57.5 % against 86.8 % per
-  window, both subject-grouped). That is the measured result, not a bug — see
-  §8a. Do not read a running NEURAL NETWORK panel as a second chance at the
-  answer.
+- **The neural net is 5 points behind the ML vote** (72.4 % against 77.6 %
+  per window, both with a person held out, 2026-10-22). It was 29 points
+  behind on two wearers; more people closed most of the gap
+  ([`MODELS_COMPARED.md`](MODELS_COMPARED.md)). It is still a second opinion,
+  never part of the answer.
 
 ---
 
@@ -1217,7 +1256,10 @@ python training/train_nn.py                                     # the NEURAL NET
 python training/train_nn.py --quick                             # one architecture
 python training/train_nn.py --device cpu                        # no GPU
 python training/train_nn.py --calibration off                   # uncalibrated numbers
-python tools\make_ui_guide.py . docs\images            # regenerate screenshots
+python training/nn_ml_comb_test.py --watch                      # the ML+NN search's progress
+python tools/comb_test_report.py <run dir>                       # its spreadsheet + COMB_TEST.md
+python tools/bench_models.py                                     # both models' speed per window
+python tools/make_ui_guide.py . docs/images                      # regenerate screenshots
 python legacy/test_myo.py                                     # reference monitor
 ```
 
