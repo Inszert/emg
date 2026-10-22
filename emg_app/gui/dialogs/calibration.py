@@ -369,7 +369,10 @@ class CalibrationDialog(QtWidgets.QDialog):
             return "RELAX"
         if which == "effort":
             return "SQUEEZE HARD"
-        return which
+        #  A gesture: its name plus the instruction -- which is how a gesture
+        #  added in GESTURES... is explained the first time it is calibrated.
+        hint = cfg.gesture_cue(which)
+        return f"{which}  ({hint})" if hint else which
 
     def _on_tick(self) -> None:
         if self.phase == self.IDLE:

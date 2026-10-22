@@ -172,12 +172,14 @@ class SequenceController:
         if self.state == STATE_REST:
             return ("RELAX", f"Next: {label}")
         if self.state == STATE_PREPARE:
-            return (f"GET READY: {label}", "Hold the start position")
+            return (f"GET READY: {label}",
+                    cfg.gesture_cue(label) or "Hold the start position")
         if self.state == STATE_COUNTDOWN:
             ticks = max(1, int(math.ceil(self.remaining)))
             return (str(ticks), f"{label} in {ticks}")
         if self.state == STATE_RECORDING:
-            return ("RECORD NOW", label)
+            cue = cfg.gesture_cue(label)
+            return ("RECORD NOW", f"{label}  --  {cue}" if cue else label)
         if self.state == STATE_STOPPING:
             return ("STOP", label)
         if self.state == STATE_REVIEW:

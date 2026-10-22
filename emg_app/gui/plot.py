@@ -476,8 +476,7 @@ class EmgPlotWidget(QtWidgets.QWidget):
             end = mark["end"] - t_now
             if end < -window * 1.02:            # fully off-screen to the left
                 continue
-            colour = cfg.LABEL_COLORS.get(
-                mark["label"], cfg.CHANNEL_COLORS[hash(mark["label"]) % cfg.N_CHANNELS])
+            colour = cfg.label_color(mark["label"])
 
             # Restyle only when this slot changes gesture. Re-applying a brush
             # and pen to 8 items every frame is pure waste, and

@@ -165,7 +165,7 @@ class NeuralMixin:
         #  mislabel every bar.
         labels = list(engine.labels) if (engine and engine.ready) else []
         for row, name in enumerate(labels):
-            caption = make_label(name, 9, False, COL_TEXT_DIM)
+            caption = make_label(name, 9, True, cfg.label_color(name))
             bar = QtWidgets.QProgressBar()
             bar.setRange(0, 1000)
             bar.setValue(0)

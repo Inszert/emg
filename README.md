@@ -204,6 +204,13 @@ The full walkthrough with pictures is the
 5. **Predict** — PREDICT for the ML answer, START NN for the second opinion.
    **TEST MODEL** tells you how well it works on you.
 
+**A new gesture** is added in **GESTURES…** → ADD YOUR OWN (a name and how
+to do it). It appears everywhere at once — dropdowns, plan, calibration, cues,
+its own colour — and is saved with the data. **Nothing retrains by itself:**
+the panel tells you the models don't know it yet, and you press RETRAIN when
+you have recorded it on at least two people
+([guide](docs/UI_GUIDE.md#10-adding-a-new-gesture)).
+
 ---
 
 ## The honesty machinery
@@ -324,7 +331,7 @@ datasets/ models/ exports/
 
 ## Tests
 
-**1912 checks across seventeen scripts that need no armband — all green on
+**2064 checks across eighteen scripts that need no armband — all green on
 2026-10-22**, after the reorganisation into `emg_app/`:
 
 ```powershell
@@ -336,6 +343,7 @@ python tests\test_markers.py          #  88    python tests\test_model_spec.py  
 python tests\test_free_take.py        # 268    python tests\test_no_torch.py    #  11
 python tests\test_nn.py               # 158    python tests\test_calibration.py # 161
 python tests\test_jobs.py             #  48    python tests\test_device.py      # 104
+python tests\test_custom_gesture.py   # adding a gesture end to end (~5 min)
 python tests\test_torch.py            # 163  (the retired trainer; needs the GPU)
 ```
 

@@ -416,6 +416,35 @@ and its recordings stay and the trainer still finds them, because discovery
 walks the tree rather than this list. A label set is a plan for what to
 record next, not a filter on what has been recorded.
 
+### Adding a NEW gesture from the GUI — and why it never retrains (2026-10-22)
+
+GESTURES... → ADD YOUR OWN takes a name and an **instruction** (the cue).
+`emg_app/gestures.py` (Qt-free) makes it last and reach everything:
+
+| Where | What happens |
+|---|---|
+| `<DATA_FOLDER>/gestures.json` | the in-use list + every added gesture's cue; written by `edit_gestures`, restored by `app.main()` (**not** by `MainWindow`, so a test's own `GESTURES` is never overridden). It lives with the DATA because it describes what is recorded. An unreadable file is ignored, never allowed to empty the set |
+| `cfg.CUSTOM_GESTURES` | name -> cue; `known_gestures()` and `gesture_cue()` include it |
+| every dropdown, the plan, the calibration sweep, the session banner, TEST MODEL's cue, the recordings counts | follow `cfg.GESTURES` / `cfg.gesture_cue()` as before -- now with the instruction shown |
+| colour | `cfg.label_color(name)`: the six built-ins keep `LABEL_COLORS`; any other gesture gets one of `EXTRA_LABEL_COLORS` in `known_gestures()` order, so it is stable and never one already in use. Used by the plot, trim dialog, counts, FEATURE SPACE and the caption of every probability bar (ML and NN) |
+| the models | **unchanged.** A model knows exactly the labels it was trained on. The dialog says per gesture which models know it; the LIVE CLASSIFIER panel adds `NOT IN THE MODEL YET: X (n rec) -- RETRAIN when you choose` once recordings exist (`model_gesture_gaps()`, from the cached fingerprint -- no extra disk walk) |
+
+**Nothing retrains automatically, by design** -- the operator asked for it
+that way, and it is also right: a gesture recorded by **one person** makes
+`subject_grouping_viable()` fail, the trainer falls back to
+recording-grouped folds, and its headline number becomes the optimistic
+within-person one (~97 %), not comparable with the subject-held-out 77.6 %.
+The dialog warns per gesture ("record it on a second person before trusting
+a retrain's score"). Record a new gesture on at least two people, calibrate
+them (the sweep now includes it), then RETRAIN.
+
+`tests/test_custom_gesture.py` checks the whole story on a temp COPY of the
+dataset and models: add -> saved -> restored -> dropdowns / plan / sweep /
+banner / colour -> nothing retrained -> recorded on three people -> panel
+warns -> explicit retrain -> both models know it: 7 probability bars in its
+colour, 7x7 confusion matrices in MODEL STATS and NN STATS, its points in the
+FEATURE SPACE (PCA) in its colour, TEST MODEL cues it, the NN worker loads it.
+
 ### "Five of the same gesture in a row" — `GESTURE_ORDER = "blocked"`
 
 This already existed and did exactly that; what was missing was that it was
@@ -2123,6 +2152,7 @@ python tests\test_predict.py                  # 109 checks, no hardware
 python tests\test_trail.py                    # 103 checks, the DECISION TRAIL
 python tests\test_calibration.py              # 157 checks, per-wearer calibration (§8k)
 python tests\test_jobs.py                     # 48 checks, background training + TEST MODEL (§8m)
+python tests\test_custom_gesture.py           # adding a gesture reaches everything, never auto-retrains (§7a; ~5 min, trains on a temp copy)
 python tests\test_nn.py                       # 158 checks, the neural net and the SEPARATION rule (§8L)
 python tests\test_device.py                # 104 checks, device profile / channel count (§2b), gestures (§7a)
 python tests\test_sweep_cost.py               # 48 checks, the sweep cost controls (§8g)

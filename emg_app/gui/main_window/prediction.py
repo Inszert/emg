@@ -14,6 +14,7 @@ import time
 import numpy as np
 
 from emg_app import config as cfg
+from emg_app.gestures import describe_gaps, model_gesture_gaps
 from emg_app.calibration import (
     calibration_status, describe_calibration, load_calibration)
 from emg_app.compute import (
@@ -222,7 +223,10 @@ class PredictionMixin:
 
         labels = self.predictor.labels if self.predictor.ready else []
         for row, name in enumerate(labels):
-            caption = make_label(name, 9, False, COL_TEXT_DIM)
+            #  The caption wears the gesture's own colour (cfg.label_color), so
+            #  a gesture added later is recognisable at a glance; the BAR keeps
+            #  the certainty colour set in _show_prediction.
+            caption = make_label(name, 9, True, cfg.label_color(name))
             bar = QtWidgets.QProgressBar()
             bar.setRange(0, 1000)
             bar.setValue(0)
@@ -634,9 +638,17 @@ class PredictionMixin:
         #  because that is the question that gets asked weeks later.
         payload = dict(self.predictor.payload_meta) if self.predictor.ready else {}
         data = payload.get("data") or {}
+        #  A gesture with recordings that this model was never trained on
+        #  (added in GESTURES... and recorded since). Said here, never acted
+        #  on: retraining is the operator's decision.
+        on_disk = (getattr(self, "_fingerprint", None) or {}).get("labels") or {}
+        gaps = (describe_gaps(model_gesture_gaps(self.predictor.labels,
+                                                 on_disk), "MODEL")
+                if self.predictor.ready else "")
         if self.predictor.ready and data:
             self.model_data_label.setText(
-                f"trained on  {describe_training_data(data)}")
+                f"trained on  {describe_training_data(data)}"
+                + (f"\n{gaps}" if gaps else ""))
         elif self.predictor.ready:
             self.model_data_label.setText(
                 "trained on  (not recorded by this model)")

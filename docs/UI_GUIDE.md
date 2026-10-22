@@ -344,6 +344,37 @@ number. Every result is saved to `datasets/<person>/model_tests.jsonl`.
 
 ---
 
+## 10. Adding a new gesture
+
+![Gestures dialog](images/ui_gestures.png)
+
+**GESTURES…** (`Ctrl+Shift+G`, in the RECORDING PLAN panel) is where the
+label set lives.
+
+1. Under **ADD YOUR OWN**, type a **Name** (`WRIST_FLEX` — it becomes a
+   folder name) and an **Instruction** ("bend the wrist down, fingers
+   relaxed"). Press **ADD GESTURE**, then **USE THESE**.
+2. From then on it is **everywhere**: every gesture dropdown, START
+   SESSION's plan, the calibration sweep, the session banner and TEST MODEL
+   (with your instruction under the name), the recordings counts, and its own
+   colour in the graph, the bars and the feature space. It is saved in
+   `datasets/gestures.json`, so it is still there after a restart.
+3. **Nothing retrains.** Each row in the dialog says whether the models know
+   the gesture. Once you have recorded it, the LIVE CLASSIFIER panel says
+   `NOT IN THE MODEL YET: WRIST_FLEX (… rec) — RETRAIN when you choose`. The
+   models learn it only when you press **RETRAIN ML + NEURAL NET**.
+
+**Before you retrain, record it on at least two people** — and calibrate
+them again, since the sweep now includes it. With only one person, the
+trainer cannot hold a person out for that gesture, so it switches to the
+within-person protocol and its score looks much better than it is. The dialog
+warns about exactly this.
+
+Unchecking a gesture only stops it being cued. Its recordings stay on disk,
+and the models keep using them.
+
+---
+
 ## Keyboard shortcuts
 
 | Key | Action |

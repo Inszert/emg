@@ -225,7 +225,7 @@ class ModelTestDialog(QtWidgets.QDialog):
                 f"color: {COL_WARN}; background: transparent; "
                 f"font-size: 30px; font-weight: 800;")
             self.sub.setText(f"trial {s.index + 1} of {total}  --  "
-                             f"{cfg.GESTURE_CUES.get(s.current, '')}")
+                             f"{cfg.gesture_cue(s.current)}")
             self.live.setText("")
             return
 

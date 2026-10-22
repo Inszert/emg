@@ -436,7 +436,7 @@ class TrimDialog(QtWidgets.QDialog):
                 + (f"   [{clip.worst_issue_level}]"
                    if clip.worst_issue_level else ""))
             item.setForeground(QtGui.QColor(
-                cfg.LABEL_COLORS.get(clip.label, COL_GOOD)))
+                cfg.label_color(clip.label)))
             self.clip_list.addItem(item)
         self.clip_list.scrollToBottom()
 
@@ -452,7 +452,7 @@ class TrimDialog(QtWidgets.QDialog):
         for clip in self.extracted:
             start = float(clip.meta.get("take_start_s", 0.0))
             end = float(clip.meta.get("take_end_s", 0.0))
-            colour = QtGui.QColor(cfg.LABEL_COLORS.get(clip.label, COL_GOOD))
+            colour = QtGui.QColor(cfg.label_color(clip.label))
             brush = pg.mkBrush(colour.red(), colour.green(), colour.blue(), 40)
             pen = pg.mkPen(colour.name(), width=1)
             for plot in (self.plots[0], self.env_plot):

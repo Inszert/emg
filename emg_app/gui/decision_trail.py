@@ -535,7 +535,7 @@ class FeatureSpaceWidget(QtWidgets.QWidget):
                 out.append((ramp[i], np.flatnonzero(
                     (level >= edges[i]) & (level < edges[i + 1]))))
             return out
-        return [(cfg.LABEL_COLORS.get(labels[k], class_color(k)),
+        return [(cfg.label_color(labels[k]),
                  np.flatnonzero(truth == k)) for k in range(len(labels))]
 
     def _paint_live(self, painter, rect, lo, hi) -> None:
@@ -552,7 +552,8 @@ class FeatureSpaceWidget(QtWidgets.QWidget):
         if self.live_point is None:
             return
         px, py = self._to_px(rect, lo, hi, *self.live_point)
-        colour = QtGui.QColor(cfg.LABEL_COLORS.get(self.live_label or "", COL_TEXT))
+        colour = QtGui.QColor(cfg.label_color(self.live_label)
+                              if self.live_label else COL_TEXT)
         painter.setBrush(QtCore.Qt.NoBrush)
         painter.setPen(QtGui.QPen(QtGui.QColor(COL_BG), 4))
         painter.drawEllipse(QtCore.QPointF(px, py), 7, 7)

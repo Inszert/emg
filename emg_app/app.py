@@ -8,6 +8,7 @@ import sys
 import time
 
 from emg_app import config as cfg
+from emg_app.gestures import restore_gesture_setup
 from emg_app.dataset import dataset_summary
 from emg_app.gui.qt import HAVE_QT, QT_IMPORT_ERROR, QtCore, QtWidgets
 from emg_app.gui.theme import apply_theme
@@ -82,6 +83,13 @@ def main(argv=None) -> int:
     app.setApplicationName(cfg.APP_NAME)
     app.setApplicationVersion(cfg.APP_VERSION)
     apply_theme(app)
+
+    #  The gesture set edited in GESTURES... (and any gestures added there),
+    #  saved with the data. Restored here and not in MainWindow, so a test
+    #  that builds a window with its own GESTURES is never overridden.
+    restored = restore_gesture_setup()
+    if restored:
+        print(f"[startup] gestures: {', '.join(restored)}", flush=True)
 
     print(f"[startup] building the interface ...", flush=True)
     window = MainWindow()

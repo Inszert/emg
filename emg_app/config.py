@@ -99,24 +99,33 @@ GESTURE_CUES = {
 }
 
 
+# Gestures added in the GUI (GESTURES... -> Add your own): name -> cue. They
+# and the in-use list are saved to <DATA_FOLDER>/GESTURE_SETUP_FILE and
+# restored on start (emg_app/gestures.py). Adding one never retrains a model.
+CUSTOM_GESTURES = {}
+GESTURE_SETUP_FILE = "gestures.json"
+
+
 def known_gestures():
     """
-    Every gesture the tool can record: the ones in use plus the optional ones.
+    Every gesture the tool can record: the ones in use, then the ones added
+    in the GUI, then the optional ones.
 
     Order matters for the GUI list -- the ones in use come first, in their
     configured order, so the list reads as "what you are recording" followed
     by "what else is available".
     """
     out = list(GESTURES)
-    for name in OPTIONAL_GESTURES:
+    for name in list(CUSTOM_GESTURES) + list(OPTIONAL_GESTURES):
         if name not in out:
             out.append(name)
     return out
 
 
 def gesture_cue(name: str) -> str:
-    """The instruction shown while cueing `name`, or the name itself."""
-    return (GESTURE_CUES.get(name) or OPTIONAL_GESTURES.get(name) or "")
+    """The instruction shown while cueing `name`, or "" if there is none."""
+    return (CUSTOM_GESTURES.get(name) or GESTURE_CUES.get(name)
+            or OPTIONAL_GESTURES.get(name) or "")
 
 # How many repetitions of EACH gesture the automatic session should collect.
 REPETITIONS = 6
@@ -333,6 +342,24 @@ LABEL_COLORS = {
     "WAVE_LEFT": "#38bdf8",
     "WAVE_RIGHT": "#a78bfa",
 }
+
+# Colours for gestures that are not in LABEL_COLORS (the ones added in the
+# GUI, the optional ones, anything found on disk). Chosen to stay apart from
+# the six above; handed out in known_gestures() order so a new gesture keeps
+# its colour and never takes one already in use. See label_color().
+EXTRA_LABEL_COLORS = ["#ec4899", "#14b8a6", "#84cc16", "#f97316", "#6366f1",
+                      "#a16207", "#06b6d4", "#e11d48"]
+
+
+def label_color(name: str) -> str:
+    """The one colour of gesture `name`, everywhere it is drawn."""
+    if name in LABEL_COLORS:
+        return LABEL_COLORS[name]
+    extras = [n for n in known_gestures() if n not in LABEL_COLORS]
+    index = (extras.index(name) if name in extras
+             else len(extras) + sum(ord(c) for c in str(name)))
+    return EXTRA_LABEL_COLORS[index % len(EXTRA_LABEL_COLORS)]
+
 
 # Longest single recording that may be held in RAM (safety valve, seconds).
 # This caps a cued or manual take. A FREE TAKE has its own, much larger cap --

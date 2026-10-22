@@ -303,6 +303,29 @@ is a look-up and a weight is a multiply.
 
 ---
 
+## Figures
+
+All generated from the saved results by `python tools/make_figures.py`
+(into `docs/figures/`), so they can be regenerated after any retrain.
+
+| Figure | Shows |
+|---|---|
+| ![](figures/ml_vs_nn.png) | the two models side by side: accuracy, time per window, size |
+| ![](figures/confusion_both.png) | both confusion matrices, person held out |
+| ![](figures/accuracy_per_person.png) | each person held out in turn |
+| ![](figures/accuracy_per_gesture.png) | % recognised per gesture |
+| ![](figures/ml_single_models.png) | every ML model on the winning setup |
+| ![](figures/soft_voting.png) | what soft voting adds and costs |
+| ![](figures/window_length.png) | accuracy against window length, ML and NN |
+| ![](figures/dc_only_control.png) | full input vs channel averages only |
+| ![](figures/pca_by_gesture.png) | the feature space (PCA), one gesture per panel |
+| ![](figures/pca_by_person.png) | the same, one person per panel |
+
+Single-model versions of the confusion matrices: `confusion_ml_vote.png`,
+`confusion_nn.png`.
+
+---
+
 ## Reproduce
 
 ```powershell

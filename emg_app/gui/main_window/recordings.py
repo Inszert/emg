@@ -16,7 +16,7 @@ from emg_app.dataset import dataset_summary
 from emg_app.gui.dialogs.trim import TrimDialog
 from emg_app.gui.qt import QtGui, QtWidgets
 from emg_app.gui.tokens import (
-    COL_BAD, COL_GOOD, COL_TEXT, COL_TEXT_DIM, COL_WARN, FS_SM)
+    COL_BAD, COL_GOOD, COL_TEXT_DIM, COL_WARN, FS_SM)
 from emg_app.gui.workers import DatasetExportWorker
 from emg_app.recording import (
     DELETED_DIRNAME, DatasetWriter, Recording, STAGE_RAW, STAGE_TAKE,
@@ -478,8 +478,7 @@ class RecordingsMixin:
         rows = []
         for gesture in cfg.GESTURES:
             number = counts.get(gesture, 0)
-            colour = (cfg.LABEL_COLORS.get(gesture, COL_TEXT)
-                      if number else COL_TEXT_DIM)
+            colour = cfg.label_color(gesture) if number else COL_TEXT_DIM
             rows.append(
                 f'<span style="color:{colour}">{gesture}&nbsp;<b>{number}</b>'
                 f'</span>')

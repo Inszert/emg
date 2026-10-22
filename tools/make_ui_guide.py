@@ -60,7 +60,7 @@ def resolve(root, spec):
         raise AttributeError(f"no group box {spec[4:]!r}; have {have}")
     obj = root
     for part in spec.split("."):
-        obj = getattr(obj, part)
+        obj = obj[part] if isinstance(obj, dict) else getattr(obj, part)
     return obj
 
 
@@ -503,6 +503,36 @@ if win.predictor.ready:
 else:
     print(f"  (model not usable here: {win.predictor.status} -- skipped "
           "ui_model_test.png)")
+
+# ================================================================ GESTURES...
+gest = T.GestureSetupDialog(win, selected=list(T.GESTURES),
+                            model_labels=win._model_label_sets())
+gest.setAttribute(QtCore.Qt.WA_DontShowOnScreen, True)
+gest.resize(980, 980)
+gest.show()
+#  A demo gesture, added to THIS dialog only (it is never accepted, so
+#  nothing is saved and the app's gesture set is untouched).
+gest.custom_edit.setText("WRIST_FLEX")
+gest.cue_edit.setText("bend the wrist down, fingers relaxed")
+gest._add_custom()
+gest.custom_edit.setText("WRIST_FLEX")
+gest.cue_edit.setText("bend the wrist down, fingers relaxed")
+for _ in range(8):
+    app.processEvents()
+annotate(gest, gest, [
+    ("boxes.REST", "Every gesture, with its instruction, how many recordings "
+     "and people it has, and WHETHER THE MODELS KNOW IT. Tick = cued, "
+     "offered in every dropdown and calibrated by the sweep."),
+    ("boxes.WRIST_FLEX", "A gesture you added: 'NOT in the models yet'. It "
+     "becomes part of them only when you press RETRAIN -- nothing retrains "
+     "by itself."),
+    ("custom_edit", "NAME of the new gesture (it becomes a folder name)."),
+    ("cue_edit", "INSTRUCTION -- shown under the name in the session banner, "
+     "the calibration sweep and TEST MODEL."),
+    ("warning", "What just happened, and what to do next."),
+], os.path.join(OUT, "ui_gestures.png"),
+    "10. GESTURES...  --  adding a new gesture")
+gest.reject()
 
 print("done")
 sys.stdout.flush()

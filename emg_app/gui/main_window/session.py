@@ -12,6 +12,8 @@ import time
 from emg_app import config as cfg
 from emg_app.acquisition import Capture
 from emg_app.gui.dialogs.gesture_setup import GestureSetupDialog
+from emg_app.gestures import save_gesture_setup
+from emg_app.neural import load_nn_stats
 from emg_app.gui.dialogs.quality import QualityDialog
 from emg_app.gui.qt import QtCore, QtGui, QtWidgets
 from emg_app.gui.tokens import COL_TEXT, COL_TEXT_DIM
@@ -227,15 +229,28 @@ class SessionMixin:
                 "built from the current gesture list.")
             return
 
-        dialog = GestureSetupDialog(self, selected=list(cfg.GESTURES))
+        dialog = GestureSetupDialog(self, selected=list(cfg.GESTURES),
+                                    model_labels=self._model_label_sets())
         if dialog.exec() != QtWidgets.QDialog.Accepted:
             return
         chosen = dialog.selected()
-        if not chosen or chosen == list(cfg.GESTURES):
+        custom = dialog.custom_gestures()
+        if not chosen or (chosen == list(cfg.GESTURES)
+                          and custom == dict(cfg.CUSTOM_GESTURES)):
             return
 
         before = list(cfg.GESTURES)
+        self._set_global("CUSTOM_GESTURES", custom)
         self._set_global("GESTURES", chosen)
+        #  Saved with the data so it survives a restart (app.main() restores
+        #  it). A failed write is reported, never fatal: the set still holds
+        #  for this run.
+        try:
+            path = save_gesture_setup(chosen, custom)
+            self._append_log(f"Gesture set saved to {path}")
+        except OSError as exc:
+            self._append_log(f"Gesture set NOT saved ({exc}); it holds for "
+                             "this run only.")
         added = [g for g in chosen if g not in before]
         dropped = [g for g in before if g not in chosen]
 
@@ -265,13 +280,38 @@ class SessionMixin:
             parts.append("added " + ", ".join(added))
         if dropped:
             parts.append("no longer cued: " + ", ".join(dropped))
-        self._append_log("Gestures: " + "; ".join(parts) + "."
-                         + (" Recordings already on disk are untouched."
-                            if dropped else ""))
+        if parts:
+            self._append_log("Gestures: " + "; ".join(parts) + "."
+                             + (" Recordings already on disk are untouched."
+                                if dropped else ""))
+        #  NOTHING is retrained here. Say plainly which models do not know
+        #  the new gestures, so the retrain is a decision, not a surprise.
+        known = self._model_label_sets()
+        unknown = [g for g in added
+                   if known and any(g not in labels
+                                    for labels in known.values())]
+        if unknown:
+            self._append_log(
+                "Not in the trained models yet: " + ", ".join(unknown)
+                + ". Record them (and calibrate -- the sweep now includes "
+                "them), then RETRAIN when you decide. Nothing retrains by "
+                "itself.")
         if added:
             self.status.showMessage(
-                "Added %s -- press START SESSION to record them."
-                % ", ".join(added), 8000)
+                "Added %s -- record it, then RETRAIN when you choose."
+                % ", ".join(added), 10000)
+        self._refresh_model_status(force=True)
+
+    def _model_label_sets(self) -> dict:
+        """What each trained model knows: {"ML model": [...], "neural net": [...]}."""
+        out = {}
+        if getattr(self, "predictor", None) is not None and self.predictor.ready:
+            out["ML model"] = list(self.predictor.labels)
+        engine = getattr(self, "nn_engine", None)
+        sidecar = (load_nn_stats(engine.model_path) or {}) if engine else {}
+        if sidecar.get("labels"):
+            out["neural net"] = list(sidecar["labels"])
+        return out
 
     def _on_metadata_changed(self) -> None:
         self._set_global("HANDEDNESS", self.hand_combo.currentText())
