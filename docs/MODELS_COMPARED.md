@@ -31,6 +31,8 @@ every one can be reproduced with the commands at the end.
   were added to the vote in MODEL SPEC, and that cost 8 points per window.
   See *Soft voting* below.
 
+![](figures/ml_vs_nn.png)
+
 "New person" means every fold holds out one wearer completely: trained on
 four people, scored on the fifth, who has calibrated. That is the honest
 number for someone the model has never seen. The "same person" row is the
@@ -108,6 +110,13 @@ RandomForest. Longer windows help the ML models: 1.0–1.3 s beat 0.5–0.7 s
 everywhere. `level` features (per-channel amplitude) beat the classic shape
 features on every top setup.
 
+![](figures/ml_single_models.png)
+
+![](figures/window_length.png)
+
+The ML curve is smooth and flattens at 1.0 s. The net's is not (65–72 %
+with a single peak at 0.7 s), see *The neural net on its own* below.
+
 ### Soft voting: what it adds, and what it costs
 
 A soft vote averages the members' predicted probabilities, and the highest
@@ -135,6 +144,11 @@ average wins. Scored on the same stored out-of-fold windows (pooled):
    accuracy, half the time per window, about three quarters of the size). To go back to the pair, untick SVM and LDA
    in **MODEL SPEC** and press RETRAIN ON ALL DATA.
 
+![](figures/soft_voting.png)
+
+*Why* the forests add nothing to each other is in *Behaviour in detail*
+(they make the same mistakes).
+
 ### Per person (each held out in turn)
 
 | held out | ML vote ET + RF | ML vote of 4 | NN GRU |
@@ -155,9 +169,14 @@ What would help:
 - **Rotation augmentation.** Train on copies with the 8 channels shifted
   round the ring by one pod. Not built yet.
 
-The NN beats the ML vote on Betka by 9 points and loses on Dano, Miso and
-Bruno. The two models fail differently, which is why NN STATS shows where
-they disagree.
+The NN beats the ML vote on Betka by 9 points and loses on Dano, Miso,
+Bruno and Barbora. The two models fail differently, which is why NN STATS
+shows where they disagree.
+
+![](figures/accuracy_per_person.png)
+
+What each person's errors look like, as a confusion matrix per person, is
+in *Behaviour in detail*.
 
 ### Per gesture (rows = what was made, % correct)
 
@@ -175,6 +194,14 @@ both models lose their points**, and that is what pulls macro F1 below the
 accuracy. The three gestures use overlapping forearm muscles, and on an
 8-pod band their patterns sit close together (CLAUDE.md §7a measured OPEN
 against WAVE_RIGHT at 0.978 cosine).
+
+![](figures/accuracy_per_gesture.png)
+
+![](figures/confusion_both.png)
+
+Rows are what was made, columns what the model said; the big number is the
+% of that row, the small one the window count. Precision, recall and where
+the two models differ cell by cell are in *Behaviour in detail*.
 
 ### What each model is actually reading: the DC-only control
 
@@ -197,6 +224,197 @@ by just its 8 channel averages, with no shape and no timing:
   +9.2 points to it. That is the one reason to expect it to keep improving
   as data grows, where the ML vote is close to what amplitude levels can
   give (CLAUDE.md §8L).
+
+![](figures/dc_only_control.png)
+
+---
+
+## Behaviour in detail
+
+The tables above say how often each model is right. This section says
+**how it fails**: where, for whom, how sure it is when it does, and what
+the answer looks like over a recording. Everything here is read from the
+saved comb-test results (nothing was retrained), with the person held out.
+
+> **What could and could not be drawn.** The comb test stored the ML
+> models' probability for every held-out window, but for the net only the
+> *summed* confusion matrix, its fold and per-person scores, and the
+> DC-only control. So anything that needs a probability per window (a
+> confusion matrix per person, confidence, calibration, timelines,
+> window-by-window agreement with the ML vote) is **ML only**, and each
+> figure says so. The net's side is complete for everything that follows
+> from the matrices. Getting the rest means re-running the net's
+> cross-validation while keeping its probabilities (about 10 minutes on
+> the GPU); it was not done.
+
+### Who fails, and how
+
+![](figures/confusion_per_person_ml.png)
+
+- **Four of five people are well served** (80–90 % per window) and make
+  *different, scattered* mistakes: Betka's THUMB_UP becomes FIST, Bruno's
+  becomes OPEN or WAVE_L, Dano's OPEN becomes THUMB_UP. There is no one pair
+  of gestures every wearer confuses.
+- **Barbora's failure has another shape.** Her gestures are not blurred,
+  they are *substituted*: FIST → OPEN (81 %), OPEN → WAVE_R (100 %),
+  THUMB_UP → OPEN (83 %), each one answered with a single wrong gesture,
+  while REST and both waves are right (94–98 %). That is the pattern of a
+  person whose forearm pattern for a gesture lands where another wearer's
+  pattern for a different gesture sits, which is what a rotated band would
+  do (CLAUDE.md §8h). It is a hypothesis consistent with the picture, not
+  something tested here.
+
+![](figures/person_gesture_heatmap.png)
+
+The same information as one table. **The trouble is the FIST / OPEN /
+THUMB_UP trio, and it is uneven**: Barbora gets 19 / 0 / 4 % of them,
+Bruno never gets THUMB_UP (0 %), Betka 24 %, while Dano and Miso are at 76–100 %
+everywhere except Dano's OPEN (57 %). Cells such as Betka's THUMB_UP (17 windows)
+come from only a few recordings, so read the large differences, not the
+small ones.
+
+### The two models, gesture by gesture
+
+![](figures/precision_recall_f1.png)
+
+| | the ML vote is weakest at | the net is weakest at |
+|---|---|---|
+| recall (gesture found) | THUMB_UP 59 %, OPEN 60 % | **FIST 49 %**, THUMB_UP 54 % |
+| precision (answer trusted) | **OPEN 54 %** | OPEN 49 %, **THUMB_UP 52 %** |
+
+Both are near 90–98 % on REST and the waves. The net is slightly more
+precise than the vote on both waves (97 against 93 on WAVE_LEFT, 84
+against 81 on WAVE_RIGHT); the vote is ahead on nearly everything else
+(OPEN recall is a tie, 60 against 61).
+
+![](figures/confusion_difference.png)
+
+The two models also make **different** mistakes, not just more or fewer.
+The net sends FIST to THUMB_UP (+14 points) and THUMB_UP to OPEN (+8) more
+often. The vote sends OPEN to WAVE_R (13 points more) and THUMB_UP to
+WAVE_L (7 more). On the diagonal the vote is ahead on every gesture except
+OPEN, where they tie: by 20 points on FIST, 5–6 on THUMB_UP and the waves,
+none on REST. (The windows
+differ, 1.0 s against 0.7 s, so this compares shares of a row, not the
+same windows.)
+
+### How sure the ML vote is, and whether to believe it
+
+![](figures/ml_confidence.png)
+
+- **Wrong answers are less sure than right ones**: mean top probability
+  0.51 against 0.73. 28 % of the windows score 0.9 or above, and those are
+  right every time.
+- **The number is under-confident, not over-confident.** A forest's
+  probability is the share of its trees that agree, which is cautious: at
+  0.36 it is right 53 % of the time, at 0.65 it is right 78 %. Read it as
+  an *ordering* of how much to trust an answer, not as a percentage.
+- **It makes a usable "not sure" signal.** Answering only when the top
+  probability is at least 0.7 keeps 46 % of the windows at 94 % accuracy;
+  at 0.9, 28 % of them at 100 %; at 0.5, 73 % at 87 %. Across everything:
+  79 %.
+- **It does not help for a person the model cannot read.** For Barbora
+  the mean confidence is the same when she is right (0.60) as when she is
+  wrong (0.61): the model is as sure of its substituted answer as of a good
+  one. The other four read 0.38–0.53 when wrong against 0.64–0.82 when
+  right, so the signal works for them.
+- **Near misses are common.** The right gesture is the runner-up in about
+  half of the wrong windows: 79 % top-1, 90 % top-2, 93 % top-3.
+
+### Why soft voting adds so little
+
+![](figures/ml_error_overlap.png)
+
+Read a row: **of the windows ExtraTrees gets wrong, 86 % are also wrong
+for RandomForest.** Two forests built on the same 50 features make nearly
+the same mistakes, so averaging them changes few answers (the +0.2 in
+*Soft voting*). The weaker models (SVM, LDA, LogReg) overlap less with the
+forests, but only because they are wrong in more places, which is how an
+unweighted vote ends up worse than its best member.
+
+The right-hand chart is the ceiling for any vote of these eight models:
+**896 windows (50 %) are right for all eight and 235 (13 %) are wrong for
+all eight.** Those 13 % are not a choice-of-model problem. They need other
+information (another sitting of the person, another band position), not
+another classifier on the same features.
+
+### What the answer looks like over a recording
+
+![](figures/ml_timeline.png)
+
+One recording of each gesture (the median-accuracy one, not the best), each
+cell one window in time order. For a well-served person (Dano) every
+recording is answered correctly throughout, except one OPEN recording where
+a stretch of the hold was read as FIST and then THUMB_UP before returning
+to OPEN. For Barbora, her FIST, OPEN and THUMB_UP recordings are answered
+with **the same wrong gesture from the first window to the last**. That is
+a systematic error, not noise, and the next figure shows what it means for
+smoothing.
+
+![](figures/ml_live_behaviour.png)
+
+- **Smoothing is cheap but small.** Averaging the latest *k* windows'
+  probabilities (what the LIVE CLASSIFIER panel does) lifts the four
+  well-served people from 86 % to 88 % at *k* = 8, and does nothing for
+  Barbora (46 % → 45 %): a model that is consistently wrong stays
+  consistently wrong however many windows it averages.
+- **It does halve the flicker**: the answer changes between consecutive
+  windows 5.1 % of the time unsmoothed, 2.6 % at *k* = 8. That is the
+  visible benefit.
+- **Errors are not an onset effect.** The share of wrong windows is 22 / 19
+  / 19 / 21 / 23 % across the five fifths of a hold. The model is not
+  just late to react; it is wrong, or right, for the whole hold.
+- *Caveat:* these windows are 0.25 s apart; the app predicts every 0.15 s,
+  so *k* windows live cover a shorter time than here.
+
+### The price of a new person
+
+![](figures/generalisation_gap.png)
+
+Scored on a person who is **in** the training data (other recordings held
+out), all three models read **95–97 %**; on a person who is not, 70–78 %.
+The gap is 20 points for the ET + RF vote, 27 for the vote of four and 23
+for the net, and it is the part of the signal that belongs to the
+individual: band placement, anatomy, how they make a fist. Two things
+follow. The gap is where more wearers pay off, and the 95–97 % is an
+optimistic figure even for the person themselves, because clips from one
+sitting are close relatives (CLAUDE.md §8f).
+
+### The neural net on its own
+
+![](figures/nn_behaviour.png)
+
+- **Window length.** The GRU peaks at 0.7 s (72 %), with every other
+  length at 65–68 %. 0.7 s also has the narrowest spread between folds
+  (weakest fold 49 %, against 34–43 % elsewhere). **A jump that sharp
+  between neighbouring lengths is also what seed luck looks like**, and
+  every length was run with one seed, so how much of the 0.7 s advantage is
+  real is not known. The ML vote's window curve is smooth by comparison
+  (above).
+- **What each gesture gets from the timing.** With each window replaced by
+  its eight channel averages the net loses **26 points on REST, 20 on
+  THUMB_UP and 14 on OPEN** (REST drifts to THUMB_UP, OPEN to WAVE_R), and
+  3 on FIST. It gains nothing on the waves (WAVE_R is 8 points *better*
+  without timing). So the +9.2 points in the DC-only table come from three
+  gestures; two of them, OPEN and THUMB_UP, are also the ML vote's hardest.
+- **It is not steady across people.** Its per-person scores run from 28 %
+  (Barbora) to 92 % (Betka), a 64-point spread, against the vote's 44
+  (46 % to 90 %): it is better than the vote on one person (Betka) and
+  worse on the other four.
+
+### Why these gestures collide
+
+![](figures/pca_by_gesture.png)
+
+![](figures/pca_by_person.png)
+
+Every training window projected to two dimensions by a method that never
+sees the labels, at the deployed setup. The waves and REST form their own
+islands; FIST, OPEN and THUMB_UP overlap in the middle. That is the same
+trio the confusion matrices lose their points on, and it is why no choice
+of model removes the errors above: the three are close in these features.
+Two dimensions show only 61 % of the variance, so what is *not* visible,
+Barbora's pattern, is not evidence that it is absent.
 
 ---
 
@@ -300,29 +518,56 @@ is a look-up and a weight is a multiply.
   dominates it.
 - **The NN figure is one training seed.** Its seed-to-seed spread was not
   measured; the search was stopped after the window-length stage, by choice.
+  The net's sharp peak at 0.7 s is the place this matters most.
+- **The net's per-window probabilities were not saved**, so *Behaviour in
+  detail* shows the ML vote's confusion per person, confidence, calibration
+  and timelines but has no counterpart for the net. Its summed confusion
+  matrix, per-person and per-fold scores, window-length sweep and DC-only
+  control are all there.
+- **Per-person cells are small.** Each person has 17–102 windows of a
+  gesture, from a handful of recordings, so a single cell (Betka's
+  THUMB_UP, for one) can move a lot with one more recording.
+- **The ML vote's confidence and the smoothing numbers are for the winning
+  setup** (1.0 s windows, 0.25 s apart); the live app predicts every
+  0.15 s.
 
 ---
 
 ## Figures
 
-All generated from the saved results by `python tools/make_figures.py`
-(into `docs/figures/`), so they can be regenerated after any retrain.
+Generated from the saved results, nothing retrained, so they can be
+regenerated after any retrain:
+
+```powershell
+python tools/make_figures.py              # the first set (needs the dataset, for the PCA)
+python tools/make_figures_behaviour.py    # the behaviour set (saved results only, seconds)
+```
+
+Written to `docs/figures/`. Each is shown where it is discussed above;
+this is the index.
 
 | Figure | Shows |
 |---|---|
-| ![](figures/ml_vs_nn.png) | the two models side by side: accuracy, time per window, size |
-| ![](figures/confusion_both.png) | both confusion matrices, person held out |
-| ![](figures/accuracy_per_person.png) | each person held out in turn |
-| ![](figures/accuracy_per_gesture.png) | % recognised per gesture |
-| ![](figures/ml_single_models.png) | every ML model on the winning setup |
-| ![](figures/soft_voting.png) | what soft voting adds and costs |
-| ![](figures/window_length.png) | accuracy against window length, ML and NN |
-| ![](figures/dc_only_control.png) | full input vs channel averages only |
-| ![](figures/pca_by_gesture.png) | the feature space (PCA), one gesture per panel |
-| ![](figures/pca_by_person.png) | the same, one person per panel |
-
-Single-model versions of the confusion matrices: `confusion_ml_vote.png`,
-`confusion_nn.png`.
+| `ml_vs_nn.png` | the two models side by side: accuracy, time per window, size |
+| `confusion_both.png` | both confusion matrices, person held out |
+| `confusion_ml_vote.png`, `confusion_nn.png` | the same, one model each |
+| `accuracy_per_person.png` | each person held out in turn |
+| `accuracy_per_gesture.png` | % recognised per gesture |
+| `ml_single_models.png` | every ML model on the winning setup |
+| `soft_voting.png` | what soft voting adds and costs |
+| `window_length.png` | accuracy against window length, ML and NN |
+| `dc_only_control.png` | full input vs channel averages only |
+| `pca_by_gesture.png`, `pca_by_person.png` | the feature space (PCA) |
+| `confusion_per_person_ml.png` | the ML vote's confusion matrix for each person held out |
+| `person_gesture_heatmap.png` | % right per person × gesture |
+| `precision_recall_f1.png` | precision, recall and F1 per gesture, both models |
+| `confusion_difference.png` | the net's confusion minus the vote's, cell by cell |
+| `ml_confidence.png` | confidence, calibration, near misses, answer-only-when-sure |
+| `ml_error_overlap.png` | do the ML models make the same mistakes |
+| `ml_timeline.png` | one recording per gesture as a strip of window answers |
+| `ml_live_behaviour.png` | smoothing, flicker, where in a hold errors fall |
+| `generalisation_gap.png` | same person vs a person never seen |
+| `nn_behaviour.png` | the net: per-gesture recall by window, fold spread, what timing buys |
 
 ---
 
@@ -334,6 +579,8 @@ python tools/comb_test_report.py models/comb_test/20261022-003918               
 python tools/bench_models.py --windows 300 --json models/reports/bench_models.json      # speed
 python training/train_model.py --spec models/model_spec.json --calibration affine       # the ML numbers for a spec
 python training/train_nn.py --kind gru --window 0.7 --epochs 150 --calibration affine   # the NN numbers
+python tools/make_figures.py                                                            # figures, first set
+python tools/make_figures_behaviour.py                                                  # figures, behaviour set
 ```
 
 Full search tables: [`COMB_TEST.md`](COMB_TEST.md) and
