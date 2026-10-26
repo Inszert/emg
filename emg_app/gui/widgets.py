@@ -431,7 +431,8 @@ def _stat_tile(caption: str, value, note: str, good: float = 0.85,
     green would state the opposite of what it means.
     """
     box = QtWidgets.QFrame()
-    box.setStyleSheet(f"QFrame {{ background: {COL_PANEL}; border: 1px solid "
+    box.setObjectName("card")
+    box.setStyleSheet(f"QFrame#card {{ background: {COL_PANEL}; border: 1px solid "
                       f"{COL_BORDER}; border-radius: 8px; }}")
     column = QtWidgets.QVBoxLayout(box)
     column.setSpacing(1)

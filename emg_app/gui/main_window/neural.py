@@ -91,7 +91,7 @@ class NeuralMixin:
             "It runs alongside the LIVE CLASSIFIER without affecting it: both "
             "can run at once, and whatever this one says, the prediction "
             "above is produced by the scikit-learn model alone.  Ctrl+Shift+N")
-        self.nn_start_button.clicked.connect(self.toggle_neural)
+        self.nn_start_button.clicked.connect(self.on_nn_clicked)
         buttons.addWidget(self.nn_start_button, 2)
 
         self.nn_stats_button = QtWidgets.QPushButton("NN STATS")
@@ -639,7 +639,11 @@ class NeuralMixin:
                 #  real choice, and refuses rather than silently using the
                 #  CPU when CUDA was expected.
                 "--device", "cuda" if (self.compute_info or {}).get("cuda")
-                else "cpu"]
+                else "cpu",
+                #  The Training tab of the settings: what the net is trained
+                #  with, passed explicitly like every other path and flag.
+                "--augment", ",".join(cfg.TRAIN_AUGMENT) or "none",
+                "--adapt" if cfg.TRAIN_ADAPT else "--no-adapt"]
         if quick:
             args.append("--quick")
         else:

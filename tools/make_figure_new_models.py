@@ -383,10 +383,11 @@ ax = fig.add_subplot(gs[5, 0:2])
 for m in nets:
     folds = [f for r in S[m]["loso"]["raw"] for f in r["folds"]]
     L = np.mean([f["losses"] for f in folds], axis=0)
-    ax.plot(np.arange(1, len(L) + 1), L, color=COLOR[m], lw=2)
-    ax.text(len(L) + 1, L[-1], TITLES[m], color=COLOR[m], fontsize=9,
-            va="center")
-ax.set_xlim(0, meta["epochs"] * 1.38)
+    ax.plot(np.arange(1, len(L) + 1), L, color=COLOR[m], lw=2,
+            label=TITLES[m])
+ax.set_xlim(0, meta["epochs"] * 1.02)
+ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.16), ncol=3,
+          fontsize=8.5)
 ax.set_xlabel("epoch")
 ax.set_ylabel("training loss (mean over the 5 folds)")
 ax.yaxis.grid(True, color=GRID)
@@ -409,7 +410,8 @@ ax.set_axisbelow(True)
 ax.set_title("F   Held-out accuracy while training (a monitor, never used to choose)")
 handles = [plt.Line2D([0], [0], color=COLOR[m], lw=2, label=TITLES[m])
            for m in nets]
-ax.legend(handles=handles, loc="lower right", fontsize=8.5, ncol=2)
+ax.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, -0.16),
+          fontsize=8.5, ncol=3)
 
 # -- G: three protocols side by side
 ax = fig.add_subplot(gs[6, :])

@@ -81,7 +81,7 @@ class PredictionMixin:
         self.predict_button = QtWidgets.QPushButton("PREDICT")
         self.predict_button.setObjectName("primary")
         self.predict_button.setMinimumHeight(34)
-        self.predict_button.clicked.connect(self.toggle_prediction)
+        self.predict_button.clicked.connect(self.on_predict_clicked)
         buttons.addWidget(self.predict_button, 2)
 
         self.stats_button = QtWidgets.QPushButton("MODEL STATS")

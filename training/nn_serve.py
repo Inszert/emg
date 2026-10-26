@@ -36,7 +36,18 @@
 
      {"id": 7, "window": [[c1..c8], ... win rows ...]}
      {"cmd": "ping"}
+     {"cmd": "adapt", "mean": [..8..], "std": [..8..]}   per-person statistics
+     {"cmd": "adapt", "mean": null}                       back to the stored ones
      {"cmd": "quit"}
+
+ SEVERAL MODELS, ONE WORKER (2026-10-27): `--model` may be given more than once.
+ The worker then holds all of them, answers with the MEAN of their softmax
+ outputs (a soft vote) and adds `"members": [[...], ...]` -- each net's own
+ probabilities -- to every NNOUT. They must agree on labels, window length,
+ channel count and calibration mode, or the worker refuses to start and says
+ which differ. With one `--model` nothing changes: the same lines as before.
+ `adapt` only affects a net trained with per-person adaptation
+ (`adaptation.mode == "person"` in its checkpoint); the others ignore it.
 
  EOF on stdin is also "quit": if the application dies, the worker goes with
  it rather than sitting on a GPU context forever.
@@ -124,54 +135,70 @@ def resolve_device(requested: str):
     return torch.device("cuda:0"), info
 
 
-class Server:
-    """Checkpoint in, probabilities out."""
+class Member:
+    """One loaded net: its weights, its own scaler, what it is."""
 
-    def __init__(self, model_path: str, device_request: str):
-        self.model_path = model_path
-        self.device_request = device_request
+    def __init__(self, path):
+        self.path = path
         self.model = None
+        self.mean = None
+        self.std = None
+        self.override = None            # (mean, std) from an `adapt` command
+        self.adapts = False             # trained with per-person adaptation
+        self.meta = {}
+        self.name = ""
+        self.kind = "?"
+
+    def scale(self, block):
+        """The checkpoint's own scaler (or the person's, if adapted)."""
+        mean, std = self.override if self.override is not None \
+            else (self.mean, self.std)
+        return ((np.log1p(np.abs(block)) - mean) / std).astype(np.float32)
+
+
+class Server:
+    """Checkpoint(s) in, probabilities out."""
+
+    def __init__(self, model_paths, device_request: str):
+        if isinstance(model_paths, str):
+            model_paths = [model_paths]
+        self.model_paths = list(model_paths)
+        self.model_path = self.model_paths[0]
+        self.device_request = device_request
+        self.members = []
         self.device = None
         self.device_info = {}
         self.labels = []
         self.win_samples = 0
         self.n_channels = 8
-        self.mean = None
-        self.std = None
         self.payload_meta = {}
 
-    def load(self) -> dict:
-        """
-        Build the net from the checkpoint and report what it is.
+    # kept so a single-model worker reads exactly as before
+    @property
+    def model(self):
+        return self.members[0].model if self.members else None
 
-        Everything that could go wrong is turned into one `NNMETA` with
-        `ok: false` and a sentence, because the engine shows that sentence in
-        the panel. A traceback on stderr would be correct and useless.
-        """
+    def _load_member(self, path):
         import torch
-
-        t0 = time.perf_counter()
-        self.device, self.device_info = resolve_device(self.device_request)
 
         #  weights_only=False: the checkpoint carries the scaler's numpy
         #  arrays and the provenance blocks alongside the tensors, and it is
         #  a file this project's own trainer wrote next to the dataset. If
         #  that ever stops being true, the file is the problem, not the flag.
-        payload = torch.load(self.model_path, map_location="cpu",
-                             weights_only=False)
+        payload = torch.load(path, map_location="cpu", weights_only=False)
         if not isinstance(payload, dict) or "state_dict" not in payload:
             raise RuntimeError(
-                f"{self.model_path} is not a checkpoint this worker "
+                f"{path} is not a checkpoint this worker "
                 f"understands (expected a dict with a state_dict).")
         if payload.get("format") not in ("emg_nn_v1",):
             raise RuntimeError(
                 f"unsupported checkpoint format "
                 f"{payload.get('format')!r}; retrain with train_nn.py")
 
-        self.labels = [str(x) for x in payload.get("labels", [])]
-        self.win_samples = int(payload.get("win_samples", 0) or 0)
-        self.n_channels = int(payload.get("n_channels", 8) or 8)
-        if not self.labels or self.win_samples <= 0:
+        labels = [str(x) for x in payload.get("labels", [])]
+        win_samples = int(payload.get("win_samples", 0) or 0)
+        n_channels = int(payload.get("n_channels", 8) or 8)
+        if not labels or win_samples <= 0:
             raise RuntimeError("the checkpoint declares no labels or no "
                                "window length")
 
@@ -189,17 +216,15 @@ class Server:
         #  `(n, win, 8)`, so that shape error exists *only* on the inference
         #  path and no training run can find it. A (8,) vector is right for
         #  both.
-        self.mean = np.asarray(scaler["mean"], dtype=np.float32).reshape(-1)
-        self.std = np.asarray(scaler["std"], dtype=np.float32).reshape(-1)
-        if self.mean.size != self.n_channels or \
-                self.std.size != self.n_channels:
+        mean = np.asarray(scaler["mean"], dtype=np.float32).reshape(-1)
+        std = np.asarray(scaler["std"], dtype=np.float32).reshape(-1)
+        if mean.size != n_channels or std.size != n_channels:
             raise RuntimeError(
-                f"the checkpoint's scaler has {self.mean.size} values for "
-                f"{self.n_channels} channels")
+                f"the checkpoint's scaler has {mean.size} values for "
+                f"{n_channels} channels")
 
         model = nn_arch.build(str(payload.get("kind", "tcn")),
-                              self.n_channels, len(self.labels),
-                              self.win_samples,
+                              n_channels, len(labels), win_samples,
                               hidden=int(payload.get("hidden",
                                                      nn_arch.HIDDEN)),
                               dropout=float(payload.get("dropout",
@@ -210,9 +235,54 @@ class Server:
         #  answers confidently with some layers left at their initialisation.
         model.load_state_dict(payload["state_dict"], strict=True)
         model.eval().to(self.device)
-        self.model = model
-        self.payload_meta = {k: v for k, v in payload.items()
-                             if k not in ("state_dict", "scaler")}
+
+        m = Member(path)
+        m.model, m.mean, m.std = model, mean, std
+        m.kind = str(payload.get("kind", "?"))
+        m.name = str((payload.get("stats") or {}).get("model_name")
+                     or f"NN-{m.kind}")
+        m.adapts = ((payload.get("adaptation") or {}).get("mode")
+                    == "person")
+        m.meta = {k: v for k, v in payload.items()
+                  if k not in ("state_dict", "scaler")}
+        m.labels, m.win_samples, m.n_channels = labels, win_samples, n_channels
+        m.payload = payload
+        return m
+
+    def load(self) -> dict:
+        """
+        Build the net(s) from the checkpoint(s) and report what they are.
+
+        Everything that could go wrong is turned into one `NNMETA` with
+        `ok: false` and a sentence, because the engine shows that sentence in
+        the panel. A traceback on stderr would be correct and useless.
+        """
+        import torch
+
+        t0 = time.perf_counter()
+        self.device, self.device_info = resolve_device(self.device_request)
+
+        self.members = [self._load_member(p) for p in self.model_paths]
+        first = self.members[0]
+        for other in self.members[1:]:
+            for what, a, b in (
+                    ("labels", first.labels, other.labels),
+                    ("window length", first.win_samples, other.win_samples),
+                    ("channel count", first.n_channels, other.n_channels),
+                    ("calibration mode",
+                     (first.meta.get("calibration") or {}).get("mode", "off"),
+                     (other.meta.get("calibration") or {}).get("mode",
+                                                               "off"))):
+                if a != b:
+                    raise RuntimeError(
+                        f"{first.name} and {other.name} disagree on {what} "
+                        f"({a} against {b}), so their probabilities cannot be "
+                        f"averaged")
+        self.labels = first.labels
+        self.win_samples = first.win_samples
+        self.n_channels = first.n_channels
+        payload = first.payload
+        self.payload_meta = first.meta
 
         #  Warm up. The first forward pass builds kernels on demand -- 2.4 s
         #  was measured for the sklearn panel's HistGradientBoosting
@@ -222,10 +292,11 @@ class Server:
         warm = np.zeros((1, self.win_samples, self.n_channels),
                         dtype=np.float32)
         with torch.no_grad():
-            self.model(torch.from_numpy(warm).to(self.device))
+            for m in self.members:
+                m.model(torch.from_numpy(warm).to(self.device))
 
         stats = self.payload_meta.get("stats") or {}
-        return {
+        meta = {
             "ok": True,
             "labels": self.labels,
             "win_samples": self.win_samples,
@@ -235,19 +306,49 @@ class Server:
             "kind": str(payload.get("kind", "?")),
             "architecture": str(payload.get("architecture", "")),
             "hidden": int(payload.get("hidden", nn_arch.HIDDEN)),
-            "n_parameters": nn_arch.count_parameters(self.model),
+            "n_parameters": sum(nn_arch.count_parameters(m.model)
+                                for m in self.members),
             "calibration": payload.get("calibration") or {"mode": "off"},
+            "adaptation": payload.get("adaptation") or {"mode": "off"},
             "created_iso": payload.get("created_iso", ""),
             "device": self.device_info,
             "stats": stats,
             "data": payload.get("data"),
             "load_ms": round((time.perf_counter() - t0) * 1000.0, 1),
         }
+        if len(self.members) > 1:
+            #  The first net's numbers describe THAT net, not the vote.
+            meta["stats"] = {"model_name": "soft vote: " + " + ".join(
+                m.name for m in self.members)}
+            meta["kind"] = "vote"
+            meta["architecture"] = "soft vote (mean of the softmax outputs)"
+            meta["members"] = [{"name": m.name, "kind": m.kind,
+                                "n_parameters": nn_arch.count_parameters(
+                                    m.model),
+                                "adapts": m.adapts} for m in self.members]
+        return meta
 
-    def scale(self, block: np.ndarray) -> np.ndarray:
-        """The checkpoint's own scaler. Exactly `train_nn.fold_scaler`."""
-        return ((np.log1p(np.abs(block)) - self.mean) / self.std
-                ).astype(np.float32)
+    def adapt(self, mean, std) -> dict:
+        """Per-person statistics for the nets that were trained with them."""
+        if mean is None:
+            for m in self.members:
+                m.override = None
+            return {"adapted": 0}
+        mean = np.asarray(mean, dtype=np.float32).reshape(-1)
+        std = np.asarray(std, dtype=np.float32).reshape(-1)
+        if mean.size != self.n_channels or std.size != self.n_channels:
+            raise ValueError(f"expected {self.n_channels} values per "
+                             f"statistic, got {mean.size} and {std.size}")
+        if not np.all(np.isfinite(mean)) or not np.all(np.isfinite(std)) \
+                or np.any(std <= 0):
+            raise ValueError("adaptation statistics must be finite with a "
+                             "positive spread")
+        n = 0
+        for m in self.members:
+            if m.adapts:
+                m.override = (mean, std)
+                n += 1
+        return {"adapted": n}
 
     def answer(self, window) -> dict:
         """One window -> probabilities. Shape is checked, never reshaped."""
@@ -267,18 +368,27 @@ class Server:
                 f"got {tuple(block.shape)}")
 
         t0 = time.perf_counter()
+        per_member = []
         with torch.no_grad():
-            logits = self.model(
-                torch.from_numpy(self.scale(block)[None, ...]).to(self.device))
-            probabilities = torch.softmax(logits, dim=1)[0].cpu().numpy()
-        return {"probs": [float(p) for p in probabilities],
-                "ms": round((time.perf_counter() - t0) * 1000.0, 2)}
+            for m in self.members:
+                logits = m.model(torch.from_numpy(
+                    m.scale(block)[None, ...]).to(self.device))
+                per_member.append(
+                    torch.softmax(logits, dim=1)[0].cpu().numpy())
+        probabilities = np.mean(per_member, axis=0)
+        out = {"probs": [float(p) for p in probabilities],
+               "ms": round((time.perf_counter() - t0) * 1000.0, 2)}
+        if len(per_member) > 1:
+            out["members"] = [[float(p) for p in q] for q in per_member]
+        return out
 
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         description="Serve live predictions from a trained EMG neural net")
-    parser.add_argument("--model", required=True, help="checkpoint path")
+    parser.add_argument("--model", required=True, action="append",
+                        help="checkpoint path; repeat for a soft vote of "
+                             "several nets")
     parser.add_argument("--device", default="auto",
                         choices=["auto", "cuda", "cpu"])
     args = parser.parse_args(argv)
@@ -313,6 +423,17 @@ def main(argv=None) -> int:
         command = request.get("cmd")
         if command == "quit":
             break
+        if command == "adapt":
+            try:
+                emit("NNOUT ", {"id": request.get("id"), "probs": [],
+                                "ms": 0.0,
+                                **server.adapt(request.get("mean"),
+                                               request.get("std"))})
+            except Exception as exc:               # noqa: BLE001
+                emit("NNERR ", {"id": request.get("id"),
+                                "error": f"{type(exc).__name__}: {exc}",
+                                "fatal": False})
+            continue
         if command == "ping":
             emit("NNOUT ", {"id": request.get("id"), "probs": [], "ms": 0.0,
                             "pong": True})

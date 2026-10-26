@@ -1,0 +1,131 @@
+output: models/reports/new_models_test_run1
+18 of 18 (model, protocol, seed) runs to do
+[1/18] GRU (current NN)  --  loso, seed 0
+      loso     gru               held out Barbora   48.8 %     34.0 s
+      loso     gru               held out Betka     87.4 %     30.7 s
+      loso     gru               held out Bruno     70.3 %     30.3 s
+      loso     gru               held out Dano      78.7 %     28.8 s
+      loso     gru               held out Miso      77.0 %     29.9 s
+      -> mean 72.4 % over 5 folds, 0.68 ms/window   [2 min 34 s elapsed, about 43 min 40 s left]
+[2/18] CircConv-GRU + rotation aug  --  loso, seed 0
+      loso     circ_gru          held out Barbora   41.4 %     38.6 s
+      loso     circ_gru          held out Betka     74.2 %     36.9 s
+      loso     circ_gru          held out Bruno     56.6 %     35.4 s
+      loso     circ_gru          held out Dano      84.7 %     34.1 s
+      loso     circ_gru          held out Miso      53.3 %     36.3 s
+      -> mean 62.0 % over 5 folds, 1.15 ms/window   [5 min 36 s elapsed, about 44 min 48 s left]
+[3/18] Channel Transformer  --  loso, seed 0
+      loso     chan_transformer  held out Barbora   39.8 %     57.2 s
+      loso     chan_transformer  held out Betka     77.5 %     57.3 s
+      loso     chan_transformer  held out Bruno     73.4 %     53.9 s
+      loso     chan_transformer  held out Dano      77.4 %     51.5 s
+      loso     chan_transformer  held out Miso      70.4 %     55.9 s
+      -> mean 67.7 % over 5 folds, 1.31 ms/window   [10 min 12 s elapsed, about 51 min 02 s left]
+[4/18] InceptionTime-S  --  loso, seed 0
+      loso     inception         held out Barbora   30.4 %     51.4 s
+      loso     inception         held out Betka     74.4 %     50.7 s
+      loso     inception         held out Bruno     72.6 %     48.9 s
+      loso     inception         held out Dano      66.9 %     46.8 s
+      loso     inception         held out Miso      58.4 %     50.0 s
+      -> mean 60.6 % over 5 folds, 1.98 ms/window   [14 min 21 s elapsed, about 50 min 14 s left]
+[5/18] TSMixer  --  loso, seed 0
+      loso     tsmixer           held out Barbora   38.2 %     43.6 s
+      loso     tsmixer           held out Betka     75.6 %     47.4 s
+      loso     tsmixer           held out Bruno     76.7 %     42.3 s
+      loso     tsmixer           held out Dano      71.4 %     42.9 s
+      loso     tsmixer           held out Miso      64.1 %     52.6 s
+      -> mean 65.2 % over 5 folds, 3.21 ms/window   [18 min 12 s elapsed, about 47 min 18 s left]
+[6/18] ROCKET-GPU + ridge  --  loso, seed 0
+      loso     rocket            held out Barbora   37.8 %      6.5 s
+      loso     rocket            held out Betka     83.5 %      4.2 s
+      loso     rocket            held out Bruno     79.1 %      3.5 s
+      loso     rocket            held out Dano      78.4 %      3.6 s
+      loso     rocket            held out Miso      69.5 %      4.7 s
+      -> mean 69.7 % over 5 folds, 8.95 ms/window   [18 min 35 s elapsed, about 37 min 11 s left]
+[7/18] GRU (current NN)  --  dc_only, seed 0
+      dc_only  gru               held out Barbora   35.9 %     32.3 s
+      dc_only  gru               held out Betka     90.5 %     33.6 s
+      dc_only  gru               held out Bruno     69.4 %     33.5 s
+      dc_only  gru               held out Dano      66.9 %     32.7 s
+      dc_only  gru               held out Miso      53.5 %     34.5 s
+      -> mean 63.3 % over 5 folds   [21 min 22 s elapsed, about 33 min 35 s left]
+[8/18] CircConv-GRU + rotation aug  --  dc_only, seed 0
+      dc_only  circ_gru          held out Barbora   44.1 %     38.5 s
+      dc_only  circ_gru          held out Betka     62.6 %     38.7 s
+      dc_only  circ_gru          held out Bruno     72.3 %     38.3 s
+      dc_only  circ_gru          held out Dano      81.2 %     34.6 s
+      dc_only  circ_gru          held out Miso      43.2 %     38.8 s
+      -> mean 60.7 % over 5 folds   [24 min 31 s elapsed, about 30 min 39 s left]
+[9/18] Channel Transformer  --  dc_only, seed 0
+      dc_only  chan_transformer  held out Barbora   49.2 %     66.0 s
+      dc_only  chan_transformer  held out Betka     80.2 %     59.3 s
+      dc_only  chan_transformer  held out Bruno     64.3 %     63.2 s
+      dc_only  chan_transformer  held out Dano      68.3 %     59.3 s
+      dc_only  chan_transformer  held out Miso      72.1 %     63.8 s
+      -> mean 66.8 % over 5 folds   [29 min 43 s elapsed, about 29 min 43 s left]
+[10/18] InceptionTime-S  --  dc_only, seed 0
+      dc_only  inception         held out Barbora   48.8 %     60.0 s
+      dc_only  inception         held out Betka     72.7 %     56.1 s
+      dc_only  inception         held out Bruno     74.4 %     56.7 s
+      dc_only  inception         held out Dano      63.3 %     46.8 s
+      dc_only  inception         held out Miso      53.6 %     63.7 s
+      -> mean 62.6 % over 5 folds   [34 min 27 s elapsed, about 27 min 33 s left]
+[11/18] TSMixer  --  dc_only, seed 0
+      dc_only  tsmixer           held out Barbora   40.6 %     61.3 s
+      dc_only  tsmixer           held out Betka     76.9 %     54.6 s
+      dc_only  tsmixer           held out Bruno     77.6 %     53.6 s
+      dc_only  tsmixer           held out Dano      59.0 %     52.1 s
+      dc_only  tsmixer           held out Miso      62.8 %     58.9 s
+      -> mean 63.4 % over 5 folds   [39 min 07 s elapsed, about 24 min 54 s left]
+[12/18] ROCKET-GPU + ridge  --  dc_only, seed 0
+      dc_only  rocket            held out Barbora   34.1 %      4.2 s
+      dc_only  rocket            held out Betka     83.1 %      3.8 s
+      dc_only  rocket            held out Bruno     75.6 %      3.5 s
+      dc_only  rocket            held out Dano      70.6 %      4.2 s
+      dc_only  rocket            held out Miso      69.0 %      3.8 s
+      -> mean 66.5 % over 5 folds   [39 min 27 s elapsed, about 19 min 44 s left]
+[13/18] GRU (current NN)  --  contrast, seed 0
+      contrast gru               held out fold1     94.7 %     32.8 s
+      contrast gru               held out fold2     95.7 %     33.8 s
+      contrast gru               held out fold3     96.2 %     32.9 s
+      contrast gru               held out fold4     95.4 %     34.3 s
+      contrast gru               held out fold5     96.0 %     34.1 s
+      -> mean 95.6 % over 5 folds   [42 min 15 s elapsed, about 16 min 15 s left]
+[14/18] CircConv-GRU + rotation aug  --  contrast, seed 0
+      contrast circ_gru          held out fold1     95.4 %     40.5 s
+      contrast circ_gru          held out fold2     94.5 %     45.7 s
+      contrast circ_gru          held out fold3     96.7 %     44.1 s
+      contrast circ_gru          held out fold4     96.8 %     45.4 s
+      contrast circ_gru          held out fold5     92.9 %     47.7 s
+      -> mean 95.3 % over 5 folds   [45 min 59 s elapsed, about 13 min 08 s left]
+[15/18] Channel Transformer  --  contrast, seed 0
+      contrast chan_transformer  held out fold1     97.1 %     66.4 s
+      contrast chan_transformer  held out fold2     98.8 %     55.5 s
+      contrast chan_transformer  held out fold3     97.7 %     53.2 s
+      contrast chan_transformer  held out fold4     95.6 %     54.0 s
+      contrast chan_transformer  held out fold5     93.1 %     55.7 s
+      -> mean 96.5 % over 5 folds   [50 min 44 s elapsed, about 10 min 09 s left]
+[16/18] InceptionTime-S  --  contrast, seed 0
+      contrast inception         held out fold1     98.6 %     50.1 s
+      contrast inception         held out fold2     98.8 %     51.1 s
+      contrast inception         held out fold3     97.7 %     50.4 s
+      contrast inception         held out fold4     98.1 %     51.0 s
+      contrast inception         held out fold5     97.8 %     69.4 s
+      -> mean 98.2 % over 5 folds   [55 min 16 s elapsed, about 6 min 55 s left]
+[17/18] TSMixer  --  contrast, seed 0
+      contrast tsmixer           held out fold1     99.0 %     46.6 s
+      contrast tsmixer           held out fold2     98.1 %     44.0 s
+      contrast tsmixer           held out fold3     97.4 %     44.7 s
+      contrast tsmixer           held out fold4     97.2 %     44.2 s
+      contrast tsmixer           held out fold5     97.5 %     46.4 s
+      -> mean 97.8 % over 5 folds   [59 min 02 s elapsed, about 3 min 28 s left]
+[18/18] ROCKET-GPU + ridge  --  contrast, seed 0
+      contrast rocket            held out fold1     97.6 %      3.5 s
+      contrast rocket            held out fold2     99.8 %      3.4 s
+      contrast rocket            held out fold3     98.4 %      3.1 s
+      contrast rocket            held out fold4     95.8 %      3.5 s
+      contrast rocket            held out fold5     97.3 %      3.3 s
+      -> mean 97.8 % over 5 folds   [59 min 19 s elapsed, about 0 min 00 s left]
+
+finished in 59 min 19 s
+results: models/reports/new_models_test_run1

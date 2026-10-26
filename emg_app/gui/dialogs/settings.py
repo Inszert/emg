@@ -1,14 +1,24 @@
 """
 Settings (the gear icon).
 
-One tab so far -- Gestures -- built as a tab widget so the next setting has
-somewhere to go. The gestures tab is the same `GestureEditor` the GESTURES...
-dialog uses: which gestures are recorded, which the live classifiers may
-answer with, and adding new ones.
+Four tabs:
+
+    Gestures   which gestures are recorded, which the live classifiers may
+               answer with, and adding new ones (the same `GestureEditor` the
+               GESTURES... dialog uses)
+    Models     the model zoo: pick the ML classifiers and the nets, stars,
+               sizes, soft voting
+    Training   augmentation and adaptation to the person
+    General    the questions the application asks
+
+The dialog writes nothing itself: the caller reads the values, applies and
+saves them.
 """
 
 from emg_app import config as cfg
 from emg_app.gui.dialogs.gesture_setup import GestureEditor
+from emg_app.gui.dialogs.settings_tabs import (
+    GeneralTab, ModelsTab, TrainingTab)
 from emg_app.gui.qt import QtWidgets
 from emg_app.gui.tokens import COL_ACCENT, COL_TEXT_DIM
 from emg_app.gui.widgets import fit_to_screen, make_label, wrap_label
@@ -26,7 +36,8 @@ class SettingsDialog(QtWidgets.QDialog):
     """
 
     def __init__(self, parent=None, model_labels=None, selected=None,
-                 classifier_off=None):
+                 classifier_off=None, zoo_entries=None, zoo_ensembles=None,
+                 defaults_note: str = ""):
         super().__init__(parent)
         self.setWindowTitle("Settings")
         fit_to_screen(self, 700, 780, min_width=460, min_height=420)
@@ -45,6 +56,12 @@ class SettingsDialog(QtWidgets.QDialog):
         page_layout.addWidget(self._models_line(model_labels))
         page_layout.addWidget(self.editor, 1)
         self.tabs.addTab(page, "Gestures")
+        self.models_tab = ModelsTab(self, zoo_entries, zoo_ensembles)
+        self.training_tab = TrainingTab(self, defaults_note)
+        self.general_tab = GeneralTab(self)
+        self.tabs.addTab(self.models_tab, "Models")
+        self.tabs.addTab(self.training_tab, "Training")
+        self.tabs.addTab(self.general_tab, "General")
         layout.addWidget(self.tabs, 1)
 
         buttons = QtWidgets.QHBoxLayout()
@@ -98,17 +115,36 @@ class SettingsDialog(QtWidgets.QDialog):
     def classifier_changes(self):
         return self.editor.classifier_changes()
 
-    def _apply(self) -> None:
+    def app_values(self) -> dict:
+        """Models, training and general settings, ready for settings_store."""
+        out = {}
+        out.update(self.models_tab.values())
+        out.update(self.training_tab.values())
+        out.update(self.general_tab.values())
+        return out
+
+    def _validate(self) -> str:
         message = self.editor.validate()
         if message:
+            self.tabs.setCurrentIndex(0)
             self.editor.warning.setText(message)
+            return message
+        problems = self.models_tab.problems()
+        if problems:
+            self.tabs.setCurrentWidget(self.models_tab)
+            QtWidgets.QMessageBox.warning(
+                self, "Models", "The selection cannot be applied:\n\n"
+                + "\n".join(problems))
+            return problems[0]
+        return ""
+
+    def _apply(self) -> None:
+        if self._validate():
             return
         self.accept()
 
     def _apply_and_retrain(self) -> None:
-        message = self.editor.validate()
-        if message:
-            self.editor.warning.setText(message)
+        if self._validate():
             return
         self.retrain_requested = True
         self.accept()

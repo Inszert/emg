@@ -40,6 +40,8 @@ pipeline for that model.
 """
 from __future__ import annotations
 
+import os
+
 import numpy as np
 
 ADAPT_MODES = ("off", "person")
@@ -164,3 +166,110 @@ class StreamStats:
         std = np.sqrt(var)
         std = np.where(std < STD_FLOOR, 1.0, std)
         return mean.astype(np.float32), std.astype(np.float32)
+
+
+# ==============================================================================
+# THE STORED CALIBRATION SIGNAL
+# ==============================================================================
+#
+# A calibration measures a person for a few seconds: REST, then each gesture.
+# That signal is exactly what adaptation needs (a short, unlabelled, balanced
+# sample of the person), so it is kept next to the calibration record --
+# `<person>/adaptation_signal.npz`, a few tens of kilobytes -- and the person
+# statistics of whichever model is in use are computed from it on demand.
+# That is what lets "use the last calibration" keep adapting after a restart.
+
+SIGNAL_NAME = "adaptation_signal.npz"
+SIGNAL_MIN_SAMPLES = 8
+
+
+def signal_path(root: str = None, person_id: str = None) -> str:
+    from emg_app.calibration import calibration_path
+    return os.path.join(os.path.dirname(calibration_path(root, person_id)),
+                        SIGNAL_NAME)
+
+
+def save_signal(blocks, fs: float, root: str = None, person_id: str = None):
+    """
+    Keep the calibration captures `blocks` (a list of raw `(n, C)` arrays,
+    device counts, uncalibrated) sampled at `fs`. Atomic; replaces the previous
+    signal (the previous CALIBRATION stays in calibration_log.jsonl). Returns
+    the path, or None when there was nothing usable to keep.
+    """
+    keep = [np.asarray(b, dtype=np.float32) for b in blocks
+            if b is not None and np.asarray(b).ndim == 2
+            and np.asarray(b).shape[0] >= SIGNAL_MIN_SAMPLES]
+    if not keep:
+        return None
+    path = signal_path(root, person_id)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".partial.npz"
+    np.savez_compressed(tmp, fs=np.float64(fs), n=np.int64(len(keep)),
+                        **{f"b{i}": b for i, b in enumerate(keep)})
+    os.replace(tmp, path)
+    return path
+
+
+def load_signal(root: str = None, person_id: str = None):
+    """`(blocks, fs)` or `([], None)` when there is no (readable) signal."""
+    path = signal_path(root, person_id)
+    try:
+        with np.load(path) as z:
+            n = int(z["n"])
+            return [z[f"b{i}"] for i in range(n)], float(z["fs"])
+    except (OSError, ValueError, KeyError):
+        return [], None
+
+
+def _blocks_on_grid(blocks, fs, model_fs):
+    """Each capture resampled onto the models' own time grid."""
+    from emg_app.features import resample_uniform
+    out = []
+    for b in blocks:
+        seconds = (b.shape[0] - 1) / float(fs)
+        n_out = max(2, int(round(seconds * model_fs)))
+        t = np.arange(b.shape[0], dtype=np.float64) / float(fs)
+        out.append(resample_uniform(b, t, n_out))
+    return out
+
+
+def nn_person_stats(blocks, fs, calibration, win_samples, model_fs=60.0,
+                    overlap=0.75):
+    """
+    `(mean, std)` of log1p(|x|) over windows cut from the captures, calibrated
+    like the net's input (`nn_input_block`). `None` if too few windows.
+    """
+    from emg_app.features import nn_input_block, sliding_windows
+    step = max(1, int(round(win_samples * (1.0 - overlap))))
+    wins = []
+    for block in _blocks_on_grid(blocks, fs, model_fs):
+        w = sliding_windows(nn_input_block(block, calibration), win_samples,
+                            step)
+        if w.shape[0]:
+            wins.append(np.ascontiguousarray(w))
+    if not wins:
+        return None
+    wins = np.concatenate(wins, axis=0)
+    if wins.shape[0] < ADAPT_MIN_WINDOWS:
+        return None
+    return log_stats(wins)
+
+
+def ml_person_stats(blocks, fs, calibration, setup, model_fs=60.0):
+    """
+    `(mean, std)` per feature over windows cut from the captures and turned
+    into feature vectors exactly as the live predictor does (the ML model's
+    own representation / feature set). `None` if too few windows.
+    """
+    from emg_app.features import model_feature_vector, sliding_windows
+    win = int(setup["window_samples"])
+    step = max(1, int(round(win * (1.0 - float(setup.get("overlap", 0.75))))))
+    rows = []
+    for block in _blocks_on_grid(blocks, fs, model_fs):
+        for w in sliding_windows(block.astype(np.float32), win, step):
+            rows.append(model_feature_vector(
+                w, setup["representation"], setup["feature_set"],
+                setup["freq_features"], model_fs, calibration))
+    if len(rows) < ADAPT_MIN_WINDOWS:
+        return None
+    return feature_stats(np.asarray(rows, dtype=np.float32))

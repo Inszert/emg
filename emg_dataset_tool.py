@@ -46,7 +46,7 @@ _DATA_MODULES = (
     "gui.tokens", "utils", "signal_processing", "calibration", "features",
     "quality", "markers", "recording", "model_spec", "compute", "dataset",
     "acquisition", "neural", "jobs", "sequence", "model_test", "class_mask",
-    "decision_panel", "prediction",
+    "decision_panel", "prediction", "zoo", "adaptation", "settings_store",
 )
 _GUI_MODULES = (
     "gui.qt", "gui.widgets", "gui.theme", "gui.plot", "gui.decision_trail",

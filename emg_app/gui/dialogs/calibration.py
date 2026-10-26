@@ -713,6 +713,19 @@ class CalibrationDialog(QtWidgets.QDialog):
             QtWidgets.QMessageBox.warning(self, "Calibration",
                                           f"Not saved:\n\n{exc}")
             return
+        #  Keep the signal these numbers were measured on: it is the person's
+        #  own short unlabelled sample, which is exactly what adaptation to the
+        #  person needs (emg_app/adaptation.py), and it lets "use the last
+        #  calibration" keep adapting after a restart.
+        try:
+            from emg_app.adaptation import save_signal
+            rate = (self.acq.stats().get("rate") if self.acq else None) \
+                or nominal_rate()
+            save_signal([self.rest_block, self.effort_block]
+                        + list(self.gesture_blocks.values()), rate,
+                        self.root, self.person_id)
+        except Exception:                                    # pragma: no cover
+            pass            # adaptation then falls back to global statistics
         self.record = record
         self.rest_block = self.effort_block = None
         self.gesture_blocks = {}

@@ -12,6 +12,7 @@ from typing import List, Optional
 import numpy as np
 
 from emg_app import config as cfg
+from emg_app import zoo
 from emg_app.utils import nominal_rate
 from emg_app.class_mask import (
     NO_ANSWER, active_labels, apply_class_mask, kept_mass, off_key)
@@ -60,6 +61,54 @@ class Prediction:
         return f"{self.confidence * 100:.0f} %"
 
 
+class MeanProba:
+    """
+    A soft vote over already-fitted estimators: the mean of their
+    `predict_proba`. Built in memory by `LivePredictor` when several zoo models
+    are selected; never saved. The members must share the same input features
+    (`check_vote` / `_vote_problem` make sure of that before one is built).
+    """
+
+    def __init__(self, members):
+        self.members = list(members)
+        self.n_jobs = 1
+
+    def predict_proba(self, X):
+        return np.mean([np.asarray(m.predict_proba(X), dtype=float)
+                        for m in self.members], axis=0)
+
+    def predict(self, X):
+        return np.argmax(self.predict_proba(X), axis=1)
+
+
+#  What two payloads must agree on to be averaged (see zoo.COMPAT_KEYS).
+_VOTE_FIELDS = ("labels", "fs", "window_s", "window_samples", "representation",
+                "feature_set", "freq_features")
+
+
+def _vote_problem(payloads, names):
+    """`None` if the payloads can be voted, else the reason they cannot."""
+    ref = payloads[0]
+    for name, other in zip(names[1:], payloads[1:]):
+        for key in _VOTE_FIELDS:
+            if ref.get(key) != other.get(key):
+                return (f"{names[0]} and {name} disagree on {key} "
+                        f"({ref.get(key)!r} against {other.get(key)!r}), so "
+                        f"their probabilities cannot be averaged")
+        a = (ref.get("calibration") or {}).get("mode", "off")
+        b = (other.get("calibration") or {}).get("mode", "off")
+        if a != b:
+            return (f"{names[0]} and {name} were trained on different "
+                    f"calibration modes ({a!r} against {b!r})")
+        a = (ref.get("adaptation") or {}).get("mode", "off")
+        b = (other.get("adaptation") or {}).get("mode", "off")
+        if a != b:
+            return (f"{names[0]} and {name} differ in adaptation to the "
+                    f"person ({a!r} against {b!r}), so they are fed "
+                    f"differently standardised features")
+    return None
+
+
 class LivePredictor:
     """
     Real-time gesture prediction.
@@ -82,6 +131,19 @@ class LivePredictor:
 
     def __init__(self, path: str = None):
         self.path = path or cfg.MODEL_PATH
+        #  An explicit path is a request for exactly that file, so it bypasses
+        #  the zoo selection (tests and tools rely on it).
+        self._explicit = path is not None
+        #  Names of the models behind `model` when it is a soft vote, else [].
+        self.members: List[str] = []
+        self.active_paths: List[str] = []
+        #  Adaptation to the person (emg_app/adaptation.py): only a model
+        #  TRAINED on per-person standardised features carries
+        #  {"mode": "person_features"}; the statistics of whoever wears the
+        #  band come from `set_adaptation`.
+        self.adaptation: dict = {"mode": "off"}
+        self.adapt_stats = None
+        self.adapt_applied = False
         self.model = None
         self.labels: List[str] = []
         self.window_s = cfg.WINDOW_MS / 1000.0
@@ -123,31 +185,36 @@ class LivePredictor:
 
     def load(self) -> bool:
         self.model = None
+        self.members = []
+        self.active_paths = []
         if not cfg.ENABLE_LIVE_PREDICTION:
             self.status = "disabled in the configuration"
             return False
-        if not os.path.exists(self.full_path):
-            self.status = "no model file"
-            return False
+        #  With model selection OFF (the default) this list is empty and the
+        #  original single file is loaded exactly as before.
+        paths = [] if self._explicit else zoo.selected_paths("ml")
+        if len(paths) >= 2:
+            return self._load_vote(paths)
+        return self._load_single(paths[0] if paths else self.full_path)
+
+    def _read_payload(self, path: str):
+        """`(payload, None)` or `(None, reason)`."""
+        if not os.path.exists(path):
+            return None, "no model file"
         try:
             import joblib
         except ImportError:
-            self.status = "joblib is not installed"
-            return False
+            return None, "joblib is not installed"
         try:
-            payload = joblib.load(self.full_path)
+            payload = joblib.load(path)
         except Exception as exc:
-            self.status = f"could not load the model: {exc}"
-            return False
-
+            return None, f"could not load the model: {exc}"
         if not isinstance(payload, dict) or "model" not in payload:
-            self.status = "unsupported model file (expected a dict payload)"
-            return False
+            return None, "unsupported model file (expected a dict payload)"
+        return payload, None
 
-        self.model = payload["model"]
-        #  One live row at a time: a joblib pool per call tripled the
-        #  forests' cost (serialise_estimator). Same answers.
-        serialise_estimator(self.model)
+    def _adopt(self, payload: dict, path: str) -> bool:
+        """Take the model's description from `payload`; check its calibration."""
         self.labels = list(payload.get("labels", cfg.GESTURES))
         self.fs = float(payload.get("fs", nominal_rate()))
         self.window_s = float(payload.get(
@@ -158,31 +225,79 @@ class LivePredictor:
         self.feature_set = payload.get("feature_set", "level")
         self.freq_features = bool(payload.get("freq_features", True))
         self.stats = dict(payload.get("stats", {}))
+        self.adaptation = dict(payload.get("adaptation") or {"mode": "off"})
+        self.adapt_stats = None
+        self.adapt_applied = False
         self.payload_meta = {k: v for k, v in payload.items()
                              if k not in ("model", "stats")}
-        self.loaded_mtime = os.path.getmtime(self.full_path) \
-            if os.path.exists(self.full_path) else 0.0
+        self.loaded_mtime = os.path.getmtime(path) \
+            if os.path.exists(path) else 0.0
+        return self._load_calibration(payload.get("calibration"))
 
-        if not self._load_calibration(payload.get("calibration")):
-            self.model = None
-            return False
-
+    def _finish(self) -> bool:
+        """Fail loudly here rather than producing nonsense at 7 Hz."""
         n_expected = len(model_feature_names(self.feature_set,
                                              self.freq_features))
         self.status = "ready"
         self.reset()
-
-        # Fail loudly here rather than producing nonsense at 7 Hz.
-        probe = self.model
         try:
             dummy = np.zeros((1, n_expected), dtype=np.float32)
-            probe.predict(dummy)
+            self.model.predict(dummy)
         except Exception as exc:
             self.model = None
             self.status = (f"model expects different features than "
                            f"{self.feature_set!r} produces ({n_expected}): {exc}")
             return False
         return True
+
+    def _load_single(self, path: str) -> bool:
+        payload, problem = self._read_payload(path)
+        if problem:
+            self.status = problem
+            return False
+        self.model = payload["model"]
+        #  One live row at a time: a joblib pool per call tripled the
+        #  forests' cost (serialise_estimator). Same answers.
+        serialise_estimator(self.model)
+        self.active_paths = [path]
+        if not self._adopt(payload, path):
+            self.model = None
+            return False
+        return self._finish()
+
+    def _load_vote(self, paths) -> bool:
+        """Several zoo models, answered as the mean of their probabilities."""
+        payloads, names = [], []
+        for path in paths:
+            payload, problem = self._read_payload(path)
+            if problem:
+                self.status = f"{os.path.basename(os.path.dirname(path))}: " \
+                              f"{problem}"
+                return False
+            payloads.append(payload)
+            names.append((payload.get("stats") or {}).get("model_name")
+                         or os.path.basename(os.path.dirname(path)))
+        problem = _vote_problem(payloads, names)
+        if problem:
+            self.status = f"cannot vote: {problem}"
+            return False
+        members = [pl["model"] for pl in payloads]
+        for member in members:
+            serialise_estimator(member)
+        self.model = MeanProba(members)
+        self.members = list(names)
+        self.active_paths = list(paths)
+        if not self._adopt(payloads[0], paths[0]):
+            self.model = None
+            return False
+        #  The first member's numbers describe THAT model, not the vote, so
+        #  they must not stay on display: keep only what is true of the vote.
+        self.stats = {"model_name": "soft vote: " + " + ".join(names),
+                      "ensemble_of": list(names),
+                      "validation_protocol": "see the members' own statistics"}
+        self.payload_meta = dict(self.payload_meta)
+        self.payload_meta["ensemble_of"] = list(names)
+        return self._finish()
 
     def _load_calibration(self, block: dict) -> bool:
         """
@@ -233,6 +348,42 @@ class LivePredictor:
     def ready(self) -> bool:
         return self.model is not None
 
+    # -- adaptation to the person ---------------------------------------------
+
+    @property
+    def adapts(self) -> bool:
+        """Was this model trained on per-person standardised features?"""
+        return self.adaptation.get("mode") == "person_features"
+
+    def set_adaptation(self, mean, std) -> None:
+        """The wearer's per-feature statistics (`adaptation.ml_person_stats`)."""
+        self.adapt_stats = (np.asarray(mean, dtype=np.float32),
+                            np.asarray(std, dtype=np.float32))
+
+    def clear_adaptation(self) -> None:
+        self.adapt_stats = None
+
+    def _adapt_features(self, features: np.ndarray) -> np.ndarray:
+        """
+        Standardise the feature row the way the model was trained -- with the
+        wearer's statistics when adaptation is on and they are known, with the
+        stored global ones otherwise (the original pipeline for this model).
+        Models not trained with adaptation are returned untouched.
+        """
+        self.adapt_applied = False
+        if not self.adapts:
+            return features
+        if cfg.ADAPT_LIVE and self.adapt_stats is not None:
+            mean, std = self.adapt_stats
+            self.adapt_applied = True
+        else:
+            mean = self.adaptation.get("global_mean")
+            std = self.adaptation.get("global_std")
+            if mean is None or std is None:
+                return features
+        return ((features - np.asarray(mean, dtype=np.float32))
+                / np.asarray(std, dtype=np.float32)).astype(np.float32)
+
     def reset(self) -> None:
         self.history.clear()
         self.prob_history.clear()
@@ -248,6 +399,9 @@ class LivePredictor:
         suffix = f", {acc * 100:.0f} % per-gesture CV" if acc else ""
         cal = (f"  |  {self.calibration_mode} calibration"
                if self.calibration_mode != "off" else "")
+        if self.adapts:
+            cal += ("  |  adapted to the person" if self.adapt_applied
+                    else "  |  adaptation: global statistics")
         return (f"{name}  |  {self.window_s * 1000:.0f} ms @ {self.fs:.0f} Hz  |  "
                 f"{self.feature_set} features{cal}{suffix}")
 
@@ -289,6 +443,7 @@ class LivePredictor:
             block, self.representation, self.feature_set,
             self.freq_features, self.fs, self.calibration,
         )[None, :]
+        features = self._adapt_features(features)
         self.last_features = features
         self.last_window = block
 

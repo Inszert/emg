@@ -9,6 +9,7 @@ import time
 
 from emg_app import config as cfg
 from emg_app.gestures import restore_gesture_setup
+from emg_app.settings_store import restore_settings
 from emg_app.dataset import dataset_summary
 from emg_app.gui.qt import HAVE_QT, QT_IMPORT_ERROR, QtCore, QtWidgets
 from emg_app.gui.theme import apply_theme
@@ -90,6 +91,7 @@ def main(argv=None) -> int:
     #  saved with the data. Restored here and not in MainWindow, so a test
     #  that builds a window with its own GESTURES is never overridden.
     restored = restore_gesture_setup()
+    restore_settings()
     if restored:
         print(f"[startup] gestures: {', '.join(restored)}", flush=True)
     if cfg.CLASSIFIER_OFF:
@@ -108,6 +110,9 @@ def main(argv=None) -> int:
         window.showMaximized()
     else:
         window.show()
+    #  The retrain question, once the window is up (not in MainWindow, so
+    #  a test that builds a window is never interrupted by a dialog).
+    QtCore.QTimer.singleShot(1500, window.maybe_ask_retrain)
     print(
         f"[startup] window up after {time.perf_counter() - t_start:.1f} s "
         f"(press Ctrl+C in this console, or close the window, to quit)",

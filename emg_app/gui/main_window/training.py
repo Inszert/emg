@@ -543,8 +543,10 @@ class TrainingMixin:
 
         def flush():
             if run:
-                (self._on_nn_training_lines if self._job_step == "nn"
-                 else self._on_training_lines)(list(run))
+                handler = {"nn": self._on_nn_training_lines,
+                           "zoo": self._on_zoo_lines}.get(
+                    self._job_step, self._on_training_lines)
+                handler(list(run))
                 run.clear()
 
         for line in lines:
@@ -555,6 +557,8 @@ class TrainingMixin:
                 if (self._job_step == "nn" and self._job is not None
                         and self._job.kind == "all"):
                     self._begin_chained_nn_step()
+                elif self._job_step == "zoo":
+                    self._begin_zoo_step()
                 continue
             if line.startswith("JOBSTEPEND "):
                 flush()
@@ -574,6 +578,9 @@ class TrainingMixin:
         chained = self._job is not None and self._job.kind == "all"
         if name == "nn":
             self._on_nn_training_finished(code)
+            return
+        if name == "zoo":
+            self._on_zoo_finished(code, chained)
             return
         self._on_training_finished(code, announce=not chained)
         if chained and code == 0:
@@ -624,11 +631,14 @@ class TrainingMixin:
         self._refresh_controls()
         self._refresh_neural_panel()
 
-    def retrain_everything(self) -> None:
+    def retrain_everything(self, zoo_ids=None) -> None:
         """
         Retrain the classifier AND the neural net with one button: one job,
         two steps, strictly in sequence. The net only starts if the
         classifier succeeded.
+
+        `zoo_ids` adds a third step that re-measures and re-fits those zoo
+        models (training/train_zoo.py); it only starts if the net succeeded.
         """
         chain = getattr(self, "_chain_job", None)
         if chain is not None:
@@ -688,7 +698,10 @@ class TrainingMixin:
             + ("GPU" if info.get("cuda") else "CPU")
             + ") -- the separate second opinion, never part of the answer\n\n"
             "Step 2 only starts if step 1 succeeds.\n\n"
-            "Quick: reduced grids, a few minutes in total.\n"
+            + (f"3. the model zoo: {len(zoo_ids)} model(s) re-measured and "
+               "re-saved (train_zoo.py) -- only after step 2 succeeds\n\n"
+               if zoo_ids else "")
+            + "Quick: reduced grids, a few minutes in total.\n"
             "Full:  both full sweeps, roughly 30-40 minutes.\n\n"
             "Runs in the background: you can close the app and it keeps "
             "going. Reopen it to see the progress.")
@@ -719,9 +732,110 @@ class TrainingMixin:
             {"name": "nn", "argv": [sys.executable]
              + self._nn_train_args(nn_script, quick)},
         ]
+        if zoo_ids:
+            steps.append({"name": "zoo", "argv": [sys.executable]
+                          + self._zoo_train_args(list(zoo_ids))})
         self._launch_training_job("all", steps)
         self._after_ml_launch(summary, quick)
         self._refresh_controls()
+
+    # -- the model zoo --------------------------------------------------------
+
+    def _zoo_train_args(self, ids) -> List[str]:
+        """train_zoo.py's command line: re-measure and re-fit these models."""
+        script = os.path.join(cfg.PROJECT_DIR, "training", "train_zoo.py")
+        args = ["-u", script, "all", "--ids", *ids,
+                "--root", os.path.join(cfg.PROJECT_DIR, cfg.DATA_FOLDER),
+                "--augment", ",".join(cfg.TRAIN_AUGMENT) or "none"]
+        if cfg.TRAIN_ADAPT:
+            args.append("--adapt")
+        return args
+
+    def retrain_zoo(self, ids) -> None:
+        """Re-measure and re-fit the given zoo models, in the background."""
+        ids = [i for i in ids]
+        if not ids:
+            return
+        if self.training_process is not None or \
+                self.nn_training_process is not None:
+            QtWidgets.QMessageBox.information(
+                self, "Retrain", "A training run is already going. One "
+                "trainer at a time.")
+            return
+        if self.sequence.running:
+            QtWidgets.QMessageBox.information(
+                self, "Retrain", "Finish or stop the recording session "
+                "first: training saturates the CPU and would disturb the "
+                "live stream.")
+            return
+        self.stop_prediction()
+        self.stop_neural()
+        self.expand_section("training")
+        self.training_started_at = time.perf_counter()
+        self._reset_training_panel(f"model zoo  --  {len(ids)} model(s)")
+        self.training_output = []
+        steps = [{"name": "zoo", "argv": [sys.executable]
+                  + self._zoo_train_args(ids)}]
+        self._launch_training_job("zoo", steps)
+        self.training_phase_text = "model zoo: measuring..."
+        self.training_progress.setValue(0)
+        self.training_progress.setVisible(True)
+        self._refresh_training_status()
+        self._refresh_controls()
+
+    def _begin_zoo_step(self) -> None:
+        self.training_started_at = getattr(self, "training_started_at",
+                                           time.perf_counter())
+        self.training_phase_text = "model zoo: measuring and re-fitting..."
+        self.training_progress.setValue(0)
+        self.training_progress.setVisible(True)
+        self._append_log("Model zoo training started (leave-one-person-out "
+                         "measurement, then the final fit of each model).")
+        self._refresh_training_status()
+
+    def _on_zoo_lines(self, lines: List[str]) -> None:
+        """train_zoo.py's output: a progress bar and the lines that matter."""
+        for line in lines:
+            line = line.rstrip()
+            if not line or line.startswith("TRAINEVENT "):
+                continue
+            if line.startswith("PROGRESS "):
+                self._update_training_progress(line)
+                continue
+            self.training_output.append(line)
+            if len(self.training_output) > 4000:
+                del self.training_output[:2000]
+            if line.startswith(("[eval", "[fit", "[ensembles", "done in")):
+                self._append_log(f"zoo: {line.strip()}")
+            self.training_phase_text = line.strip()[:90]
+            self._refresh_training_status()
+
+    def _on_zoo_finished(self, exit_code: int, chained: bool = False) -> None:
+        self.training_progress.setVisible(False)
+        if self.training_process is not None and \
+                getattr(self.training_process, "kind", "") == "zoo":
+            self.training_process = None
+        took = fmt_duration(time.perf_counter() - self.training_started_at)
+        if exit_code != 0:
+            self.training_status.setStyleSheet(
+                f"color: {COL_BAD}; background: transparent;")
+            self.training_status.setText(
+                f"model zoo training failed (exit {exit_code})")
+            self._append_log(f"Model zoo training failed (exit {exit_code}); "
+                             "the models already in the zoo are untouched.")
+            if not chained:
+                QtWidgets.QMessageBox.warning(
+                    self, "Model zoo", f"train_zoo.py exited with code "
+                    f"{exit_code}.\n\n"
+                    + "\n".join(self.training_output[-15:]))
+            return
+        self.training_status.setStyleSheet(
+            f"color: {COL_GOOD}; background: transparent;")
+        self.training_status.setText(f"model zoo trained, took {took}")
+        self._append_log(f"Model zoo trained in {took}. Stars and scores are "
+                         "recomputed from the new measurements.")
+        if getattr(cfg, "MODEL_SELECTION_ENABLED", False):
+            self._reload_selected_models()
 
     def _resume_training_job(self) -> None:
         """
@@ -732,6 +846,7 @@ class TrainingMixin:
         for job_dir in unseen_finished_jobs(models_dir):
             status = read_job_status(job_dir) or {}
             kind = {"ml": "classifier", "nn": "neural net",
+                    "zoo": "model zoo",
                     "all": "classifier + neural net"}.get(
                 status.get("kind"), status.get("kind") or "training")
             when = datetime.fromtimestamp(

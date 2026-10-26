@@ -88,8 +88,9 @@ class ModelStatsDialog(QtWidgets.QDialog):
             ("MACRO F1", stats.get("window_macro_f1"), "per window, class-balanced"),
         ):
             box = QtWidgets.QFrame()
+            box.setObjectName("card")
             box.setStyleSheet(
-                f"QFrame {{ background: {COL_PANEL}; border: 1px solid "
+                f"QFrame#card {{ background: {COL_PANEL}; border: 1px solid "
                 f"{COL_BORDER}; border-radius: 8px; }}")
             col = QtWidgets.QVBoxLayout(box)
             col.setSpacing(1)
@@ -126,8 +127,9 @@ class ModelStatsDialog(QtWidgets.QDialog):
 
         self.trail_view = DecisionTrailView(self.panel, predictor, self)
         trail_frame = QtWidgets.QFrame()
+        trail_frame.setObjectName("card")
         trail_frame.setStyleSheet(
-            f"QFrame {{ background: {COL_PANEL}; border: 1px solid "
+            f"QFrame#card {{ background: {COL_PANEL}; border: 1px solid "
             f"{COL_BORDER}; border-radius: {RAD_SM}px; }}")
         trail_box = QtWidgets.QVBoxLayout(trail_frame)
         trail_box.setContentsMargins(SP_SM, SP_SM, SP_SM, SP_SM)
@@ -142,8 +144,9 @@ class ModelStatsDialog(QtWidgets.QDialog):
         body.addWidget(make_label("FEATURE SPACE", 11, True, COL_TEXT_DIM))
         self.space_view = FeatureSpaceView(self.panel, predictor, self)
         space_frame = QtWidgets.QFrame()
+        space_frame.setObjectName("card")
         space_frame.setStyleSheet(
-            f"QFrame {{ background: {COL_PANEL}; border: 1px solid "
+            f"QFrame#card {{ background: {COL_PANEL}; border: 1px solid "
             f"{COL_BORDER}; border-radius: {RAD_SM}px; }}")
         space_box = QtWidgets.QVBoxLayout(space_frame)
         space_box.setContentsMargins(SP_SM, SP_SM, SP_SM, SP_SM)

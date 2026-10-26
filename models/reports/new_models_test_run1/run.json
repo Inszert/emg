@@ -1,0 +1,47 @@
+{
+ "started": "2026-10-26T22:43:26",
+ "epochs": 150,
+ "models": [
+  "gru",
+  "circ_gru",
+  "chan_transformer",
+  "inception",
+  "tsmixer",
+  "rocket"
+ ],
+ "protocols": [
+  "loso",
+  "dc_only",
+  "contrast"
+ ],
+ "seeds": [
+  0
+ ],
+ "window_s": 0.7,
+ "overlap": 0.75,
+ "calibration": "affine",
+ "n_windows": 2873,
+ "people": [
+  "Barbora",
+  "Betka",
+  "Bruno",
+  "Dano",
+  "Miso"
+ ],
+ "labels": [
+  "FIST",
+  "OPEN",
+  "REST",
+  "THUMB_UP",
+  "WAVE_LEFT",
+  "WAVE_RIGHT"
+ ],
+ "titles": {
+  "gru": "GRU (current NN)",
+  "circ_gru": "CircConv-GRU + rotation aug",
+  "chan_transformer": "Channel Transformer",
+  "inception": "InceptionTime-S",
+  "tsmixer": "TSMixer",
+  "rocket": "ROCKET-GPU + ridge"
+ }
+}

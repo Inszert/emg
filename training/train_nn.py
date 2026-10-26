@@ -107,7 +107,10 @@ if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
 import emg_dataset_tool as T
+from emg_app import adaptation as AD
 import nn_arch
+import nn_augment
+import nn_checkpoint
 #  The protocol pieces live in ONE place. Importing them means this trainer
 #  cannot dedup, group or filter differently from the sklearn sweep.
 import train_model as TM
@@ -305,6 +308,37 @@ def fold_scaler(X_train):
     return apply, mean.astype(np.float32), std.astype(np.float32)
 
 
+def prepare_fold(X, persons, train, test, adapt=False, table=None):
+    """
+    What the net is fed for one fold: `(A_train, A_test, stats_train)`.
+
+    Without adaptation this is exactly the original `fold_scaler` path -- one
+    scaler fitted on the training rows. With it, every window is standardised
+    with ITS OWN PERSON's statistics (`emg_app.adaptation`), measured from a
+    random share of that person's unlabelled windows, for the training and the
+    test rows alike. `stats_train` is `(mean, std)` -- per channel, or one row
+    per training window -- for the raw/augmentation path of `train_one`.
+    """
+    if not adapt:
+        scale, mean, std = fold_scaler(X[train])
+        return scale(X[train]), scale(X[test]), (mean, std)
+    if persons is None or table is None:
+        raise ValueError("adaptation needs the per-window person ids and "
+                         "their statistics")
+
+    def rows(idx):
+        m = np.stack([table[p][0] for p in persons[idx]]).astype(np.float32)
+        sd = np.stack([table[p][1] for p in persons[idx]]).astype(np.float32)
+        return m, sd
+
+    def scaled(idx):
+        m, sd = rows(idx)
+        return ((np.log1p(np.abs(X[idx])) - m[:, None, :])
+                / sd[:, None, :]).astype(np.float32)
+
+    return scaled(train), scaled(test), rows(train)
+
+
 def dc_only_sequences(X):
     """
     Every window replaced by its own per-channel MEAN, held constant in time.
@@ -496,7 +530,8 @@ def predict_all(model, X, device, batch=1024):
 
 def evaluate(kind, X, y, groups, labels, win, device, epochs,
              split_groups=None, grouping="recording", n_splits=CV_SPLITS,
-             hidden=HIDDEN, dropout=None, on_fold=None, verbose=False):
+             hidden=HIDDEN, dropout=None, on_fold=None, verbose=False,
+             persons=None, augment=(), adapt=False):
     dropout = DROPOUT if dropout is None else dropout
     """
     Grouped stratified cross-validation, returning the same dict shape
@@ -524,6 +559,8 @@ def evaluate(kind, X, y, groups, labels, win, device, epochs,
     cv = StratifiedGroupKFold(n_splits=n_splits, shuffle=True,
                               random_state=RANDOM_STATE)
     folds = list(cv.split(X, y, split_groups))
+    table = (AD.person_log_table(X, persons, seed=RANDOM_STATE)
+             if adapt else None)
 
     window_acc, window_f1, fold_acc = [], [], []
     vote_correct = vote_total = 0
@@ -531,7 +568,8 @@ def evaluate(kind, X, y, groups, labels, win, device, epochs,
     n_params = 0
 
     for number, (train_idx, test_idx) in enumerate(folds):
-        scale, _, _ = fold_scaler(X[train_idx])
+        A_tr, A_te, stats = prepare_fold(X, persons, train_idx, test_idx,
+                                         adapt, table)
         bins = np.bincount(y[train_idx], minlength=len(labels)).astype(float)
         weights = np.where(bins > 0,
                            bins.sum() / (len(labels) * np.maximum(bins, 1)),
@@ -541,13 +579,17 @@ def evaluate(kind, X, y, groups, labels, win, device, epochs,
                               seed=RANDOM_STATE)
         n_params = nn_arch.count_parameters(model)
         log = [] if verbose else None
-        model = train_one(model, scale(X[train_idx]), y[train_idx], device,
-                          epochs, len(labels), class_weights=weights, log=log)
+        augmenter = (nn_augment.Augmenter(augment, seed=RANDOM_STATE,
+                                          device=device) if augment else None)
+        model = train_one(model, X[train_idx] if augmenter else A_tr,
+                          y[train_idx], device, epochs, len(labels),
+                          class_weights=weights, log=log, augmenter=augmenter,
+                          scale_stats=stats if augmenter else None)
         if verbose and log:
             print("      fold %d  loss  %s" % (
                 number + 1, "  ".join(f"ep{e}:{l:.3f}" for e, l in log)))
 
-        pred, _ = predict_all(model, scale(X[test_idx]), device)
+        pred, _ = predict_all(model, A_te, device)
         acc = accuracy_score(y[test_idx], pred)
         window_acc.append(acc)
         fold_acc.append(acc)
@@ -580,7 +622,8 @@ def evaluate(kind, X, y, groups, labels, win, device, epochs,
 
 
 def leave_one_subject_out(kind, X, y, groups_person, labels, win, device,
-                          epochs, hidden=HIDDEN, dropout=None):
+                          epochs, hidden=HIDDEN, dropout=None, augment=(),
+                          adapt=False):
     """Per-wearer held-out score. None with fewer than two subjects."""
     dropout = DROPOUT if dropout is None else dropout
     from sklearn.metrics import accuracy_score
@@ -589,6 +632,8 @@ def leave_one_subject_out(kind, X, y, groups_person, labels, win, device,
     if len(people) < 2:
         return None
     scores = {}
+    table = (AD.person_log_table(X, groups_person, seed=RANDOM_STATE)
+             if adapt else None)
     for person in people:
         test = np.flatnonzero(groups_person == person)
         train = np.flatnonzero(groups_person != person)
@@ -596,13 +641,17 @@ def leave_one_subject_out(kind, X, y, groups_person, labels, win, device,
             continue
         if len(set(y[train].tolist())) < 2:
             continue
-        scale, _, _ = fold_scaler(X[train])
+        A_tr, A_te, stats = prepare_fold(X, groups_person, train, test, adapt,
+                                         table)
         model = nn_arch.build(kind, X.shape[2], len(labels), win,
                               hidden=hidden, dropout=dropout,
                               seed=RANDOM_STATE)
-        model = train_one(model, scale(X[train]), y[train], device, epochs,
-                          len(labels))
-        pred, _ = predict_all(model, scale(X[test]), device)
+        augmenter = (nn_augment.Augmenter(augment, seed=RANDOM_STATE,
+                                          device=device) if augment else None)
+        model = train_one(model, X[train] if augmenter else A_tr, y[train],
+                          device, epochs, len(labels), augmenter=augmenter,
+                          scale_stats=stats if augmenter else None)
+        pred, _ = predict_all(model, A_te, device)
         scores[person] = float(accuracy_score(y[test], pred))
     if not scores:
         return None
@@ -662,6 +711,17 @@ def main(argv=None):
                         choices=sorted(T.CALIBRATION_MODES),
                         help="per-wearer calibration mode (default: the app's "
                              f"CALIBRATION_MODE = {T.CALIBRATION_MODE!r})")
+    parser.add_argument("--augment", default=None,
+                        help="training augmentation: none, all, or a comma "
+                             "list of " + ", ".join(nn_augment.AUG_TYPES)
+                             + f" (default: the application's TRAIN_AUGMENT "
+                             f"= {T.TRAIN_AUGMENT or 'none'})")
+    parser.add_argument("--adapt", dest="adapt", action="store_true",
+                        default=None,
+                        help="train on per-person standardised input "
+                             "(emg_app/adaptation.py); default: the "
+                             f"application's TRAIN_ADAPT = {T.TRAIN_ADAPT}")
+    parser.add_argument("--no-adapt", dest="adapt", action="store_false")
     parser.add_argument("--no-dedupe", action="store_true",
                         help="keep duplicate-coverage windows (leaks; for "
                              "measuring what dedup is worth)")
@@ -671,6 +731,9 @@ def main(argv=None):
     parser.add_argument("--verbose", action="store_true",
                         help="print per-fold training loss")
     args = parser.parse_args(argv)
+    augment = tuple(nn_augment.parse_augment(
+        args.augment if args.augment is not None else list(T.TRAIN_AUGMENT)))
+    adapt = bool(T.TRAIN_ADAPT if args.adapt is None else args.adapt)
 
     #  The GUI's NEURAL SETUP dialog arrives as flags; the module values the
     #  training code reads are set once here.
@@ -776,6 +839,11 @@ def main(argv=None):
           "-- window-level, by source timeline (CLAUDE.md 8g)")
     print(f"  epochs        : {args.epochs} fixed, no early stopping on the "
           "test fold")
+    print(f"  augmentation  : {', '.join(augment) if augment else 'off'}"
+          + ("" if not augment else "  (training windows only)"))
+    print("  adaptation    : " + (
+        "ON -- each person standardised with their own statistics"
+        if adapt else "off -- one global scaler"))
     print("  scaling       : log1p + standardise, fitted per training fold")
     print(f"  grid          : {len(kinds)} architecture(s) x {len(windows)} "
           f"window(s) = {len(kinds) * len(windows)} candidates")
@@ -834,7 +902,8 @@ def main(argv=None):
             stats = evaluate(kind, X, y, groups, labels, win, device,
                              args.epochs, split_groups=split_groups,
                              grouping=grouping, hidden=args.hidden,
-                             verbose=args.verbose)
+                             verbose=args.verbose, persons=groups_person,
+                             augment=augment, adapt=adapt)
             elapsed = time.perf_counter() - t0
             if stats is None:
                 print(f"  [{done}/{len(kinds) * len(windows)}] {kind:<9} not "
@@ -899,7 +968,8 @@ def main(argv=None):
     other_key = groups if grouping == "subject" else groups_person
     other = evaluate(best["kind"], X, y, groups, labels, win, device,
                      args.epochs, split_groups=other_key, grouping=contrast,
-                     hidden=args.hidden)
+                     hidden=args.hidden, persons=groups_person,
+                     augment=augment, adapt=adapt)
     if other is None:
         print(f"      {contrast}-grouped: not measurable on this dataset")
     else:
@@ -922,7 +992,8 @@ def main(argv=None):
         control = evaluate(best["kind"], dc_only_sequences(X), y, groups,
                            labels, win, device, args.epochs,
                            split_groups=split_groups, grouping=grouping,
-                           hidden=args.hidden)
+                           hidden=args.hidden, persons=groups_person,
+                           augment=augment, adapt=adapt)
         if control is None:
             print("      not measurable")
         else:
@@ -950,7 +1021,8 @@ def main(argv=None):
     emit_progress(done - 1, total_steps, "leave-one-subject-out", device_tag,
                   model=best["kind"])
     loso = leave_one_subject_out(best["kind"], X, y, groups_person, labels,
-                                 win, device, args.epochs, hidden=args.hidden)
+                                 win, device, args.epochs, hidden=args.hidden,
+                                 augment=augment, adapt=adapt)
     print()
     if loso:
         print(f"  subject-independent    : {loso['mean'] * 100:.1f} % "
@@ -984,9 +1056,18 @@ def main(argv=None):
     model = nn_arch.build(best["kind"], X.shape[2], len(labels), win,
                           hidden=args.hidden, dropout=DROPOUT,
                           seed=RANDOM_STATE)
-    model = train_one(model, scale(X), y, device, args.epochs, len(labels),
-                      class_weights=weights)
-    fit_pred, _ = predict_all(model, scale(X), device)
+    everything = np.arange(len(y))
+    final_table = (AD.person_log_table(X, groups_person, seed=RANDOM_STATE)
+                   if adapt else None)
+    A_all, _, final_stats = prepare_fold(X, groups_person, everything,
+                                         everything[:0], adapt, final_table)
+    final_aug = (nn_augment.Augmenter(augment, seed=RANDOM_STATE,
+                                      device=device) if augment else None)
+    model = train_one(model, X if final_aug else A_all, y, device,
+                      args.epochs, len(labels), class_weights=weights,
+                      augmenter=final_aug,
+                      scale_stats=final_stats if final_aug else None)
+    fit_pred, _ = predict_all(model, A_all, device)
     fit_accuracy = float((fit_pred == y).mean())
 
     out_dir = args.out_dir
@@ -999,36 +1080,11 @@ def main(argv=None):
     os.makedirs(report_dir, exist_ok=True)
     path = args.model_path or os.path.join(out_dir, CHECKPOINT_NAME)
 
-    payload = {
-        "format": "emg_nn_v1",
-        "kind": best["kind"],
-        "architecture": nn_arch.DESCRIPTIONS.get(best["kind"], ""),
-        "state_dict": {k: v.cpu() for k, v in model.state_dict().items()},
-        "labels": labels,
-        "n_channels": int(X.shape[2]),
-        "win_samples": int(win),
-        "window_s": float(best["window_s"]),
-        "overlap": OVERLAP,
-        "model_fs": float(MODEL_FS),
-        "hidden": int(args.hidden),
-        "dropout": float(DROPOUT),
-        "emg_mode": T.EMG_MODE,
-        #  The scaler IS part of the model: inference must reproduce it
-        #  exactly or the inputs are meaningless.
-        "scaler": {"kind": "log1p_standardise", "mean": mean, "std": std},
-        #  What was APPLIED, not what was asked for. Stamping "affine" on
-        #  plain device counts would produce a model the app refuses to load
-        #  -- a trainer locking its own output out of its own application.
-        "calibration": {"mode": applied_mode, "requested": requested_mode,
-                        "subjects": sorted(cal_table),
-                        "target": float(T.CALIBRATION_TARGET_LEVEL)},
-        #  Same provenance block train_model.py writes, so either payload can
-        #  be asked the same question: trained on what, and is that still
-        #  what is on disk?
-        "data": T.dataset_fingerprint(args.root),
-        "stats": {
+    stats = {
             "model_name": f"NN-{best['kind']}",
             "trainer": "train_nn.py",
+            "augmentation": list(augment),
+            "adaptation": adapt,
             "validation_protocol":
                 f"StratifiedGroupKFold grouped by "
                 f"{'SUBJECT' if grouping == 'subject' else 'recording uid'}"
@@ -1076,21 +1132,25 @@ def main(argv=None):
                 "fold_accuracies", "confusion_matrix", "n_windows",
                 "n_parameters", "window_s", "overlap", "win_samples",
                 "kind")},
-        },
-        "device_trained_on": dev_info,
-        "created": datetime.now().isoformat(timespec="seconds"),
-        "created_iso": T.iso_time(time.time()),
     }
+    payload = nn_checkpoint.build_payload(
+        model, kind=best["kind"], labels=labels,
+        n_channels=int(X.shape[2]), win=win,
+        window_s=best["window_s"], overlap=OVERLAP,
+        model_fs=MODEL_FS, hidden=args.hidden, dropout=DROPOUT,
+        mean=mean, std=std, applied_mode=applied_mode,
+        requested_mode=requested_mode,
+        calibration_subjects=cal_table, root=args.root,
+        stats=stats, device_info=dev_info,
+        adaptation=({"mode": "person", "fraction": AD.ADAPT_FRACTION}
+                    if adapt else None),
+        augmentation=list(augment))
 
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     #  Archive first, then the working copy, the same way train_model.py does
     #  it: a sweep should not be destroyed by the next one, and comparing two
     #  checkpoints is how a regression gets found.
-    stem = os.path.splitext(os.path.basename(path))[0]
-    archive = T.unique_path(os.path.join(
-        os.path.dirname(os.path.abspath(path)), f"{stem}_{stamp}.pt"))
-    torch.save(payload, archive)
-    torch.save(payload, path)
+    path, archive, sidecar = nn_checkpoint.save_payload(payload, path)
     size_kb = os.path.getsize(path) / 1024.0
     print(f"\nSaved checkpoint -> {os.path.abspath(path)}  ({size_kb:.0f} KB)")
     print(f"Archived copy    -> {archive}")
@@ -1108,17 +1168,6 @@ def main(argv=None):
         json.dump(report_payload, fh, indent=2, default=str)
     print(f"Saved sweep report -> {os.path.abspath(report_file)}")
 
-    #  A plain-JSON sidecar beside the checkpoint, holding everything except
-    #  the weights. The application must be able to answer "is a net trained,
-    #  on what, and how well does it do" WITHOUT importing torch and without
-    #  starting the inference worker -- a `.pt` is a torch pickle and nothing
-    #  else can read it. So NN STATS reads this, and the live worker reports
-    #  the same numbers back when it is running; they come from one write.
-    sidecar = T.nn_stats_path(path)
-    with open(sidecar, "w", encoding="utf-8") as fh:
-        json.dump({k: v for k, v in payload.items()
-                   if k not in ("state_dict", "scaler")},
-                  fh, indent=2, default=str)
     print(f"Saved stats sidecar -> {os.path.abspath(sidecar)}")
 
     print(compute_banner(dev_info))

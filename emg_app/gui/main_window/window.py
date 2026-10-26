@@ -41,6 +41,7 @@ from emg_app.gui.main_window.markers import MarkersMixin
 from emg_app.gui.main_window.prediction import PredictionMixin
 from emg_app.gui.main_window.neural import NeuralMixin
 from emg_app.gui.main_window.training import TrainingMixin
+from emg_app.gui.main_window.prompts import PromptsMixin
 from emg_app.gui.main_window.settings import SettingsMixin
 
 # ------------------------------------------------------------------------------
@@ -50,7 +51,7 @@ from emg_app.gui.main_window.settings import SettingsMixin
 
 class MainWindow(SessionMixin, RecordingsMixin, LabelingMixin, TakesMixin,
                  MarkersMixin, PredictionMixin, NeuralMixin, TrainingMixin,
-                 SettingsMixin, QtWidgets.QMainWindow):
+                 SettingsMixin, PromptsMixin, QtWidgets.QMainWindow):
     """Everything wired together."""
 
 
@@ -216,8 +217,9 @@ class MainWindow(SessionMixin, RecordingsMixin, LabelingMixin, TakesMixin,
 
     def _build_header(self):
         frame = QtWidgets.QFrame()
+        frame.setObjectName("card")
         frame.setStyleSheet(
-            f"QFrame {{ background: {COL_PANEL}; border: 1px solid {COL_BORDER};"
+            f"QFrame#card {{ background: {COL_PANEL}; border: 1px solid {COL_BORDER};"
             f" border-radius: 8px; }}"
         )
         row = QtWidgets.QHBoxLayout(frame)
@@ -268,6 +270,7 @@ class MainWindow(SessionMixin, RecordingsMixin, LabelingMixin, TakesMixin,
         self.settings_button.clicked.connect(self.open_settings)
         row.addWidget(self.settings_button)
         self._install_settings_shortcut()
+        self._init_prompts()
 
         return frame
 
@@ -475,8 +478,9 @@ class MainWindow(SessionMixin, RecordingsMixin, LabelingMixin, TakesMixin,
 
     def _build_button_bar(self):
         frame = QtWidgets.QFrame()
+        frame.setObjectName("card")
         frame.setStyleSheet(
-            f"QFrame {{ background: {COL_PANEL}; border: 1px solid {COL_BORDER};"
+            f"QFrame#card {{ background: {COL_PANEL}; border: 1px solid {COL_BORDER};"
             f" border-radius: 8px; }}"
         )
         row = QtWidgets.QHBoxLayout(frame)

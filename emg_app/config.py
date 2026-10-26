@@ -115,6 +115,45 @@ GESTURE_SETUP_FILE = "gestures.json"
 # Saved with the gesture set in <DATA_FOLDER>/GESTURE_SETUP_FILE.
 CLASSIFIER_OFF = []
 
+# ------------------------------------------------------------------------------
+# MODEL SELECTION, TRAINING OPTIONS AND PROMPTS  (settings icon -> Models / Training)
+# ------------------------------------------------------------------------------
+# All of these are saved in <DATA_FOLDER>/app_settings.json (emg_app/settings_store.py)
+# and restored at startup. With the defaults below the application behaves as it
+# did before they existed.
+#
+# MODEL SELECTION. Off = the original behaviour: the ML classifier is MODEL_PATH
+# and the neural net is NN_MODEL_PATH. On = the models picked in the settings
+# from the model zoo (models/zoo/<id>/, emg_app/zoo.py). One model picked =
+# that model; several = their SOFT VOTE (the mean of their probabilities) --
+# for the ML models and, separately, for the nets. The two families are never
+# blended with each other (CLAUDE.md safety rule 13).
+MODEL_SELECTION_ENABLED = False
+SELECTED_ML = []                    # zoo ids, e.g. ["ml-et-500", "ml-rf-500-leaf3"]
+SELECTED_NN = []                    # zoo ids, e.g. ["nn-gru"]
+
+# TRAINING OPTIONS, read by the trainers the GUI starts (RETRAIN, TRAIN NEURAL NET).
+#   augmentation  names from training/nn_augment.AUG_TYPES, or [] for none
+#   adaptation    train with per-person standardisation (emg_app/adaptation.py)
+# The defaults come from the ablation study (docs/REPORT.md, "defaults"): a
+# switch is only on by default if it was MEASURED to help.
+TRAIN_AUGMENT = []
+TRAIN_ADAPT = False
+
+# ADAPTATION AT RUN TIME. Only has an effect on a model that was trained with
+# adaptation; with it off such a model uses its stored global statistics.
+ADAPT_LIVE = True
+
+# PROMPTS
+#   ASK_CALIBRATION_BEFORE_PREDICT   before PREDICT / START NN: "calibrate the
+#       hand first?" -- with an option to reuse the last calibration, offered
+#       only if the app was restarted while the band stayed on the arm.
+#   ASK_RETRAIN_ON_NEW_DATA          when new gestures or new recordings make a
+#       model out of date: "retrain all models or only the selected?"
+ASK_CALIBRATION_BEFORE_PREDICT = True
+ASK_RETRAIN_ON_NEW_DATA = True
+APP_SETTINGS_FILE = "app_settings.json"
+
 
 def known_gestures():
     """

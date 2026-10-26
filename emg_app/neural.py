@@ -17,6 +17,7 @@ from typing import Dict, List, Optional
 import numpy as np
 
 from emg_app import config as cfg
+from emg_app import zoo
 from emg_app.class_mask import (
     NO_ANSWER, active_labels, apply_class_mask, kept_mass, off_key)
 from emg_app.calibration import (
@@ -325,6 +326,13 @@ class NeuralEngine:
                  device: str = None, smoothing: int = None,
                  python_executable: str = None):
         self.model_path = model_path or cfg.NN_MODEL_PATH
+        #  An explicit path is a request for exactly that checkpoint, so it
+        #  bypasses the zoo selection (tests and tools rely on it).
+        self._explicit = model_path is not None
+        #  Per-person adaptation: the statistics to send to the worker, and how
+        #  many of its nets took them (only nets trained with adaptation do).
+        self.adapt_stats = None
+        self.adapted_members = 0
         self.script = script or cfg.NN_WORKER_SCRIPT
         self.device = device or cfg.NN_DEVICE
         self.python = python_executable or sys.executable
@@ -369,6 +377,20 @@ class NeuralEngine:
         return (self.model_path if os.path.isabs(self.model_path)
                 else os.path.join(cfg.PROJECT_DIR, self.model_path))
 
+    def model_paths(self) -> List[str]:
+        """
+        The checkpoint(s) the worker will load. With model selection OFF (the
+        default) this is the one configured file, as it always was; with it on
+        it is the selected zoo nets, which the worker soft-votes.
+        """
+        chosen = [] if self._explicit else zoo.selected_paths("nn")
+        return chosen or [self.full_model_path]
+
+    @property
+    def active_model_path(self) -> str:
+        """The checkpoint whose sidecar describes this engine (the first)."""
+        return self.model_paths()[0]
+
     @property
     def full_script_path(self) -> str:
         return (self.script if os.path.isabs(self.script)
@@ -384,7 +406,7 @@ class NeuralEngine:
 
     def trained(self) -> bool:
         """Is there a checkpoint at all? Answerable without the worker."""
-        return os.path.exists(self.full_model_path)
+        return all(os.path.exists(p) for p in self.model_paths())
 
     # -- lifecycle -----------------------------------------------------------
 
@@ -415,8 +437,10 @@ class NeuralEngine:
             self.state = "stopped"
             return False
 
-        args = [self.python, "-u", self.full_script_path,
-                "--model", self.full_model_path, "--device", self.device]
+        args = [self.python, "-u", self.full_script_path]
+        for path in self.model_paths():
+            args += ["--model", path]
+        args += ["--device", self.device]
         try:
             #  stderr merged in: the interesting failures (a CPU-only torch
             #  build, a missing DLL, a CUDA driver mismatch) arrive there, and
@@ -489,7 +513,7 @@ class NeuralEngine:
         self.calibration = None
         self.calibration_note = ""
         if mode is None:
-            sidecar = load_nn_stats(self.model_path) or {}
+            sidecar = load_nn_stats(self.active_model_path) or {}
             block = sidecar.get("calibration")
             block = block if isinstance(block, dict) else {}
             mode = block.get("mode", "off") or "off"
@@ -701,8 +725,45 @@ class NeuralEngine:
         self.state = "ready"
         device = (payload.get("device") or {}).get("device", "?")
         self.status = f"ready on {device}"
+        self._send_adaptation()
+
+    # -- adaptation to the person ---------------------------------------------
+
+    def set_adaptation(self, mean, std) -> None:
+        """
+        Remember the person's statistics (per-channel mean / std of
+        log1p(|x|), `emg_app.adaptation`) and send them to the worker. Only the
+        nets trained with adaptation use them; the rest ignore the message.
+        """
+        self.adapt_stats = (np.asarray(mean, dtype=np.float32),
+                            np.asarray(std, dtype=np.float32))
+        self._send_adaptation()
+
+    def clear_adaptation(self) -> None:
+        self.adapt_stats = None
+        self._send_adaptation()
+
+    def _send_adaptation(self) -> None:
+        """Tell a ready worker which statistics to use (or none)."""
+        process = self._process
+        if self.state != "ready" or process is None or process.stdin is None:
+            return
+        use = self.adapt_stats is not None and bool(cfg.ADAPT_LIVE)
+        request = ({"cmd": "adapt", "id": -1,
+                    "mean": [float(x) for x in self.adapt_stats[0]],
+                    "std": [float(x) for x in self.adapt_stats[1]]}
+                   if use else {"cmd": "adapt", "id": -1, "mean": None})
+        try:
+            process.stdin.write(json.dumps(request) + "\n")
+            process.stdin.flush()
+        except (OSError, ValueError):
+            pass
 
     def _on_out(self, payload: dict) -> Optional[NeuralPrediction]:
+        if "adapted" in payload:
+            #  The acknowledgement of an `adapt` command, not a prediction.
+            self.adapted_members = int(payload.get("adapted") or 0)
+            return None
         request_id = payload.get("id")
         sent_at = self._pending.pop(request_id, None)
         probabilities = payload.get("probs")
@@ -811,8 +872,14 @@ class NeuralEngine:
 
     def describe(self) -> str:
         """One line: what this net is."""
-        stats = self.meta.get("stats") or load_nn_stats(self.model_path) \
-            or {}
+        members = self.meta.get("members") or []
+        if len(members) > 1:
+            return ("NN soft vote: " + " + ".join(m["name"] for m in members)
+                    + f"  |  {self.window_s * 1000:.0f} ms @ "
+                    f"{self.model_fs:.0f} Hz  |  "
+                    f"{self.meta.get('n_parameters')} parameters")
+        stats = self.meta.get("stats") or \
+            load_nn_stats(self.active_model_path) or {}
         kind = self.meta.get("kind") or stats.get("kind") or "net"
         params = self.meta.get("n_parameters") or stats.get("n_parameters")
         acc = stats.get("window_accuracy")
@@ -844,7 +911,7 @@ class NeuralEngine:
         the same way the sklearn model does -- the sidecar carries the same
         `data` block both trainers write.
         """
-        sidecar = load_nn_stats(self.model_path)
+        sidecar = load_nn_stats(self.active_model_path)
         if sidecar is None:
             return model_data_status(None)
         return model_data_status(sidecar, fingerprint)

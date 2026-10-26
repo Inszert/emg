@@ -229,3 +229,46 @@ def run_loso(kind, data, device, epochs, seed=0, augment=(), adapt=False,
                               for k in ROBUST_KINDS}
     out.update(cost)
     return out
+
+
+def fit_final(kind, data, device, epochs, seed=0, augment=(), adapt=False,
+              adapt_fraction=AD.ADAPT_FRACTION, hidden=None, dropout=None):
+    """
+    Fit one net on ALL the windows (what gets saved).
+
+    Returns `(model, mean, std, table, train_accuracy)`. `mean`/`std` are the
+    GLOBAL scaler -- stored in the checkpoint as its scaler, and what the net
+    falls back to when per-person adaptation is switched off. `table` is the
+    per-person statistics when `adapt` (else None).
+    """
+    X, y, persons = data["X"], data["y"], data["persons"]
+    n_classes, win, n_ch = len(data["labels"]), X.shape[1], X.shape[2]
+    hidden = nn_arch.HIDDEN if hidden is None else hidden
+    dropout = nn_arch.DROPOUT if dropout is None else dropout
+    scale, mean, std = NN.fold_scaler(X)
+    bins = np.bincount(y, minlength=n_classes).astype(float)
+    weights = np.where(bins > 0,
+                       bins.sum() / (n_classes * np.maximum(bins, 1)), 1.0)
+    table = None
+    if adapt:
+        table = AD.person_log_table(X, persons, adapt_fraction, seed)
+        m_all = np.stack([table[p][0] for p in persons]).astype(np.float32)
+        s_all = np.stack([table[p][1] for p in persons]).astype(np.float32)
+        scaled = ((np.log1p(np.abs(X)) - m_all[:, None, :])
+                  / s_all[:, None, :]).astype(np.float32)
+        stats = (m_all, s_all)
+    else:
+        scaled = scale(X)
+        stats = (mean, std)
+    model = nn_arch.build(kind, n_ch, n_classes, win, hidden=hidden,
+                          dropout=dropout, seed=NN.RANDOM_STATE + seed)
+    augmenter = None
+    if augment:
+        from nn_augment import Augmenter
+        augmenter = Augmenter(augment, seed=seed, device=device)
+    model = NN.train_one(model, X if augmenter is not None else scaled, y,
+                         device, epochs, n_classes, class_weights=weights,
+                         seed=NN.RANDOM_STATE + seed, augmenter=augmenter,
+                         scale_stats=stats if augmenter is not None else None)
+    pred, _ = NN.predict_all(model, scaled, device)
+    return model, mean, std, table, float((pred == y).mean())
