@@ -27,8 +27,10 @@ SETTINGS = {
     "MODEL_SELECTION_ENABLED": bool,
     "SELECTED_ML": list,
     "SELECTED_NN": list,
-    "TRAIN_AUGMENT": list,
-    "TRAIN_ADAPT": bool,
+    "TRAIN_AUGMENT_NN": list,
+    "TRAIN_AUGMENT_ML": list,
+    "TRAIN_ADAPT_NN": bool,
+    "TRAIN_ADAPT_ML": bool,
     "ADAPT_LIVE": bool,
     "ASK_CALIBRATION_BEFORE_PREDICT": bool,
     "ASK_RETRAIN_ON_NEW_DATA": bool,
@@ -55,7 +57,7 @@ def _clean(name: str, value):
             raise ValueError(f"{name} holds a non-text entry: {item!r}")
         if item not in out:
             out.append(item)
-    if name == "TRAIN_AUGMENT":
+    if name.startswith("TRAIN_AUGMENT"):
         #  A typo must not silently train without augmentation.
         known = ("gain", "noise", "timewarp", "rotate", "chandrop")
         bad = [x for x in out if x not in known]

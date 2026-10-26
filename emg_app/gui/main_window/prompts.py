@@ -109,6 +109,20 @@ class PromptsMixin:
 
     def _ask_calibration_question(self, what, person, record, offer) -> str:
         """`"calibrate" | "reuse" | "skip" | "cancel"`. Overridden by tests."""
+        box, calibrate, reuse, skip = self._calibration_box(
+            what, person, record, offer)
+        box.exec()
+        clicked = box.clickedButton()
+        if clicked is calibrate:
+            return "calibrate"
+        if reuse is not None and clicked is reuse:
+            return "reuse"
+        if clicked is skip:
+            return "skip"
+        return "cancel"
+
+    def _calibration_box(self, what, person, record, offer):
+        """The question as a (not yet shown) box: `(box, calibrate, reuse, skip)`."""
         box = QtWidgets.QMessageBox(self)
         box.setWindowTitle("Calibrate your hand?")
         box.setIcon(QtWidgets.QMessageBox.Question)
@@ -146,15 +160,7 @@ class PromptsMixin:
         skip = box.addButton("Skip", QtWidgets.QMessageBox.DestructiveRole)
         box.addButton(QtWidgets.QMessageBox.Cancel)
         box.setDefaultButton(reuse if reuse is not None else calibrate)
-        box.exec()
-        clicked = box.clickedButton()
-        if clicked is calibrate:
-            return "calibrate"
-        if reuse is not None and clicked is reuse:
-            return "reuse"
-        if clicked is skip:
-            return "skip"
-        return "cancel"
+        return box, calibrate, reuse, skip
 
     # ======================================================================
     # 2. adaptation statistics
@@ -289,6 +295,16 @@ class PromptsMixin:
 
     def _ask_retrain_question(self, reasons, why: str):
         """`(choice, dont_ask_again)`; choice is all | selected | none. Tests override."""
+        box, all_button, sel_button, check = self._retrain_box(reasons)
+        box.exec()
+        clicked = box.clickedButton()
+        choice = ("all" if clicked is all_button else
+                  "selected" if clicked is sel_button else "none")
+        return choice, check.isChecked()
+
+    def _retrain_box(self, reasons):
+        """The question as a (not yet shown) box:
+        `(box, all_button, selected_button, dont_ask_checkbox)`."""
         box = QtWidgets.QMessageBox(self)
         box.setWindowTitle("Retrain?")
         box.setIcon(QtWidgets.QMessageBox.Question)
@@ -313,8 +329,4 @@ class PromptsMixin:
         check = QtWidgets.QCheckBox("Do not ask when the application opens")
         box.setCheckBox(check)
         box.setDefaultButton(sel_button)
-        box.exec()
-        clicked = box.clickedButton()
-        choice = ("all" if clicked is all_button else
-                  "selected" if clicked is sel_button else "none")
-        return choice, check.isChecked()
+        return box, all_button, sel_button, check

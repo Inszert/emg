@@ -52,12 +52,16 @@ class SettingsMixin:
 
     def _defaults_note(self) -> str:
         """One line on where the defaults of the Training tab come from."""
-        return ("Defaults in this build: augmentation "
-                + (", ".join(settings_store.DEFAULTS["TRAIN_AUGMENT"])
-                   or "none")
-                + "; adaptation "
-                + ("on" if settings_store.DEFAULTS["TRAIN_ADAPT"] else "off")
-                + ".")
+        d = settings_store.DEFAULTS
+
+        def one(fam):
+            return (f"{fam}: augmentation "
+                    + (", ".join(d[f"TRAIN_AUGMENT_{fam}"]) or "none")
+                    + ", adaptation "
+                    + ("on" if d[f"TRAIN_ADAPT_{fam}"] else "off"))
+
+        return "Defaults in this build -- " + "; ".join(
+            (one("NN"), one("ML"))) + "."
 
     def _apply_app_settings(self, values: dict) -> None:
         """

@@ -76,6 +76,44 @@ def featurize(W, cals, setup=None):
                        for i in range(len(W))], dtype=np.float32)
 
 
+def augmented_features(W, cals, kinds, seed=0, copies=2, setup=None):
+    """
+    `copies` augmented versions of every window, as feature vectors (same row
+    order as `W`). The augmentations act on the raw counts, before the
+    wearer's calibration, which `featurize` applies.
+    """
+    import torch
+    import nn_augment
+    out = []
+    for c in range(int(copies)):
+        aug = nn_augment.Augmenter(kinds, seed=int(seed) * 100 + c,
+                                   device="cpu")
+        with torch.no_grad():
+            A = aug(torch.from_numpy(np.ascontiguousarray(W))).numpy()
+        out.append(featurize(A.astype(np.float32), cals, setup))
+    return out
+
+
+def prepare_features(D, augment=(), adapt=False, seed=0, copies=2):
+    """
+    What the classifiers are fitted on for one measurement:
+    `(F, extras, table)` -- the clean features (per-person standardised when
+    `adapt`), the augmented copies (standardised the same way), and the
+    per-person statistics table (None without adaptation).
+    """
+    from emg_app import adaptation as AD
+    F = D["F"]
+    extras = (augmented_features(D["W"], D["cals"], augment, seed, copies)
+              if augment else [])
+    table = None
+    if adapt:
+        table = AD.person_feature_table(F, D["persons"], seed=seed)
+        F = AD.apply_person_features(F, D["persons"], table)
+        extras = [AD.apply_person_features(E, D["persons"], table)
+                  for E in extras]
+    return F, extras, table
+
+
 def make_pipeline(entry, seed=0, n_jobs=-1):
     """A spec-shaped entry -> an unfitted pipeline (probabilities available)."""
     spec = {"name": entry[0], "kind": entry[1], "scaler": entry[2],
@@ -91,14 +129,18 @@ def make_pipeline(entry, seed=0, n_jobs=-1):
     return pipe
 
 
-def loso_probs(F, y, persons, entry, seed=0):
-    """Out-of-fold probabilities, every person held out in turn."""
+def loso_probs(F, y, persons, entry, seed=0, extras=()):
+    """
+    Out-of-fold probabilities, every person held out in turn. `extras` are
+    augmented copies of `F` (same rows): they join the TRAINING rows only.
+    """
     probs = np.zeros((len(y), int(y.max()) + 1), dtype=np.float32)
     for held in sorted(set(persons.tolist())):
         tr = np.flatnonzero(persons != held)
         te = np.flatnonzero(persons == held)
         pipe = make_pipeline(entry, seed)
-        pipe.fit(F[tr], y[tr])
+        pipe.fit(np.concatenate([F[tr]] + [E[tr] for E in extras], axis=0),
+                 np.concatenate([y[tr]] * (1 + len(extras))))
         p = pipe.predict_proba(F[te])
         classes = pipe.classes_ if hasattr(pipe, "classes_") else \
             pipe.named_steps["clf"].classes_

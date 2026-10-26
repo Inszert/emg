@@ -714,13 +714,15 @@ def main(argv=None):
     parser.add_argument("--augment", default=None,
                         help="training augmentation: none, all, or a comma "
                              "list of " + ", ".join(nn_augment.AUG_TYPES)
-                             + f" (default: the application's TRAIN_AUGMENT "
-                             f"= {T.TRAIN_AUGMENT or 'none'})")
+                             + f" (default: the application's "
+                             f"TRAIN_AUGMENT_NN = "
+                             f"{T.TRAIN_AUGMENT_NN or 'none'})")
     parser.add_argument("--adapt", dest="adapt", action="store_true",
                         default=None,
                         help="train on per-person standardised input "
                              "(emg_app/adaptation.py); default: the "
-                             f"application's TRAIN_ADAPT = {T.TRAIN_ADAPT}")
+                             f"application's TRAIN_ADAPT_NN = "
+                             f"{T.TRAIN_ADAPT_NN}")
     parser.add_argument("--no-adapt", dest="adapt", action="store_false")
     parser.add_argument("--no-dedupe", action="store_true",
                         help="keep duplicate-coverage windows (leaks; for "
@@ -732,8 +734,9 @@ def main(argv=None):
                         help="print per-fold training loss")
     args = parser.parse_args(argv)
     augment = tuple(nn_augment.parse_augment(
-        args.augment if args.augment is not None else list(T.TRAIN_AUGMENT)))
-    adapt = bool(T.TRAIN_ADAPT if args.adapt is None else args.adapt)
+        args.augment if args.augment is not None
+        else list(T.TRAIN_AUGMENT_NN)))
+    adapt = bool(T.TRAIN_ADAPT_NN if args.adapt is None else args.adapt)
 
     #  The GUI's NEURAL SETUP dialog arrives as flags; the module values the
     #  training code reads are set once here.

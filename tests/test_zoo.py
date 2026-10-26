@@ -633,31 +633,33 @@ check("parse: none/all/list", NA.parse_augment("none") == []
 section("8. the settings store")
 check("the shipped defaults are the ones in config.py (nothing on by surprise)",
       SS.DEFAULTS == {"MODEL_SELECTION_ENABLED": False, "SELECTED_ML": [],
-                      "SELECTED_NN": [], "TRAIN_AUGMENT": [],
-                      "TRAIN_ADAPT": False, "ADAPT_LIVE": True,
+                      "SELECTED_NN": [], "TRAIN_AUGMENT_NN": [],
+                      "TRAIN_AUGMENT_ML": [], "TRAIN_ADAPT_NN": False,
+                      "TRAIN_ADAPT_ML": False, "ADAPT_LIVE": True,
                       "ASK_CALIBRATION_BEFORE_PREDICT": True,
                       "ASK_RETRAIN_ON_NEW_DATA": True} or True)
 check("no file -> nothing restored", SS.load_settings(DATA) is None)
 vals = {"MODEL_SELECTION_ENABLED": True, "SELECTED_ML": ["ml-rf", "ml-lda"],
-        "SELECTED_NN": ["nn-a"], "TRAIN_AUGMENT": ["gain", "rotate"],
-        "TRAIN_ADAPT": True, "ADAPT_LIVE": False,
+        "SELECTED_NN": ["nn-a"], "TRAIN_AUGMENT_NN": ["gain", "rotate"],
+        "TRAIN_AUGMENT_ML": ["noise"], "TRAIN_ADAPT_NN": True,
+        "TRAIN_ADAPT_ML": False, "ADAPT_LIVE": False,
         "ASK_CALIBRATION_BEFORE_PREDICT": False,
         "ASK_RETRAIN_ON_NEW_DATA": False}
 SS.save_settings(vals, DATA)
 check("round trip", SS.load_settings(DATA) == vals)
 SS.apply_settings(SS.load_settings(DATA))
 check("restoring puts them in cfg", T.SELECTED_ML == ["ml-rf", "ml-lda"]
-      and T.TRAIN_ADAPT is True and T.ASK_RETRAIN_ON_NEW_DATA is False)
+      and T.TRAIN_ADAPT_NN is True and T.ASK_RETRAIN_ON_NEW_DATA is False)
 open(SS.settings_path(DATA), "w").write(json.dumps(
     {"MODEL_SELECTION_ENABLED": "yes", "SELECTED_ML": "ml-rf",
-     "TRAIN_AUGMENT": ["gian"], "ADAPT_LIVE": True, "UNKNOWN": 1}))
+     "TRAIN_AUGMENT_NN": ["gian"], "ADAPT_LIVE": True, "UNKNOWN": 1}))
 loaded_bad = SS.load_settings(DATA)
 check("bad values are dropped one by one, good ones kept, unknown keys ignored",
       loaded_bad == {"ADAPT_LIVE": True}, loaded_bad)
 open(SS.settings_path(DATA), "w").write("{broken")
 check("an unreadable file is ignored", SS.load_settings(DATA) is None)
 try:
-    SS.save_settings({"TRAIN_AUGMENT": ["gian"]}, DATA)
+    SS.save_settings({"TRAIN_AUGMENT_NN": ["gian"]}, DATA)
     check("saving a typo is refused", False)
 except ValueError:
     check("saving a typo is refused", True)

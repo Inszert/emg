@@ -253,7 +253,11 @@ def compute_stars(entries: List[ZooEntry], ensembles: dict = None) -> dict:
             #  which is optimistic; the nested number picks it without the
             #  held-out person.
             score = combo.get("nested_acc", combo.get("window_acc"))
-            best_single = ranked[0].window_acc
+            #  Compared with the best single model ON THE SAME BASIS: the
+            #  search ran on one set of out-of-fold probabilities, so the
+            #  single it must beat is that set's best single, not a score
+            #  averaged over seeds (`best_single_acc`, written beside it).
+            best_single = combo.get("best_single_acc", ranked[0].window_acc)
             if (score is not None and len(ids) >= 2
                     and all(i in present for i in ids)
                     and float(score) > best_single):

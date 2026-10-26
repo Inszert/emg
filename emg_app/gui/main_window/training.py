@@ -746,9 +746,10 @@ class TrainingMixin:
         script = os.path.join(cfg.PROJECT_DIR, "training", "train_zoo.py")
         args = ["-u", script, "all", "--ids", *ids,
                 "--root", os.path.join(cfg.PROJECT_DIR, cfg.DATA_FOLDER),
-                "--augment", ",".join(cfg.TRAIN_AUGMENT) or "none"]
-        if cfg.TRAIN_ADAPT:
-            args.append("--adapt")
+                "--augment-nn", ",".join(cfg.TRAIN_AUGMENT_NN) or "none",
+                "--augment-ml", ",".join(cfg.TRAIN_AUGMENT_ML) or "none",
+                "--adapt-nn", "on" if cfg.TRAIN_ADAPT_NN else "off",
+                "--adapt-ml", "on" if cfg.TRAIN_ADAPT_ML else "off"]
         return args
 
     def retrain_zoo(self, ids) -> None:

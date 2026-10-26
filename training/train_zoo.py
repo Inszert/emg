@@ -203,6 +203,13 @@ def current_digest(root):
     return str(T.dataset_fingerprint(root).get("uid_digest") or "")
 
 
+def family_options(args, fam):
+    """`(augment tuple, adapt bool)` for one family."""
+    if fam == "nn":
+        return tuple(args.augment_nn), bool(args.adapt_nn)
+    return tuple(args.augment_ml), bool(args.adapt_ml)
+
+
 def run_key(rec):
     """What makes two runs the same measurement."""
     return (rec["id"], rec["seed"], rec.get("digest"),
@@ -214,7 +221,6 @@ def cmd_eval(args, data, log):
     os.makedirs(EVAL_DIR, exist_ok=True)
     runs_path = os.path.join(EVAL_DIR, "runs.jsonl")
     digest = current_digest(data.root)
-    augment, adapt = tuple(args.augment), bool(args.adapt)
     done = {run_key(r) for r in read_jsonl(runs_path)}
     t0 = time.perf_counter()
     todo = entries_for(args.family, args.ids)
@@ -222,8 +228,8 @@ def cmd_eval(args, data, log):
             for seed in range(args.seeds if fam == "nn" else args.ml_seeds)]
     n_done = 0
     for n, (eid, fam, spec, seed) in enumerate(jobs, 1):
-        key = (eid, seed, digest, augment if fam == "nn" else (),
-               adapt if fam == "nn" else False,
+        augment, adapt = family_options(args, fam)
+        key = (eid, seed, digest, augment, adapt,
                args.epochs if fam == "nn" else None)
         if key in done and not args.force:
             emit_progress(n, len(jobs), "evaluating (cached)", model=eid)
@@ -234,7 +240,10 @@ def cmd_eval(args, data, log):
                 f"({fmt_s(time.perf_counter() - t0)} elapsed)")
             if fam == "ml":
                 D = data.ml()
-                P = ml_cv.loso_probs(D["F"], D["y"], D["persons"], spec, seed)
+                F_use, extras, _ = ml_cv.prepare_features(D, augment, adapt,
+                                                          seed)
+                P = ml_cv.loso_probs(F_use, D["y"], D["persons"], spec, seed,
+                                     extras)
                 y, persons, uid, labels = D["y"], D["persons"], D["uid"], \
                     D["labels"]
             else:
@@ -255,8 +264,7 @@ def cmd_eval(args, data, log):
                                              f"oof_{eid}_s{seed}.npz"),
                                 probs=P.astype(np.float32))
             rec = {"id": eid, "family": fam, "seed": seed, "digest": digest,
-                   "augment": list(augment) if fam == "nn" else [],
-                   "adapt": adapt if fam == "nn" else False,
+                   "augment": list(augment), "adapt": adapt,
                    "epochs": args.epochs if fam == "nn" else None, **s}
             with open(runs_path, "a", encoding="utf-8") as fh:
                 fh.write(json.dumps(rec) + "\n")
@@ -308,8 +316,9 @@ def cmd_fit(args, data, log):
     import joblib
     zroot = zoo.zoo_root()
     os.makedirs(zroot, exist_ok=True)
-    augment, adapt = list(args.augment), bool(args.adapt)
     for n, (eid, fam, spec) in enumerate(entries_for(args.family, args.ids), 1):
+        augment, adapt = (list(x) if isinstance(x, tuple) else x
+                          for x in family_options(args, fam))
         sc = eval_scores(eid)
         if sc is None:
             log(f"[fit] {eid}: no cross-validation scores yet -- run `eval` "
@@ -326,7 +335,7 @@ def cmd_fit(args, data, log):
                   "n_people": len(sc["per_person"])}
         if fam == "ml":
             meta = fit_ml(eid, spec, data.ml(), sc, scores, folder, adapt,
-                          args.ml_seeds, joblib)
+                          args.ml_seeds, joblib, augment)
         else:
             meta = fit_nn(eid, spec, data.nn(), sc, scores, folder, args,
                           augment, adapt)
@@ -337,21 +346,20 @@ def cmd_fit(args, data, log):
             f"{scores['window_acc'] * 100:.1f} % per window")
 
 
-def fit_ml(eid, spec, D, sc, scores, folder, adapt, seeds, joblib):
+def fit_ml(eid, spec, D, sc, scores, folder, adapt, seeds, joblib, augment=()):
     import train_model as TM
     F, y, persons = D["F"], D["y"], D["persons"]
     setup = ZR.ML_SETUP
-    Fit = F
+    Fit, extras, _table = ml_cv.prepare_features(D, augment, adapt, 0)
     adaptation = {"mode": "off"}
     if adapt:
-        table = AD.person_feature_table(F, persons)
-        Fit = AD.apply_person_features(F, persons, table)
         gm, gs = AD.feature_stats(F)
         adaptation = {"mode": "person_features",
                       "fraction": AD.ADAPT_FRACTION,
                       "global_mean": gm, "global_std": gs}
     pipe = ml_cv.make_pipeline(spec, 0)
-    pipe.fit(Fit, y)
+    pipe.fit(np.concatenate([Fit] + list(extras), axis=0),
+             np.concatenate([y] * (1 + len(extras))))
     fit_acc = float((pipe.predict(Fit) == y).mean())
     names = ZR.ml_id(spec[0])
     mode = D["calibration"]["mode"]
@@ -425,7 +433,8 @@ def fit_ml(eid, spec, D, sc, scores, folder, adapt, seeds, joblib):
         "scores": scores, "latency_ms": float(np.median(ts)),
         "latency_note": "predict_proba of one row, 1 thread, machine not idle",
         "setup": ZR.ML_SETUP,
-        "trained_with": {"augment": [], "adapt": adapt, "calibration": mode},
+        "trained_with": {"augment": list(augment), "adapt": adapt,
+                         "calibration": mode},
         "compat": {"labels": D["labels"], "fs": TM.MODEL_FS,
                    "window_s": setup["window_s"],
                    "window_samples": D["window_samples"],
@@ -641,14 +650,36 @@ def main(argv=None):
     ap.add_argument("--seeds", type=int, default=2, help="NN seeds")
     ap.add_argument("--ml-seeds", type=int, default=1)
     ap.add_argument("--epochs", type=int, default=150)
-    ap.add_argument("--augment", default="", help="comma list or 'all'")
-    ap.add_argument("--adapt", action="store_true")
+    ap.add_argument("--augment", default=None,
+                    help="comma list or 'all': both families (overridden by "
+                         "--augment-nn / --augment-ml)")
+    ap.add_argument("--augment-nn", default=None)
+    ap.add_argument("--augment-ml", default=None)
+    ap.add_argument("--adapt", dest="adapt", action="store_true", default=None,
+                    help="adaptation for both families (overridden by "
+                         "--adapt-nn / --adapt-ml)")
+    ap.add_argument("--no-adapt", dest="adapt", action="store_false")
+    ap.add_argument("--adapt-nn", choices=["on", "off"], default=None)
+    ap.add_argument("--adapt-ml", choices=["on", "off"], default=None)
     ap.add_argument("--force", action="store_true",
                     help="re-measure even if a matching run is cached")
     ap.add_argument("--root", default=NN.DATASET_ROOT)
     args = ap.parse_args(argv)
     import nn_augment
-    args.augment = nn_augment.parse_augment(args.augment)
+    #  Defaults are the application's own per-family settings (config.py).
+    def pick(specific, both, default):
+        chosen = specific if specific is not None else both
+        return nn_augment.parse_augment(default if chosen is None else chosen)
+
+    args.augment_nn = pick(args.augment_nn, args.augment,
+                           list(T.TRAIN_AUGMENT_NN))
+    args.augment_ml = pick(args.augment_ml, args.augment,
+                           list(T.TRAIN_AUGMENT_ML))
+    both = args.adapt
+    args.adapt_nn = ((args.adapt_nn == "on") if args.adapt_nn is not None
+                     else bool(T.TRAIN_ADAPT_NN if both is None else both))
+    args.adapt_ml = ((args.adapt_ml == "on") if args.adapt_ml is not None
+                     else bool(T.TRAIN_ADAPT_ML if both is None else both))
 
     if args.command == "status":
         cmd_status(args)

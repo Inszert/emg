@@ -135,10 +135,16 @@ SELECTED_NN = []                    # zoo ids, e.g. ["nn-gru"]
 # TRAINING OPTIONS, read by the trainers the GUI starts (RETRAIN, TRAIN NEURAL NET).
 #   augmentation  names from training/nn_augment.AUG_TYPES, or [] for none
 #   adaptation    train with per-person standardisation (emg_app/adaptation.py)
+# One switch per FAMILY (the neural nets, the ML classifiers) because the
+# ablation study measured them separately and they do not agree. The ML
+# switches act on models trained by the model zoo (training/train_zoo.py); the
+# classic RETRAIN sweep (train_model.py) trains plain models.
 # The defaults come from the ablation study (docs/REPORT.md, "defaults"): a
 # switch is only on by default if it was MEASURED to help.
-TRAIN_AUGMENT = []
-TRAIN_ADAPT = False
+TRAIN_AUGMENT_NN = []
+TRAIN_AUGMENT_ML = []
+TRAIN_ADAPT_NN = False
+TRAIN_ADAPT_ML = False
 
 # ADAPTATION AT RUN TIME. Only has an effect on a model that was trained with
 # adaptation; with it off such a model uses its stored global statistics.

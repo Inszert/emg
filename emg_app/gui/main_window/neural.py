@@ -642,8 +642,8 @@ class NeuralMixin:
                 else "cpu",
                 #  The Training tab of the settings: what the net is trained
                 #  with, passed explicitly like every other path and flag.
-                "--augment", ",".join(cfg.TRAIN_AUGMENT) or "none",
-                "--adapt" if cfg.TRAIN_ADAPT else "--no-adapt"]
+                "--augment", ",".join(cfg.TRAIN_AUGMENT_NN) or "none",
+                "--adapt" if cfg.TRAIN_ADAPT_NN else "--no-adapt"]
         if quick:
             args.append("--quick")
         else:

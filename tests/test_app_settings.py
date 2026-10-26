@@ -217,10 +217,13 @@ check("with the combination starred, its button is enabled",
           if "best combination" in b.text()))
 tr = dialog.training_tab
 check("the Training tab starts at the defaults (nothing on)",
-      tr.values() == {"TRAIN_AUGMENT": [], "TRAIN_ADAPT": False,
+      tr.values() == {"TRAIN_AUGMENT_NN": [], "TRAIN_AUGMENT_ML": [],
+                      "TRAIN_ADAPT_NN": False, "TRAIN_ADAPT_ML": False,
                       "ADAPT_LIVE": True}, tr.values())
-check("one switch per augmentation", set(tr.aug_boxes) ==
-      {"gain", "noise", "timewarp", "rotate", "chandrop"})
+check("one switch per augmentation, for each family",
+      set(tr.aug_boxes["NN"]) == set(tr.aug_boxes["ML"]) ==
+      {"gain", "noise", "timewarp", "rotate", "chandrop"}
+      and set(tr.adapt_boxes) == {"NN", "ML"})
 gen = dialog.general_tab
 check("the General tab has both questions, on", gen.values() ==
       {"ASK_CALIBRATION_BEFORE_PREDICT": True, "ASK_RETRAIN_ON_NEW_DATA": True})
@@ -234,12 +237,13 @@ check("the original model is loaded", window.predictor.stats["model_name"]
       == "DEFAULT")
 window._apply_app_settings({"MODEL_SELECTION_ENABLED": True,
                             "SELECTED_ML": ["ml-rf", "ml-rf2"],
-                            "SELECTED_NN": [], "TRAIN_AUGMENT": ["gain"],
-                            "TRAIN_ADAPT": False, "ADAPT_LIVE": True,
+                            "SELECTED_NN": [], "TRAIN_AUGMENT_NN": ["gain"],
+                            "TRAIN_AUGMENT_ML": [], "TRAIN_ADAPT_NN": False,
+                            "TRAIN_ADAPT_ML": False, "ADAPT_LIVE": True,
                             "ASK_CALIBRATION_BEFORE_PREDICT": True,
                             "ASK_RETRAIN_ON_NEW_DATA": True})
 check("applied to the configuration", T.MODEL_SELECTION_ENABLED
-      and T.SELECTED_ML == ["ml-rf", "ml-rf2"] and T.TRAIN_AUGMENT == ["gain"])
+      and T.SELECTED_ML == ["ml-rf", "ml-rf2"] and T.TRAIN_AUGMENT_NN == ["gain"])
 check("saved to <data>/app_settings.json",
       SS.load_settings(DATA)["SELECTED_ML"] == ["ml-rf", "ml-rf2"])
 check("the live classifier now is the soft vote",
@@ -260,8 +264,8 @@ check("a selection that cannot be voted leaves the classifier NOT ready, with "
       not window.predictor.ready and "cannot vote" in window.predictor.status
       and not window.predict_button.isEnabled(), window.predictor.status)
 try:
-    window._apply_app_settings({"TRAIN_AUGMENT": ["gian"]})
-    check("a typo in the values is refused", T.TRAIN_AUGMENT == ["gain"]
+    window._apply_app_settings({"TRAIN_AUGMENT_NN": ["gian"]})
+    check("a typo in the values is refused", T.TRAIN_AUGMENT_NN == ["gain"]
           and BOXES and "unknown augmentation" in str(BOXES[-1]))
 except Exception as exc:                                    # pragma: no cover
     check("a typo in the values is refused", False, exc)
@@ -285,21 +289,30 @@ check("the ids stay saved (switching on again is one click)",
 
 # ==========================================================================
 section("4. the Training tab reaches the trainers")
-T.TRAIN_AUGMENT = ["gain", "rotate"]
-T.TRAIN_ADAPT = True
+T.TRAIN_AUGMENT_NN = ["gain", "rotate"]
+T.TRAIN_ADAPT_NN = True
 args = window._nn_train_args("train_nn.py", False)
 check("train_nn.py gets --augment and --adapt",
       args[args.index("--augment") + 1] == "gain,rotate" and "--adapt" in args,
       args)
-T.TRAIN_AUGMENT = []
-T.TRAIN_ADAPT = False
+T.TRAIN_AUGMENT_NN = []
+T.TRAIN_ADAPT_NN = False
 args = window._nn_train_args("train_nn.py", False)
 check("with both off it gets --augment none and --no-adapt",
       args[args.index("--augment") + 1] == "none" and "--no-adapt" in args)
+T.TRAIN_AUGMENT_ML = ["noise"]
+T.TRAIN_ADAPT_ML = True
 zargs = window._zoo_train_args(["ml-rf", "nn-gru"])
 check("the zoo trainer gets the ids", zargs[zargs.index("--ids") + 1:
                                               zargs.index("--ids") + 3]
       == ["ml-rf", "nn-gru"] and "all" in zargs, zargs)
+check("...and each family's own augmentation and adaptation",
+      zargs[zargs.index("--augment-ml") + 1] == "noise"
+      and zargs[zargs.index("--augment-nn") + 1] == "none"
+      and zargs[zargs.index("--adapt-ml") + 1] == "on"
+      and zargs[zargs.index("--adapt-nn") + 1] == "off", zargs)
+T.TRAIN_AUGMENT_ML = []
+T.TRAIN_ADAPT_ML = False
 
 # ==========================================================================
 section("5. 'calibrate your hand first?'")
@@ -460,14 +473,14 @@ window._reload_selected_models()
 # ==========================================================================
 section("8. the app starts from the saved settings")
 SS.save_settings({"MODEL_SELECTION_ENABLED": True, "SELECTED_ML": ["ml-rf"],
-                  "TRAIN_AUGMENT": ["noise"]}, DATA)
+                  "TRAIN_AUGMENT_NN": ["noise"]}, DATA)
 T.MODEL_SELECTION_ENABLED = False
 T.SELECTED_ML = []
-T.TRAIN_AUGMENT = []
+T.TRAIN_AUGMENT_NN = []
 restored = SS.restore_settings(DATA)
 check("restore_settings (called by app.main) puts them back",
       T.MODEL_SELECTION_ENABLED and T.SELECTED_ML == ["ml-rf"]
-      and T.TRAIN_AUGMENT == ["noise"], restored)
+      and T.TRAIN_AUGMENT_NN == ["noise"], restored)
 check("the window constructor itself does NOT restore (a test's own values "
       "are never overridden)", True)
 

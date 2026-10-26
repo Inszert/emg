@@ -266,7 +266,7 @@ class ModelsTab(QtWidgets.QWidget):
 
 
 class TrainingTab(QtWidgets.QWidget):
-    """Augmentation and adaptation: what the TRAINERS do next time."""
+    """Augmentation and adaptation, per family: what the TRAINERS do next time."""
 
     def __init__(self, parent=None, defaults_note: str = ""):
         super().__init__(parent)
@@ -277,44 +277,68 @@ class TrainingTab(QtWidgets.QWidget):
             "already trained keeps what it learned; train again for a "
             "switch to take effect. Defaults come from the measured ablation "
             "study (docs/REPORT.md) -- a switch is on by default only if it "
-            "helped.", 10, False, COL_TEXT_DIM))
-        if defaults_note:
-            layout.addWidget(wrap_label(defaults_note, 10, False, COL_TEXT_DIM))
-
-        aug = QtWidgets.QGroupBox("Augmentation (neural nets and ML)")
-        av = QtWidgets.QVBoxLayout(aug)
-        self.aug_boxes = {}
-        for name, (title, tip) in AUG_LABELS.items():
-            box = QtWidgets.QCheckBox(f"{title} -- {tip}")
-            box.setChecked(name in cfg.TRAIN_AUGMENT)
-            self.aug_boxes[name] = box
-            av.addWidget(box)
-        layout.addWidget(aug)
-
-        adapt = QtWidgets.QGroupBox("Adaptation to the person")
-        dv = QtWidgets.QVBoxLayout(adapt)
-        self.adapt_train = QtWidgets.QCheckBox(
-            "Train with adaptation: each person's signal is standardised "
-            "with statistics from about 9 s of their own unlabelled signal")
-        self.adapt_train.setChecked(bool(cfg.TRAIN_ADAPT))
-        dv.addWidget(self.adapt_train)
-        self.adapt_live = QtWidgets.QCheckBox(
-            "Use adaptation live (only models that were trained with it; "
-            "off = they use their stored global statistics)")
-        self.adapt_live.setChecked(bool(cfg.ADAPT_LIVE))
-        dv.addWidget(self.adapt_live)
-        dv.addWidget(wrap_label(
-            "The statistics come from the calibration: the signal captured "
-            "while the hand is calibrated is stored with it.", 10, False,
+            "helped, and the neural nets and the ML classifiers were "
+            "measured separately because they do not agree.", 10, False,
             COL_TEXT_DIM))
-        layout.addWidget(adapt)
+        if defaults_note:
+            layout.addWidget(wrap_label(defaults_note, 10, False,
+                                        COL_TEXT_DIM))
+
+        self.aug_boxes = {"NN": {}, "ML": {}}
+        self.adapt_boxes = {}
+        columns = QtWidgets.QHBoxLayout()
+        for fam, title, current_aug, current_adapt in (
+                ("NN", "Neural nets", cfg.TRAIN_AUGMENT_NN,
+                 cfg.TRAIN_ADAPT_NN),
+                ("ML", "ML classifiers (model zoo)", cfg.TRAIN_AUGMENT_ML,
+                 cfg.TRAIN_ADAPT_ML)):
+            box = QtWidgets.QGroupBox(title)
+            v = QtWidgets.QVBoxLayout(box)
+            v.addWidget(make_label("Augmentation", 10, True, COL_TEXT_DIM))
+            for name, (label, tip) in AUG_LABELS.items():
+                check = QtWidgets.QCheckBox(label)
+                check.setToolTip(tip)
+                check.setChecked(name in current_aug)
+                self.aug_boxes[fam][name] = check
+                v.addWidget(check)
+            v.addWidget(make_label("Adaptation to the person", 10, True,
+                                   COL_TEXT_DIM))
+            adapt = QtWidgets.QCheckBox(
+                "Train with adaptation (each person standardised with "
+                "their own statistics)")
+            adapt.setChecked(bool(current_adapt))
+            adapt.setToolTip(
+                "Each person's signal is standardised with statistics from "
+                "about 9 s of their own unlabelled signal -- the length of a "
+                "calibration sweep.")
+            self.adapt_boxes[fam] = adapt
+            v.addWidget(adapt)
+            v.addStretch(1)
+            columns.addWidget(box, 1)
+        layout.addLayout(columns)
+
+        self.adapt_live = QtWidgets.QCheckBox(
+            "Use adaptation live (only models that were trained with it; off "
+            "= they use their stored global statistics)")
+        self.adapt_live.setChecked(bool(cfg.ADAPT_LIVE))
+        layout.addWidget(self.adapt_live)
+        layout.addWidget(wrap_label(
+            "The person's statistics come from the calibration: the signal "
+            "captured while the hand is calibrated is stored with it. The "
+            "ML switches apply to models trained by the model zoo "
+            "(training/train_zoo.py); the classic RETRAIN sweep trains "
+            "plain models.", 10, False, COL_TEXT_DIM))
         layout.addStretch(1)
 
     def values(self) -> dict:
-        return {"TRAIN_AUGMENT": [n for n, b in self.aug_boxes.items()
-                                  if b.isChecked()],
-                "TRAIN_ADAPT": self.adapt_train.isChecked(),
-                "ADAPT_LIVE": self.adapt_live.isChecked()}
+        return {
+            "TRAIN_AUGMENT_NN": [n for n, b in self.aug_boxes["NN"].items()
+                                 if b.isChecked()],
+            "TRAIN_AUGMENT_ML": [n for n, b in self.aug_boxes["ML"].items()
+                                 if b.isChecked()],
+            "TRAIN_ADAPT_NN": self.adapt_boxes["NN"].isChecked(),
+            "TRAIN_ADAPT_ML": self.adapt_boxes["ML"].isChecked(),
+            "ADAPT_LIVE": self.adapt_live.isChecked()}
 
 
 class GeneralTab(QtWidgets.QWidget):
