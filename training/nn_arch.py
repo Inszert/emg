@@ -68,7 +68,12 @@
 """
 from __future__ import annotations
 
-KINDS = ["tcn", "gru", "cnn_gru", "lstm", "cnn"]
+#  The first five are the original set; the last four were added 2026-10-27
+#  after tools/new_models_test.py measured them under the project protocol
+#  (docs/REPORT.md, "newer models"). Order matters: the trainer's default
+#  (and `--quick`) is the head of this list.
+KINDS = ["tcn", "gru", "cnn_gru", "lstm", "cnn",
+         "circ_gru", "chan_transformer", "inception", "tsmixer"]
 
 #  What each kind is, in one line, for the trainer's log and the GUI.
 DESCRIPTIONS = {
@@ -81,6 +86,15 @@ DESCRIPTIONS = {
             "baseline, kept for comparison",
     "cnn": "plain 1D convnet with global average pooling -- the retired "
            "experiment's baseline, kept for comparison",
+    "circ_gru": "conv over (time x pod) with CIRCULAR padding on the pod axis "
+                "(the band is a ring) + GRU + attention pooling; pod identity "
+                "is kept",
+    "chan_transformer": "each electrode's whole window is one token "
+                        "(iTransformer style), 2 pre-norm encoder layers",
+    "inception": "small InceptionTime: 3 inception modules (kernels 3/7/15) "
+                 "with a residual, mean ++ max pooling",
+    "tsmixer": "all-MLP TSMixer: time-mixing and feature-mixing blocks, "
+               "mean ++ max pooling",
 }
 
 #  Defaults. The trainer may override either per candidate; a checkpoint
@@ -94,6 +108,7 @@ def _build_module(n_channels, n_classes, win, hidden, dropout, kind):
     """Build the module for `kind`. Separate so `build()` stays readable."""
     import torch
     import torch.nn as nn
+    import torch.nn.functional as F
 
     class AttentionPool(nn.Module):
         """
@@ -220,8 +235,125 @@ def _build_module(n_channels, n_classes, win, hidden, dropout, kind):
         def forward(self, x):
             return self.head(self.features(x.transpose(1, 2)))
 
+    class CircConvGRU(nn.Module):
+        """
+        Conv over (time x pod) with CIRCULAR padding on the pod axis: pod 8 is
+        next to pod 1, as on the band. The pod axis is NOT pooled away -- which
+        pod is active is what separates WAVE_LEFT from WAVE_RIGHT -- so the net
+        keeps pod identity and only learns neighbourhood patterns.
+        """
+
+        def __init__(self, filters=8):
+            super().__init__()
+            self.conv = nn.Conv2d(1, filters, kernel_size=(3, 3),
+                                  padding=(1, 0))
+            self.bn = nn.BatchNorm2d(filters)
+            self.rnn = nn.GRU(filters * n_channels, hidden, batch_first=True)
+            self.pool = AttentionPool(hidden)
+            self.head = nn.Sequential(nn.Dropout(dropout),
+                                      nn.Linear(hidden * 2, n_classes))
+
+        def forward(self, x):                                # (B, T, C)
+            z = F.pad(x.unsqueeze(1), (1, 1, 0, 0), mode="circular")
+            z = F.gelu(self.bn(self.conv(z)))                # (B, f, T, C)
+            b, f, t, c = z.shape
+            z = z.permute(0, 2, 1, 3).reshape(b, t, f * c)
+            out, _ = self.rnn(z)
+            return self.head(self.pool(out.transpose(1, 2)))
+
+    class ChanTransformer(nn.Module):
+        """Each electrode's whole window is one token (iTransformer style)."""
+
+        def __init__(self, heads=4, layers=2):
+            super().__init__()
+            d = hidden
+            self.embed = nn.Linear(win, d)
+            self.pos = nn.Parameter(torch.randn(1, n_channels, d) * 0.02)
+            layer = nn.TransformerEncoderLayer(
+                d, heads, dim_feedforward=2 * d, dropout=dropout,
+                activation="gelu", batch_first=True, norm_first=True)
+            self.enc = nn.TransformerEncoder(layer, layers,
+                                             enable_nested_tensor=False)
+            self.norm = nn.LayerNorm(d)
+            #  Flattened over pods, so pod identity reaches the head.
+            self.head = nn.Sequential(nn.Dropout(dropout),
+                                      nn.Linear(d * n_channels, n_classes))
+
+        def forward(self, x):                                # (B, T, C)
+            z = self.embed(x.transpose(1, 2)) + self.pos     # (B, C, d)
+            z = self.norm(self.enc(z))
+            return self.head(z.flatten(1))
+
+    class InceptionModule(nn.Module):
+        def __init__(self, c_in, nf=8, kernels=(3, 7, 15)):
+            super().__init__()
+            self.bottle = nn.Conv1d(c_in, nf, 1, bias=False)
+            self.convs = nn.ModuleList(
+                [nn.Conv1d(nf, nf, k, padding=k // 2, bias=False)
+                 for k in kernels])
+            self.pool = nn.MaxPool1d(3, stride=1, padding=1)
+            self.pconv = nn.Conv1d(c_in, nf, 1, bias=False)
+            self.bn = nn.BatchNorm1d(nf * (len(kernels) + 1))
+
+        def forward(self, x):
+            b = self.bottle(x)
+            out = torch.cat([c(b) for c in self.convs]
+                            + [self.pconv(self.pool(x))], dim=1)
+            return F.gelu(self.bn(out))
+
+    class InceptionTimeS(nn.Module):
+        def __init__(self, nf=8):
+            super().__init__()
+            width = nf * 4
+            self.m1 = InceptionModule(n_channels, nf)
+            self.m2 = InceptionModule(width, nf)
+            self.m3 = InceptionModule(width, nf)
+            self.res = nn.Sequential(nn.Conv1d(n_channels, width, 1,
+                                               bias=False),
+                                     nn.BatchNorm1d(width))
+            #  Mean ++ max: the mean keeps the activation level.
+            self.head = nn.Sequential(nn.Dropout(dropout),
+                                      nn.Linear(width * 2, n_classes))
+
+        def forward(self, x):
+            x = x.transpose(1, 2)
+            h = self.m3(self.m2(self.m1(x)))
+            h = F.gelu(h + self.res(x))
+            return self.head(torch.cat([h.mean(-1), h.amax(-1)], dim=1))
+
+    class MixerBlock(nn.Module):
+        def __init__(self, d):
+            super().__init__()
+            self.n1 = nn.LayerNorm(d)
+            self.time = nn.Sequential(nn.Linear(win, win), nn.GELU(),
+                                      nn.Dropout(dropout))
+            self.n2 = nn.LayerNorm(d)
+            self.feat = nn.Sequential(nn.Linear(d, 2 * d), nn.GELU(),
+                                      nn.Dropout(dropout), nn.Linear(2 * d, d),
+                                      nn.Dropout(dropout))
+
+        def forward(self, x):                                # (B, T, d)
+            x = x + self.time(self.n1(x).transpose(1, 2)).transpose(1, 2)
+            return x + self.feat(self.n2(x))
+
+    class TSMixer(nn.Module):
+        def __init__(self, blocks=2):
+            super().__init__()
+            d = max(16, hidden * 3 // 4)
+            self.inp = nn.Linear(n_channels, d)
+            self.blocks = nn.Sequential(*[MixerBlock(d)
+                                          for _ in range(blocks)])
+            self.head = nn.Sequential(nn.Dropout(dropout),
+                                      nn.Linear(d * 2, n_classes))
+
+        def forward(self, x):
+            z = self.blocks(self.inp(x))
+            return self.head(torch.cat([z.mean(1), z.amax(1)], dim=1))
+
     table = {"tcn": TCN, "gru": GRUNet, "cnn_gru": CNNGRU,
-             "lstm": LSTMNet, "cnn": CNN}
+             "lstm": LSTMNet, "cnn": CNN, "circ_gru": CircConvGRU,
+             "chan_transformer": ChanTransformer, "inception": InceptionTimeS,
+             "tsmixer": TSMixer}
     if kind not in table:
         raise ValueError(f"unknown architecture {kind!r}; known: "
                          f"{', '.join(KINDS)}")

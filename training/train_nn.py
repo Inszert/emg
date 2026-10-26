@@ -398,9 +398,17 @@ def compute_banner(info):
 
 
 def train_one(model, X_train, y_train, device, epochs, n_classes,
-              class_weights=None, seed=RANDOM_STATE, log=None):
+              class_weights=None, seed=RANDOM_STATE, log=None,
+              augmenter=None, scale_stats=None):
     """
     Fit on the training fold. No validation split, no early stopping.
+
+    `augmenter` (training/nn_augment.Augmenter) switches to the RAW path:
+    `X_train` is then the calibrated window in counts, each batch is
+    augmented and only then scaled with `scale_stats = (mean, std)` -- either
+    per-channel vectors `(C,)` or one row per window `(n, C)` (per-person
+    adaptation). With `augmenter=None` this function is exactly what it was:
+    `X_train` is already scaled and nothing is touched.
 
     Early stopping on the held-out fold is fitting the test set, so the epoch
     count is fixed and printed instead. AdamW + cosine decay + a little label
@@ -429,6 +437,14 @@ def train_one(model, X_train, y_train, device, epochs, n_classes,
                                                            T_max=epochs)
     n = Xt.shape[0]
     generator = torch.Generator(device="cpu").manual_seed(int(seed))
+    if augmenter is not None:
+        if scale_stats is None:
+            raise ValueError("augmentation works on raw windows and needs "
+                             "scale_stats=(mean, std) to scale them after")
+        mean_t = torch.as_tensor(np.asarray(scale_stats[0]),
+                                 dtype=torch.float32, device=device)
+        std_t = torch.as_tensor(np.asarray(scale_stats[1]),
+                                dtype=torch.float32, device=device)
     for epoch in range(epochs):
         order = torch.randperm(n, generator=generator).to(device)
         total = 0.0
@@ -439,7 +455,14 @@ def train_one(model, X_train, y_train, device, epochs, n_classes,
             if idx.numel() < 2:
                 continue
             optimiser.zero_grad(set_to_none=True)
-            loss = criterion(model(Xt[idx]), yt[idx])
+            if augmenter is None:
+                xb = Xt[idx]
+            else:
+                xb = augmenter(Xt[idx])
+                m = mean_t[idx][:, None, :] if mean_t.ndim == 2 else mean_t
+                sd = std_t[idx][:, None, :] if std_t.ndim == 2 else std_t
+                xb = (torch.log1p(xb.abs()) - m) / sd
+            loss = criterion(model(xb), yt[idx])
             loss.backward()
             optimiser.step()
             total += float(loss.detach()) * idx.numel()
