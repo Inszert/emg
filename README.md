@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/icons/icon_128.png" alt="app icon" width="128"></p>
+
 # emg
 
 Labeled 8-channel EMG gesture recording tool for the Thalmic Myo armband, plus
@@ -7,12 +9,42 @@ the training and validation pipeline that goes with it.
 honestly-labelled dataset with subject-independent validation — because on
 this problem the dataset is the bottleneck and the classifier is not.
 
+<!-- TODO(main): replace with a fresh screenshot of the final main window -->
 ![The main window](docs/images/ui_main.png)
+
+---
+
+## Features
+
+Full list, with how to turn each on and off: [`docs/FEATURES.md`](docs/FEATURES.md).
+
+- Live 8-channel plot, labelled capture, quality checks, trimming, annotation
+- Two live models: ML soft vote (the answer) and a neural net (second opinion)
+- Per-wearer calibration; background training; TEST MODEL
+- Settings (gear, `Ctrl+,`) with per-gesture RECORD / USE IN CLASSIFIER switches
+- Planned (see FEATURES.md): star markers for the best models, mixed soft
+  voting, size display, data augmentation, adaptation to the person,
+  calibration prompt, retrain question, app icon
+
+## Quick start
+
+- Windows: [`docs/install_windows.md`](docs/install_windows.md)
+- Linux: [`docs/install_linux.md`](docs/install_linux.md)
+- Myo SDK / protocol notes: [`docs/sdk_myo.md`](docs/sdk_myo.md)
+
+Short version: `python -m pip install -r requirements.txt`, then
+`python emg_dataset_tool.py`.
+
+Results and report: [`docs/REPORT.md`](docs/REPORT.md) (numbers in
+`results/experiments.json`); verification: [`docs/VERIFICATION.md`](docs/VERIFICATION.md);
+decisions: [`docs/NOTES.md`](docs/NOTES.md).
 
 ---
 
 ## Contents
 
+- [Features](#features)
+- [Quick start](#quick-start)
 - [Install and run](#install-and-run)
 - [What it does](#what-it-does)
 - [Recording workflows](#recording-workflows)
@@ -312,6 +344,13 @@ datasets/ models/ exports/
 
 | File | What it covers |
 |---|---|
+| [`docs/FEATURES.md`](docs/FEATURES.md) | every feature: what, on/off, default and why, code location |
+| [`docs/REPORT.md`](docs/REPORT.md) | report of the latest work: models, ablation, robustness, latency |
+| [`docs/install_windows.md`](docs/install_windows.md), [`docs/install_linux.md`](docs/install_linux.md) | installation per platform |
+| [`docs/sdk_myo.md`](docs/sdk_myo.md) | Myo SDK and protocol notes |
+| [`docs/NOTES.md`](docs/NOTES.md) | decisions and open questions |
+| [`docs/VERIFICATION.md`](docs/VERIFICATION.md) | independent check of the claims |
+| [`docs/calib_plan.md`](docs/calib_plan.md), [`docs/recommendation.md`](docs/recommendation.md) | calibration design study; earlier recommendations |
 | [`docs/MANUAL.md`](docs/MANUAL.md) | **the complete manual** — install, architecture, the interface, the ML pipeline, and the full engineering record of what broke and how it was fixed |
 | [`docs/UI_GUIDE.md`](docs/UI_GUIDE.md) | **the UI, screen by screen, with annotated screenshots** |
 | [`docs/GUIDE.md`](docs/GUIDE.md) | user manual: every file, every setting, ready-made presets |
