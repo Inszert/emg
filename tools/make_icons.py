@@ -100,8 +100,35 @@ def write_ico(path: str, images) -> None:
         fh.write(head + entries + data)
 
 
+def render_glyph(kind: str, color: str, px: int = 24) -> QtGui.QImage:
+    """Small control glyphs the stylesheet points at (tick, chevrons)."""
+    img = QtGui.QImage(px, px, QtGui.QImage.Format_ARGB32)
+    img.fill(QtCore.Qt.transparent)
+    p = QtGui.QPainter(img)
+    p.setRenderHint(QtGui.QPainter.Antialiasing, True)
+    pen = QtGui.QPen(QtGui.QColor(color), px * 0.14)
+    pen.setCapStyle(QtCore.Qt.RoundCap)
+    pen.setJoinStyle(QtCore.Qt.RoundJoin)
+    p.setPen(pen)
+    pts = {"check": [(0.22, 0.52), (0.42, 0.72), (0.78, 0.30)],
+           "down": [(0.22, 0.38), (0.50, 0.66), (0.78, 0.38)],
+           "up": [(0.22, 0.62), (0.50, 0.34), (0.78, 0.62)]}[kind]
+    path = QtGui.QPainterPath()
+    for i, (x, y) in enumerate(pts):
+        pt = QtCore.QPointF(x * px, y * px)
+        path.moveTo(pt) if i == 0 else path.lineTo(pt)
+    p.drawPath(path)
+    p.end()
+    return img
+
+
+GLYPHS = (("check", "#06121a"), ("down", "#9aa3b2"), ("up", "#9aa3b2"))
+
+
 def main(out_dir: str = DEFAULT_OUT) -> None:
     os.makedirs(out_dir, exist_ok=True)
+    for kind, color in GLYPHS:
+        render_glyph(kind, color).save(os.path.join(out_dir, f"ui_{kind}.png"), "PNG")
     images = []
     for size in SIZES:
         img = render(size)
