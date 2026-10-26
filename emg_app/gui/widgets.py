@@ -51,6 +51,45 @@ def install_wheel_guard(app) -> "WheelGuard":
     return guard
 
 
+def gear_icon(color: str = "#9aa3b2", size: int = 64) -> "QtGui.QIcon":
+    """
+    A settings cog, painted rather than typed.
+
+    A "⚙" character depends on which font Qt finds it in: it renders on a
+    normal Windows desktop and as an empty box on the offscreen platform the
+    UI guide's screenshots are made on. Drawing it costs twenty lines and
+    looks the same everywhere. Eight teeth on a ring, with a hole -- the
+    even-odd fill rule makes the hole from the inner circle.
+    """
+    import math
+
+    pix = QtGui.QPixmap(size, size)
+    pix.fill(QtCore.Qt.transparent)
+    painter = QtGui.QPainter(pix)
+    painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
+    c = size / 2.0
+    r_out, r_in, r_hole = size * 0.47, size * 0.36, size * 0.16
+    teeth = 8
+    path = QtGui.QPainterPath()
+    path.setFillRule(QtCore.Qt.OddEvenFill)
+    points = []
+    for k in range(teeth):
+        a = 2 * math.pi * k / teeth
+        # half-widths in radians: the tooth top is narrower than its root
+        for r, da in ((r_in, -0.30), (r_out, -0.17), (r_out, 0.17),
+                      (r_in, 0.30)):
+            points.append(QtCore.QPointF(c + r * math.cos(a + da),
+                                         c + r * math.sin(a + da)))
+    path.addPolygon(QtGui.QPolygonF(points))
+    path.closeSubpath()
+    path.addEllipse(QtCore.QPointF(c, c), r_hole, r_hole)
+    painter.setPen(QtCore.Qt.NoPen)
+    painter.setBrush(QtGui.QColor(color))
+    painter.drawPath(path)
+    painter.end()
+    return QtGui.QIcon(pix)
+
+
 def _marker_caption(marker: dict) -> str:
     """Elided caption for a marker dict, mirroring Marker.short_text()."""
     text = " ".join(str(marker.get("text", "")).split())

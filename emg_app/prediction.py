@@ -6,13 +6,15 @@ import math
 import os
 import time
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional
 
 import numpy as np
 
 from emg_app import config as cfg
 from emg_app.utils import nominal_rate
+from emg_app.class_mask import (
+    NO_ANSWER, active_labels, apply_class_mask, kept_mass, off_key)
 from emg_app.calibration import (
     load_calibration, resolve_calibration, validate_calibration)
 from emg_app.features import (
@@ -34,6 +36,16 @@ class Prediction:
     n_samples: int                  # samples the window was built from
     smoothed_over: int              # how many windows the vote covered
     unix_time: float
+    #  Gestures switched off in the classifier for this answer: masked out of
+    #  `probabilities` (exactly 0.0) and of the vote, never retrained away.
+    off: List[str] = field(default_factory=list)
+    #  False when the mask left nothing to choose from (the model put all of
+    #  its probability on switched-off gestures); `label` is then NO_ANSWER.
+    answered: bool = True
+    #  How much of the model's own probability for THIS window sat on the
+    #  gestures that are on (1.0 with nothing off). Low means the model was
+    #  looking at a switched-off gesture and the renormalised answer is thin.
+    kept: float = 1.0
 
     @property
     def certain(self) -> bool:
@@ -91,6 +103,10 @@ class LivePredictor:
         self.status = "disabled"
         self.history = deque(maxlen=max(1, cfg.PREDICTION_SMOOTHING))
         self.prob_history = deque(maxlen=max(1, cfg.PREDICTION_SMOOTHING))
+        #  The class mask the history was built under (class_mask.off_key).
+        #  When it moves, the history is dropped: a window scored with FIST on
+        #  must not be averaged with one scored with FIST off.
+        self._off_key: tuple = ()
         self.last: Optional[Prediction] = None
         # The exact row the last prediction was made from, kept so the
         # decision panel can run the other candidates on the SAME input
@@ -276,12 +292,28 @@ class LivePredictor:
         self.last_features = features
         self.last_window = block
 
+        key = off_key(self.labels)
+        if key != self._off_key:
+            self._off_key = key
+            self.history.clear()
+            self.prob_history.clear()
+
+        answered = True
+        kept = 1.0
         try:
-            if hasattr(self.model, "predict_proba"):
+            has_proba = hasattr(self.model, "predict_proba")
+            if has_proba:
                 probabilities = np.asarray(
                     self.model.predict_proba(features), dtype=float)[0]
+                kept = kept_mass(probabilities, self.labels)
+                #  Gestures switched off in the settings are masked out of the
+                #  answer here -- on the OUTPUT, so no retrain is involved and
+                #  switching one back on takes effect on the next window.
+                probabilities, answered = apply_class_mask(
+                    probabilities, self.labels)
                 index = int(np.argmax(probabilities))
-                confidence = float(probabilities[index])
+                confidence = (float(probabilities[index]) if answered
+                              else float("nan"))
             else:
                 index = int(np.asarray(self.model.predict(features)).ravel()[0])
                 probabilities = np.full(len(self.labels), float("nan"))
@@ -291,8 +323,9 @@ class LivePredictor:
             self.model = None
             return None
 
-        raw_label = self._name(index)
-        self.history.append(index)
+        raw_label = self._name(index) if answered else NO_ANSWER
+        if answered:
+            self.history.append(index)
 
         # Smoothing is SOFT voting: average the probability vectors over the
         # recent windows and take the argmax of the average.
@@ -303,18 +336,27 @@ class LivePredictor:
         # label contradicts the label. Averaging the distributions keeps the
         # displayed confidence consistent with the displayed answer, and is
         # also the better estimator.
-        if math.isnan(confidence):
+        if not has_proba:
             smoothed_probs = probabilities
             smoothed = index
             smooth_conf = confidence
         else:
-            self.prob_history.append(probabilities)
-            smoothed_probs = np.mean(np.vstack(self.prob_history), axis=0)
-            smoothed = int(np.argmax(smoothed_probs))
-            smooth_conf = float(smoothed_probs[smoothed])
+            #  A window the mask left unanswerable adds nothing to the vote;
+            #  earlier answered windows still speak, so one stray window does
+            #  not blank the display.
+            if answered:
+                self.prob_history.append(probabilities)
+            if self.prob_history:
+                smoothed_probs = np.mean(np.vstack(self.prob_history), axis=0)
+                smoothed = int(np.argmax(smoothed_probs))
+                smooth_conf = float(smoothed_probs[smoothed])
+            else:
+                smoothed_probs = probabilities
+                smoothed = -1
+                smooth_conf = float("nan")
 
         prediction = Prediction(
-            label=self._name(smoothed),
+            label=NO_ANSWER if smoothed < 0 else self._name(smoothed),
             confidence=smooth_conf,
             raw_label=raw_label,
             raw_confidence=confidence,
@@ -324,6 +366,9 @@ class LivePredictor:
             n_samples=int(emg.shape[0]),
             smoothed_over=len(self.prob_history) or 1,
             unix_time=time.time(),
+            off=list(key),
+            answered=smoothed >= 0,
+            kept=kept,
         )
         self.last = prediction
         return prediction
@@ -331,6 +376,11 @@ class LivePredictor:
     def _name(self, index: int) -> str:
         return (self.labels[index] if 0 <= index < len(self.labels)
                 else str(index))
+
+    @property
+    def active_labels(self) -> List[str]:
+        """The gestures this model currently answers with (mask applied)."""
+        return active_labels(self.labels)
 
 
 def latest_model_window(acq, seconds: float):

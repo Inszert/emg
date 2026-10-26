@@ -23,7 +23,7 @@ from emg_app.gui.tokens import (
     COL_TEXT_DIM, COL_WARN, FS_SM, SP_SM)
 from emg_app.gui.widgets import (
     AcquisitionBridge, StatusBanner, available_screen_size, collapsible,
-    fit_to_screen, make_label)
+    fit_to_screen, gear_icon, make_label)
 from emg_app.model_spec import load_model_spec, model_spec_path
 from emg_app.neural import NeuralEngine
 from emg_app.prediction import LivePredictor
@@ -41,6 +41,7 @@ from emg_app.gui.main_window.markers import MarkersMixin
 from emg_app.gui.main_window.prediction import PredictionMixin
 from emg_app.gui.main_window.neural import NeuralMixin
 from emg_app.gui.main_window.training import TrainingMixin
+from emg_app.gui.main_window.settings import SettingsMixin
 
 # ------------------------------------------------------------------------------
 # Main window
@@ -49,7 +50,7 @@ from emg_app.gui.main_window.training import TrainingMixin
 
 class MainWindow(SessionMixin, RecordingsMixin, LabelingMixin, TakesMixin,
                  MarkersMixin, PredictionMixin, NeuralMixin, TrainingMixin,
-                 QtWidgets.QMainWindow):
+                 SettingsMixin, QtWidgets.QMainWindow):
     """Everything wired together."""
 
 
@@ -248,6 +249,25 @@ class MainWindow(SessionMixin, RecordingsMixin, LabelingMixin, TakesMixin,
             container.setStyleSheet("background: transparent;")
             row.addWidget(container)
             row.addSpacing(16)
+
+        #  Settings. Painted, not a font glyph: see gear_icon().
+        self.settings_button = QtWidgets.QToolButton()
+        self.settings_button.setIcon(gear_icon(COL_TEXT_DIM))
+        self.settings_button.setIconSize(QtCore.QSize(20, 20))
+        self.settings_button.setFixedSize(34, 34)
+        self.settings_button.setCursor(QtCore.Qt.PointingHandCursor)
+        self.settings_button.setToolTip(
+            "Settings: add gestures, choose which are recorded, and switch "
+            "gestures on or off in the classifiers -- ML and neural net "
+            "alike, no retrain needed.  Ctrl+,")
+        self.settings_button.setAccessibleName("Settings")
+        self.settings_button.setStyleSheet(
+            f"QToolButton {{ background: transparent; border: 1px solid "
+            f"{COL_BORDER}; border-radius: 6px; }}"
+            f"QToolButton:hover {{ border-color: {COL_ACCENT}; }}")
+        self.settings_button.clicked.connect(self.open_settings)
+        row.addWidget(self.settings_button)
+        self._install_settings_shortcut()
 
         return frame
 

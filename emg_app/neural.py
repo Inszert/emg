@@ -11,12 +11,14 @@ import sys
 import threading
 import time
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 import numpy as np
 
 from emg_app import config as cfg
+from emg_app.class_mask import (
+    NO_ANSWER, active_labels, apply_class_mask, kept_mass, off_key)
 from emg_app.calibration import (
     load_calibration, resolve_calibration, validate_calibration)
 from emg_app.features import nn_input_block, resample_uniform
@@ -280,6 +282,13 @@ class NeuralPrediction:
     infer_ms: float                   # the forward pass itself, measured
     device: str
     unix_time: float
+    #  Gestures switched off for this answer (masked out of the probabilities
+    #  and of the vote; the net is not retrained) and whether anything was
+    #  left to answer with. Same meaning as on `Prediction`.
+    off: List[str] = field(default_factory=list)
+    answered: bool = True
+    kept: float = 1.0                 # share of the net's probability left on
+                                      # gestures that are on (see Prediction)
 
     @property
     def percent(self) -> str:
@@ -346,6 +355,8 @@ class NeuralEngine:
         self._next_id = 1
         self._started_at = 0.0
         self._history = deque(maxlen=max(1, smoothing or cfg.NN_SMOOTHING))
+        #  The class mask the history was built under; see LivePredictor.
+        self._off_key: tuple = ()
         self.counters = {"sent": 0, "answered": 0, "dropped": 0,
                          "errors": 0, "stale": 0}
         self.latency_ms = float("nan")
@@ -707,11 +718,26 @@ class NeuralEngine:
                            f"probabilities for {len(self.labels)} labels")
             return None
 
-        raw = np.asarray(probabilities, dtype=float)
-        index = int(np.argmax(raw))
-        self._history.append(raw)
-        smoothed = np.mean(np.vstack(self._history), axis=0)
-        best = int(np.argmax(smoothed))
+        #  Gestures switched off in the settings are masked out of the net's
+        #  answer on the OUTPUT side, here, in the main process: the worker
+        #  keeps answering for every class it was trained on, so switching one
+        #  back on needs no restart and no retrain.
+        key = off_key(self.labels)
+        if key != self._off_key:
+            self._off_key = key
+            self._history.clear()
+        kept = kept_mass(probabilities, self.labels)
+        raw, answered = apply_class_mask(
+            np.asarray(probabilities, dtype=float), self.labels)
+        index = int(np.argmax(raw)) if answered else -1
+        if answered:
+            self._history.append(raw)
+        if self._history:
+            smoothed = np.mean(np.vstack(self._history), axis=0)
+            best = int(np.argmax(smoothed))
+            best_conf = float(smoothed[best])
+        else:
+            smoothed, best, best_conf = raw, -1, float("nan")
 
         now = time.perf_counter()
         self.latency_ms = ((now - sent_at) * 1000.0 if sent_at is not None
@@ -723,10 +749,10 @@ class NeuralEngine:
         self.counters["answered"] += 1
 
         prediction = NeuralPrediction(
-            label=self._name(best),
-            confidence=float(smoothed[best]),
-            raw_label=self._name(index),
-            raw_confidence=float(raw[index]),
+            label=self._name(best) if best >= 0 else NO_ANSWER,
+            confidence=best_conf,
+            raw_label=self._name(index) if index >= 0 else NO_ANSWER,
+            raw_confidence=float(raw[index]) if index >= 0 else float("nan"),
             probabilities=[float(p) for p in smoothed],
             raw_probabilities=[float(p) for p in raw],
             labels=list(self.labels),
@@ -736,6 +762,9 @@ class NeuralEngine:
             infer_ms=self.infer_ms,
             device=str((self.meta.get("device") or {}).get("device", "?")),
             unix_time=time.time(),
+            off=list(key),
+            answered=best >= 0,
+            kept=kept,
         )
         self.last = prediction
         return prediction
@@ -743,6 +772,11 @@ class NeuralEngine:
     def _name(self, index: int) -> str:
         return (self.labels[index] if 0 <= index < len(self.labels)
                 else str(index))
+
+    @property
+    def active_labels(self) -> List[str]:
+        """The gestures the net currently answers with (mask applied)."""
+        return active_labels(self.labels)
 
     def reset(self) -> None:
         """Forget the smoothing history, keep the worker."""

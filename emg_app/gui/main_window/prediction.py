@@ -14,6 +14,7 @@ import time
 import numpy as np
 
 from emg_app import config as cfg
+from emg_app.class_mask import NO_ANSWER, describe_off, kept_note, off_key
 from emg_app.gestures import describe_gaps, model_gesture_gaps
 from emg_app.calibration import (
     calibration_status, describe_calibration, load_calibration)
@@ -222,17 +223,22 @@ class PredictionMixin:
         self.prob_bars = {}
 
         labels = self.predictor.labels if self.predictor.ready else []
+        gone = off_key(labels)
         for row, name in enumerate(labels):
             #  The caption wears the gesture's own colour (cfg.label_color), so
             #  a gesture added later is recognisable at a glance; the BAR keeps
-            #  the certainty colour set in _show_prediction.
-            caption = make_label(name, 9, True, cfg.label_color(name))
+            #  the certainty colour set in _show_prediction. A gesture switched
+            #  off in the settings is dimmed and says so instead of 0 %.
+            off = name in gone
+            caption = make_label(name + ("  (off)" if off else ""), 9, True,
+                                 COL_TEXT_DIM if off else cfg.label_color(name))
             bar = QtWidgets.QProgressBar()
             bar.setRange(0, 1000)
             bar.setValue(0)
             bar.setTextVisible(False)
             bar.setFixedHeight(12)
-            value = make_label("0 %", 9, False, COL_TEXT_DIM)
+            bar.setEnabled(not off)
+            value = make_label("off" if off else "0 %", 9, False, COL_TEXT_DIM)
             value.setFixedWidth(38)
             value.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
             grid.addWidget(caption, row, 0)
@@ -257,7 +263,9 @@ class PredictionMixin:
         self._refresh_model_status(force=True)
 
         if ready:
-            self.prediction_note.setText(self.predictor.describe())
+            mask = describe_off(self.predictor.labels)
+            self.prediction_note.setText(
+                self.predictor.describe() + (f"\n{mask}" if mask else ""))
             return
 
         self.prediction_label.setText("--")
@@ -276,6 +284,19 @@ class PredictionMixin:
         self.prediction_note.setText(
             reasons.get(self.predictor.status,
                         f"Unavailable: {self.predictor.status}"))
+
+    def _refresh_classifier_mask(self) -> None:
+        """
+        The mask changed (settings, or a restart): redraw everything that
+        shows what the classifiers may answer with. Both models, and nothing
+        is retrained -- the next window is simply scored under the new mask.
+        """
+        if hasattr(self, "prob_box"):
+            self._rebuild_prob_bars()
+        if getattr(self, "nn_engine", None) is not None:
+            self._rebuild_nn_bars()
+            self._refresh_neural_panel()
+        self._refresh_prediction_panel()
 
     def _on_pred_mode_changed(self) -> None:
         self._set_global("PREDICTION_MODE", self.prediction_mode)
@@ -409,6 +430,23 @@ class PredictionMixin:
         return prediction
 
     def _show_prediction(self, prediction) -> None:
+        #  The mask can leave nothing to answer with (the model put all of its
+        #  probability on switched-off gestures). Say that, not a guess.
+        if not getattr(prediction, "answered", True):
+            self.prediction_label.setText(NO_ANSWER)
+            self.prediction_label.setStyleSheet(
+                f"color: {COL_WARN}; background: transparent;")
+            self.prediction_conf.setText(
+                "no answer: the model only sees switched-off gestures")
+            self.prediction_conf.setStyleSheet(
+                f"color: {COL_WARN}; background: transparent;")
+            self.plot.set_prediction_overlay(
+                NO_ANSWER, COL_WARN, "only switched-off gestures seen")
+            #  The bars would otherwise keep the previous window's numbers.
+            for name, (bar, value) in self.prob_bars.items():
+                bar.setValue(0)
+                value.setText("off" if name in prediction.off else "--")
+            return
         certain = prediction.certain
         colour = COL_GOOD if certain else COL_WARN
         self.prediction_label.setText(prediction.label if certain
@@ -419,11 +457,16 @@ class PredictionMixin:
             f"{prediction.percent}"
             + ("" if certain else "   (below the confidence threshold)")
             + (f"   ·  {prediction.smoothed_over} window vote"
-               if prediction.smoothed_over > 1 else ""))
+               if prediction.smoothed_over > 1 else "")
+            + kept_note(prediction))
         self.prediction_conf.setStyleSheet(
             f"color: {colour}; background: transparent;")
 
         for name, (bar, value) in self.prob_bars.items():
+            if name in getattr(prediction, "off", ()):
+                bar.setValue(0)
+                value.setText("off")
+                continue
             if name in prediction.labels:
                 p = prediction.probabilities[prediction.labels.index(name)]
             else:

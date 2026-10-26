@@ -12,6 +12,7 @@ import time
 from emg_app import config as cfg
 from emg_app.acquisition import Capture
 from emg_app.gui.dialogs.gesture_setup import GestureSetupDialog
+from emg_app.class_mask import validate_off
 from emg_app.gestures import save_gesture_setup
 from emg_app.neural import load_nn_stats
 from emg_app.gui.dialogs.quality import QualityDialog
@@ -230,23 +231,43 @@ class SessionMixin:
             return
 
         dialog = GestureSetupDialog(self, selected=list(cfg.GESTURES),
-                                    model_labels=self._model_label_sets())
+                                    model_labels=self._model_label_sets(),
+                                    classifier_off=list(cfg.CLASSIFIER_OFF))
         if dialog.exec() != QtWidgets.QDialog.Accepted:
             return
-        chosen = dialog.selected()
-        custom = dialog.custom_gestures()
+        self._apply_gesture_setup(dialog.selected(), dialog.custom_gestures(),
+                                  dialog.classifier_off())
+
+    def _apply_gesture_setup(self, chosen, custom, off) -> None:
+        """
+        Make an edited gesture set the live one: the plan, every label combo,
+        the classifier mask -- and save it. Shared by GESTURES... and the
+        settings dialog, so the two cannot disagree about what applying means.
+
+        Switching a gesture off or on in the CLASSIFIER retrains nothing; the
+        masks live in the models' output (emg_app/class_mask.py). Only a
+        gesture no model was trained on needs a retrain, and that is said,
+        never done.
+        """
+        known = self._model_label_sets()
+        off, problems = validate_off(off, known)
+        for line in problems:
+            self._append_log(line)
+        off_before = list(cfg.CLASSIFIER_OFF)
         if not chosen or (chosen == list(cfg.GESTURES)
-                          and custom == dict(cfg.CUSTOM_GESTURES)):
+                          and custom == dict(cfg.CUSTOM_GESTURES)
+                          and sorted(off) == sorted(off_before)):
             return
 
         before = list(cfg.GESTURES)
         self._set_global("CUSTOM_GESTURES", custom)
         self._set_global("GESTURES", chosen)
+        self._set_global("CLASSIFIER_OFF", list(off))
         #  Saved with the data so it survives a restart (app.main() restores
         #  it). A failed write is reported, never fatal: the set still holds
         #  for this run.
         try:
-            path = save_gesture_setup(chosen, custom)
+            path = save_gesture_setup(chosen, custom, classifier_off=off)
             self._append_log(f"Gesture set saved to {path}")
         except OSError as exc:
             self._append_log(f"Gesture set NOT saved ({exc}); it holds for "
@@ -273,8 +294,9 @@ class SessionMixin:
         self._refresh_gesture_counts()
         self._refresh_label_counts()
         #  The classifier's bars are built from the MODEL's labels, not from
-        #  this list, so they are deliberately left alone -- a model trained
-        #  on six classes still predicts six whatever the plan now says.
+        #  the recording list, so adding a gesture to the plan leaves them
+        #  alone -- a model trained on six classes still predicts six. What
+        #  DOES change them is the mask.
         parts = []
         if added:
             parts.append("added " + ", ".join(added))
@@ -284,9 +306,24 @@ class SessionMixin:
             self._append_log("Gestures: " + "; ".join(parts) + "."
                              + (" Recordings already on disk are untouched."
                                 if dropped else ""))
+        switched_off = [g for g in off if g not in off_before]
+        switched_on = [g for g in off_before if g not in off]
+        if switched_off or switched_on:
+            bits = []
+            if switched_off:
+                bits.append("OFF: " + ", ".join(switched_off))
+            if switched_on:
+                bits.append("back ON: " + ", ".join(switched_on))
+            self._append_log(
+                "Classifier (ML and neural net) -- " + "; ".join(bits)
+                + ". Nothing was retrained; it takes effect on the next "
+                "window.")
+            self.status.showMessage(
+                "Classifier: " + "; ".join(bits) + " (no retrain needed)",
+                8000)
+        self._refresh_classifier_mask()
         #  NOTHING is retrained here. Say plainly which models do not know
         #  the new gestures, so the retrain is a decision, not a surprise.
-        known = self._model_label_sets()
         unknown = [g for g in added
                    if known and any(g not in labels
                                     for labels in known.values())]

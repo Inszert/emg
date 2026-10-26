@@ -45,13 +45,14 @@ from emg_app import config as _cfg
 _DATA_MODULES = (
     "gui.tokens", "utils", "signal_processing", "calibration", "features",
     "quality", "markers", "recording", "model_spec", "compute", "dataset",
-    "acquisition", "neural", "jobs", "sequence", "model_test",
+    "acquisition", "neural", "jobs", "sequence", "model_test", "class_mask",
     "decision_panel", "prediction",
 )
 _GUI_MODULES = (
     "gui.qt", "gui.widgets", "gui.theme", "gui.plot", "gui.decision_trail",
     "gui.workers", "gui.dialogs.quality", "gui.dialogs.model_stats",
     "gui.dialogs.neural_stats", "gui.dialogs.gesture_setup",
+    "gui.dialogs.settings",
     "gui.dialogs.calibration", "gui.dialogs.neural_setup",
     "gui.dialogs.model_spec", "gui.dialogs.trim", "gui.dialogs.model_test",
     "gui.main_window", "app",

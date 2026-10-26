@@ -38,6 +38,7 @@ so `import emg_dataset_tool as T` keeps working everywhere.
 | `jobs.py` | background training jobs (CLAUDE.md 8m) |
 | `sequence.py` | `build_plan`, `SequenceController` |
 | `model_test.py` | TEST MODEL scoring and its log |
+| `class_mask.py` | switching a gesture off in the live classifiers without retraining: the mask, `kept`, validation (CLAUDE.md 7a) |
 | `decision_panel.py` | the DECISION TRAIL panel model |
 | `prediction.py` | `LivePredictor` |
 | `app.py` | `main()`, `--summary` |
@@ -47,8 +48,8 @@ so `import emg_dataset_tool as T` keeps working everywhere.
 | `gui/plot.py` | `EmgPlotWidget` |
 | `gui/decision_trail.py` | MODEL STATS views: DECISION TRAIL and FEATURE SPACE |
 | `gui/workers.py` | dataset export worker, `TrainingJobWatcher` |
-| `gui/dialogs/` | one file per dialog: calibration, model_spec, model_stats, model_test, neural_setup, neural_stats, gesture_setup, quality, trim |
-| `gui/main_window/` | `MainWindow` = `window.py` (layout, timers, control state, closing) + one mixin per feature: `session`, `recordings`, `labeling`, `takes`, `markers`, `prediction`, `neural`, `training` |
+| `gui/dialogs/` | one file per dialog: calibration, model_spec, model_stats, model_test, neural_setup, neural_stats, gesture_setup (the `GestureEditor`), settings (the gear icon), quality, trim |
+| `gui/main_window/` | `MainWindow` = `window.py` (layout, timers, control state, closing) + one mixin per feature: `session`, `recordings`, `labeling`, `takes`, `markers`, `prediction`, `neural`, `training`, `settings` |
 
 `MainWindow`'s mixins are plain classes whose methods run on the window and
 share its widgets and state through `self`; only `window.py` calls `super()`.

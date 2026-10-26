@@ -466,6 +466,31 @@ runs without scikit-learn installed.
 something the trainer cannot build** — so a hand-edited `model_spec.json`
 cannot crash a sweep an hour in. 346 checks cover it.
 
+### 6.7 SETTINGS (the gear icon)
+
+![Settings dialog](images/ui_settings.png)
+
+`Ctrl+,`. One tab so far: **Gestures**. Each gesture has two switches, kept
+separate on purpose:
+
+| Switch | Decides | Retrain? |
+|---|---|---|
+| **RECORD** | what the session cues, what every label dropdown offers, what the calibration sweep covers | never |
+| **USE IN CLASSIFIER** | whether the live ML model *and* the neural net may answer with it | **never** — it is a mask on their output |
+
+The mask (`emg_app/class_mask.py`) zeroes the switched-off gesture's
+probability and renormalises the rest, **after** the model has answered and
+**before** smoothing. Nothing on disk or in a model changes, so switching a
+gesture back on restores the original answers exactly. It is saved with the
+gesture set in `datasets/gestures.json`.
+
+It is *not* the answer a model trained without the gesture would give: if the
+person does a gesture that is off, the panel shows `?` or warns that only a
+small share of the model's own probability was on the gestures that are on.
+A gesture no model was trained on cannot be switched (`n/a`) — **ADD**, record,
+**RETRAIN**. Full account: `CLAUDE.md` §7a; 121 checks in
+`tests/test_class_mask.py`.
+
 ---
 
 ## 7. Recording workflows
@@ -1275,6 +1300,8 @@ python legacy/test_myo.py                                     # reference monito
 | `Ctrl+B` | add a break marker |
 | `Ctrl+Shift+Space` | CUT SINCE LAST MARKER |
 | `Ctrl+Shift+M` | MODEL SPEC editor |
+| `Ctrl+,` | SETTINGS (gear icon): gestures, and switching them on/off in the classifiers |
+| `Ctrl+Shift+G` | GESTURES… (the same editor, from the plan panel) |
 | `Ctrl+Return` | ACCEPT & NEXT (review) |
 | `Ctrl+R` | REDO this repetition (review) |
 

@@ -56,7 +56,7 @@ class ModelTestDialog(QtWidgets.QDialog):
             COL_ACCENT))
         intro = make_label(
             f"Model: {stats.get('model_name', '?')}  "
-            f"({', '.join(self.predictor.labels)})\n\n"
+            f"({', '.join(self.predictor.active_labels)})\n\n"
             "Each gesture is cued several times in a shuffled order. Get "
             "ready, then HOLD the gesture until the next cue. The first "
             f"{MODEL_TEST_SETTLE_S:.0f} s of each hold is not scored (your "
@@ -161,7 +161,7 @@ class ModelTestDialog(QtWidgets.QDialog):
                 f"color: {COL_GOOD}; background: transparent;")
 
     def _update_plan_label(self) -> None:
-        n = self.rounds_spin.value() * len(self.predictor.labels)
+        n = self.rounds_spin.value() * len(self.predictor.active_labels)
         seconds = n * (MODEL_TEST_PREPARE_S + self.hold_spin.value())
         self.plan_label.setText(f"{n} trials, about {fmt_duration(seconds)}")
 
@@ -188,7 +188,7 @@ class ModelTestDialog(QtWidgets.QDialog):
             return
         self.window_.stop_prediction()
         self.session = ModelTestSession(
-            None, self.predictor.labels, rounds=self.rounds_spin.value(),
+            None, self.predictor.active_labels, rounds=self.rounds_spin.value(),
             hold_s=self.hold_spin.value())
         self.session.start(time.perf_counter())
         self.predictor.reset()

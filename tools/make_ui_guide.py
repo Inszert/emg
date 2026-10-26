@@ -188,6 +188,9 @@ annotate(win, win, [
     ("banner", "THE BANNER -- the one thing to look at during a session. It "
                "says what to do now (REST / GET READY / RECORD NOW) and "
                "turns orange when the link drops."),
+    ("settings_button", "SETTINGS (gear, Ctrl+,). Add gestures, choose which "
+                        "are recorded, and switch a gesture on or off in the "
+                        "ML model AND the neural net -- no retrain."),
     ("conn_pill", "LINK STATE. Red until the armband is found. Only the "
                   "acquisition thread ever touches the serial port -- a "
                   "write from the GUI thread corrupts the BLE framing."),
@@ -504,34 +507,42 @@ else:
     print(f"  (model not usable here: {win.predictor.status} -- skipped "
           "ui_model_test.png)")
 
-# ================================================================ GESTURES...
-gest = T.GestureSetupDialog(win, selected=list(T.GESTURES),
-                            model_labels=win._model_label_sets())
+# ================================================================ SETTINGS
+#  The dialog behind the gear icon. Shown with FIST switched off so the
+#  picture says what an off gesture looks like; nothing is applied (the dialog
+#  is never accepted), so the app's gesture set is untouched.
+gest = T.SettingsDialog(win, model_labels=win._model_label_sets(),
+                        selected=list(T.GESTURES), classifier_off=["FIST"])
 gest.setAttribute(QtCore.Qt.WA_DontShowOnScreen, True)
-gest.resize(980, 980)
+gest.resize(980, 1000)
 gest.show()
-#  A demo gesture, added to THIS dialog only (it is never accepted, so
-#  nothing is saved and the app's gesture set is untouched).
-gest.custom_edit.setText("WRIST_FLEX")
-gest.cue_edit.setText("bend the wrist down, fingers relaxed")
-gest._add_custom()
-gest.custom_edit.setText("WRIST_FLEX")
-gest.cue_edit.setText("bend the wrist down, fingers relaxed")
+#  A demo gesture, added to THIS dialog only.
+gest.editor.custom_edit.setText("WRIST_FLEX")
+gest.editor.cue_edit.setText("bend the wrist down, fingers relaxed")
+gest.editor._add_custom()
 for _ in range(8):
     app.processEvents()
 annotate(gest, gest, [
-    ("boxes.REST", "Every gesture, with its instruction, how many recordings "
-     "and people it has, and WHETHER THE MODELS KNOW IT. Tick = cued, "
-     "offered in every dropdown and calibrated by the sweep."),
-    ("boxes.WRIST_FLEX", "A gesture you added: 'NOT in the models yet'. It "
-     "becomes part of them only when you press RETRAIN -- nothing retrains "
-     "by itself."),
-    ("custom_edit", "NAME of the new gesture (it becomes a folder name)."),
-    ("cue_edit", "INSTRUCTION -- shown under the name in the session banner, "
-     "the calibration sweep and TEST MODEL."),
-    ("warning", "What just happened, and what to do next."),
-], os.path.join(OUT, "ui_gestures.png"),
-    "10. GESTURES...  --  adding a new gesture")
+    ("editor.boxes.REST", "RECORD -- cued by START SESSION, offered in every "
+     "dropdown and calibrated by the sweep. Under each name: the "
+     "instruction, how many recordings and people, and WHETHER THE MODELS "
+     "KNOW IT."),
+    ("editor.cls_boxes.OPEN", "USE IN CLASSIFIER -- on. Untick to switch "
+     "this gesture OFF in the ML model and the neural net together."),
+    ("editor.cls_boxes.FIST", "FIST is OFF here: masked out of both models' "
+     "answers. NOTHING is retrained -- tick it again and it is back at once."),
+    ("editor.cls_boxes.WRIST_FLEX", "A gesture you just added has no switch "
+     "(n/a): no model has been trained on it. Record it, then RETRAIN."),
+    ("editor.retrain_note", "What a retrain would pick up -- said before you "
+     "have to ask."),
+    ("editor.custom_edit", "NAME of the new gesture (it becomes a folder "
+     "name)."),
+    ("editor.cue_edit", "INSTRUCTION -- shown under the name in the session "
+     "banner, the calibration sweep and TEST MODEL."),
+    ("apply_button", "APPLY. When a recorded gesture is missing from a model, "
+     "APPLY + RETRAIN appears beside it."),
+], os.path.join(OUT, "ui_settings.png"),
+    "10. SETTINGS (gear icon)  --  gestures: add, record, switch on/off")
 gest.reject()
 
 print("done")

@@ -11,6 +11,7 @@ from typing import List, Optional, TYPE_CHECKING, Tuple
 import numpy as np
 
 from emg_app import config as cfg
+from emg_app.class_mask import apply_class_mask, describe_off, off_key
 from emg_app.model_spec import panel_path, serialise_estimator
 
 if TYPE_CHECKING:                  # type hints only; avoids an import cycle
@@ -358,14 +359,30 @@ class DecisionPanel:
         if deployed_name in names:
             deployed = per_model[names.index(deployed_name)]
 
+        #  Gestures switched off in the settings are masked out of the live
+        #  classifier's answer, so they are masked out of what this view
+        #  shows too -- otherwise the trail's final answer could name a
+        #  gesture the LIVE CLASSIFIER panel above it has been told to skip.
+        #  Each opinion is masked on its own, and the fusion is the mask of
+        #  the members' plain mean, which is what the deployed vote does.
+        note = ("these candidates were fitted on the whole dataset, so "
+                "their agreement here demonstrates the vote -- it is not "
+                "an accuracy estimate")
+        if off_key(self.labels):
+            per_model = [[float(v) for v in apply_class_mask(row, self.labels)[0]]
+                         for row in per_model]
+            mean = apply_class_mask(mean, self.labels)[0]
+            if deployed is not None:
+                deployed = [float(v) for v in
+                            apply_class_mask(deployed, self.labels)[0]]
+            note += "; " + describe_off(self.labels)
+
         return TrailStep(
             names=names, per_model=per_model, labels=list(self.labels),
             fused=fused, fused_from_mean=[float(v) for v in mean],
             deployed_name=deployed_name or "?", deployed=deployed,
             source="live",
-            note=("these candidates were fitted on the whole dataset, so "
-                  "their agreement here demonstrates the vote -- it is not "
-                  "an accuracy estimate"),
+            note=note,
         )
 
     # -- recorded -------------------------------------------------------------

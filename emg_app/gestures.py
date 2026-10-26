@@ -10,6 +10,11 @@ with the models, because it describes what is being recorded.
 Adding a gesture NEVER retrains anything. A model knows exactly the labels it
 was trained on; `model_gesture_gaps()` says which recorded gestures a model
 does not know yet, and the operator decides when to retrain.
+
+The same file holds `classifier_off`: the gestures switched off in the live
+classifiers. That is a different thing from the in-use list above -- in-use is
+what is RECORDED, classifier_off is what the models are allowed to ANSWER --
+and it needs no retrain in either direction (emg_app/class_mask.py).
 """
 
 import json
@@ -59,18 +64,35 @@ def load_gesture_setup(root: str = None) -> Optional[dict]:
             in_use.append(name)
     if len(in_use) < 2:
         return None
-    return {"in_use": in_use, "custom": custom}
+    #  Written by the settings dialog; a file from before it has no such key,
+    #  which reads as "nothing switched off".
+    off = []
+    for name in raw.get("classifier_off") or []:
+        name = gesture_name(name)
+        if name and name not in off:
+            off.append(name)
+    return {"in_use": in_use, "custom": custom, "classifier_off": off}
 
 
 def save_gesture_setup(in_use: List[str], custom: Dict[str, str],
-                       root: str = None) -> str:
-    """Write the setup (atomically: a crash cannot leave half a file)."""
+                       root: str = None,
+                       classifier_off: List[str] = None) -> str:
+    """
+    Write the setup (atomically: a crash cannot leave half a file).
+
+    `classifier_off` is the gestures switched off in the live classifiers;
+    left out, the live setting is kept, so the older two-argument callers
+    cannot silently switch everything back on.
+    """
     path = gesture_setup_path(root)
     os.makedirs(os.path.dirname(path), exist_ok=True)
+    if classifier_off is None:
+        classifier_off = cfg.CLASSIFIER_OFF
     body = {"version": GESTURE_SETUP_VERSION,
             "in_use": [gesture_name(g) for g in in_use],
             "custom": {gesture_name(k): str(v or "").strip()
-                       for k, v in (custom or {}).items()}}
+                       for k, v in (custom or {}).items()},
+            "classifier_off": [gesture_name(g) for g in classifier_off]}
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as fh:
         json.dump(body, fh, indent=2)
@@ -84,6 +106,7 @@ def apply_gesture_setup(setup: Optional[dict]) -> bool:
         return False
     cfg.CUSTOM_GESTURES = dict(setup.get("custom") or {})
     cfg.GESTURES = list(setup["in_use"])
+    cfg.CLASSIFIER_OFF = list(setup.get("classifier_off") or [])
     return True
 
 

@@ -394,6 +394,9 @@ class _FakePredictor:
     """Answers OPEN for everything: a model that is always wrong but one."""
 
     labels = ["FIST", "OPEN", "REST"]
+    #  What LivePredictor reports once the classifier mask is applied
+    #  (nothing is switched off here, so it is every label).
+    active_labels = ["FIST", "OPEN", "REST"]
     ready = True
     status = "ready"
     stats = {"model_name": "Fake", "window_accuracy": 0.5,

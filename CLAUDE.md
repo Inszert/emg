@@ -445,6 +445,75 @@ warns -> explicit retrain -> both models know it: 7 probability bars in its
 colour, 7x7 confusion matrices in MODEL STATS and NN STATS, its points in the
 FEATURE SPACE (PCA) in its colour, TEST MODEL cues it, the NN worker loads it.
 
+### Switching a gesture off in the classifiers — without retraining (2026-10-26)
+
+The **gear icon** in the header (`Ctrl+,`) opens SETTINGS → Gestures. For each
+gesture there are two independent switches:
+
+| Switch | Means | Retrain? |
+|---|---|---|
+| **RECORD** (the name's checkbox) | is it cued, offered in every label combo, calibrated | never (§7a above) |
+| **USE IN CLASSIFIER** | may the live **ML model and neural net** answer with it | **no — in either direction** |
+
+`emg_app/class_mask.py` (Qt-free, torch-free) is the whole mechanism: a
+gesture that is off has its probability **zeroed and the rest renormalised**
+on the model's *output*. The model, its file and the worker process are never
+touched, so switching back on is instant and returns the original answers bit
+for bit (`tests/test_class_mask.py` compares them and the model file's bytes).
+`cfg.CLASSIFIER_OFF` holds the set; it is saved in `<DATA_FOLDER>/gestures.json`
+as `classifier_off` (older files without the key mean "nothing off") and
+restored by `app.main()` with the rest of the gesture set.
+
+**Where it is applied, and why each one:**
+
+| Where | What |
+|---|---|
+| `LivePredictor.predict` | after `predict_proba`, **before** smoothing |
+| `NeuralEngine._on_out` | the same, in the main process — the worker still answers for every class, so no restart |
+| `DecisionPanel.step_for_features` | each member masked, fusion = mask of the plain mean, so the DECISION TRAIL cannot name a gesture the LIVE CLASSIFIER was told to skip. The *recorded* (out-of-fold) trail is unmasked history |
+| both probability-bar panels | an off gesture is dimmed, `(off)`, value `off` |
+| TEST MODEL | cues and scores only `predictor.active_labels` |
+
+Three decisions worth knowing before touching it:
+
+1. **The mask is part of the smoothing key.** Smoothing averages the last few
+   windows' probabilities; a window scored with FIST on must not be averaged
+   with one scored with FIST off. Both predictors compare `off_key(labels)` and
+   clear their history when it moves.
+2. **"No answer" is a state, not a guess.** A forest readily puts *all* its
+   probability on one class, so with that class off there is nothing to
+   renormalise. The result is `label = "?"`, `answered = False`, uniform
+   probabilities and a NaN confidence — never an arbitrary argmax. One such
+   window does not blank an already-established vote.
+3. **Renormalising inflates confidence, so `kept` says by how much.**
+   `Prediction.kept` / `NeuralPrediction.kept` is the share of the model's *own*
+   probability that sat on gestures still on. A window the model was 99.9 % sure
+   was an off gesture can come out as "100 % OPEN"; below `LOW_KEPT` (0.5) the
+   panels add "only N % of the model's own probability was on gestures that are
+   on". Read the answer as "the best of what is left", not as a belief.
+
+What a mask is **not**: it is not the answer a model *trained without* that
+gesture would give, and the app says "masked out of the answer, nothing
+retrained" wherever it shows one. MODEL STATS / NN STATS still describe the
+model as trained, on all its classes.
+
+A gesture **no model has been trained on** has no output column to switch: its
+switch reads `n/a`, and the editor's retrain note says what to do. Adding one
+still means ADD → record (≥ 2 people) → calibrate → RETRAIN, exactly as above;
+the settings dialog's **APPLY + RETRAIN** button (shown only when a recorded
+gesture is missing from a trained model) chains into the usual RETRAIN ML +
+NEURAL NET confirmation. A request that would leave a model with fewer than two
+gestures is refused with the model named (`validate_off`), and switching REST
+off warns once, because REST is the only "no gesture" answer.
+
+While a session runs, what is *recorded* is locked (the plan is already built)
+but the classifier switches still work — they cannot disturb a recording.
+
+`GestureEditor` (`gui/dialogs/gesture_setup.py`) is the one editor, hosted by
+both SETTINGS and the older GESTURES… dialog (`GestureSetupDialog`, a thin
+shell that keeps the API the tests use). `MainWindow._apply_gesture_setup` is
+the one place an edit is applied, so the two entry points cannot disagree.
+
 ### "Five of the same gesture in a row" — `GESTURE_ORDER = "blocked"`
 
 This already existed and did exactly that; what was missing was that it was
@@ -2118,6 +2187,13 @@ These are invariants. Breaking one is a bug, not a trade-off.
     together they are two independent cross-validated results with their
     protocols named — never one blended figure, and never a subtraction
     across different protocols. §8L.
+14. **Switching a gesture off in the classifier never retrains, and never
+    touches a model.** It is a mask on the output (`class_mask.py`), applied
+    identically to the ML model and the net, saved with the gesture set, and
+    undone by ticking the box. It must not rewrite `gesture_model.joblib` /
+    `gesture_nn.pt`, must not restart the NN worker, and must say it is a mask
+    wherever it shows an answer. A mask that leaves nothing to answer with is
+    reported as "no answer", never as a guess. §7a.
 
 ## 10. How to run
 
@@ -2154,6 +2230,7 @@ python tests\test_calibration.py              # 157 checks, per-wearer calibrati
 python tests\test_jobs.py                     # 48 checks, background training + TEST MODEL (§8m)
 python tests\test_custom_gesture.py           # adding a gesture reaches everything, never auto-retrains (§7a; ~5 min, trains on a temp copy)
 python tests\test_nn.py                       # 158 checks, the neural net and the SEPARATION rule (§8L)
+python tests\test_class_mask.py               # 121 checks, switching a gesture off in the classifiers, no retrain (§7a)
 python tests\test_device.py                # 104 checks, device profile / channel count (§2b), gestures (§7a)
 python tests\test_sweep_cost.py               # 48 checks, the sweep cost controls (§8g)
 python tests\test_filters.py                  # 52 checks, the band-pass (§8i) + FEATURE SPACE (§8j)

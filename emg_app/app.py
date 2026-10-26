@@ -90,6 +90,12 @@ def main(argv=None) -> int:
     restored = restore_gesture_setup()
     if restored:
         print(f"[startup] gestures: {', '.join(restored)}", flush=True)
+    if cfg.CLASSIFIER_OFF:
+        #  Said at startup because a gesture the model "does not answer with"
+        #  would otherwise look like a model that forgot it.
+        print("[startup] switched OFF in the classifiers (settings icon to "
+              f"change; nothing retrained): {', '.join(cfg.CLASSIFIER_OFF)}",
+              flush=True)
 
     print(f"[startup] building the interface ...", flush=True)
     window = MainWindow()

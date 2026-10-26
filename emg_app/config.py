@@ -105,6 +105,16 @@ GESTURE_CUES = {
 CUSTOM_GESTURES = {}
 GESTURE_SETUP_FILE = "gestures.json"
 
+# Gestures switched OFF in the LIVE classifiers -- the ML model and the neural
+# net alike (settings icon -> Gestures -> "Use in classifier"). A switched-off
+# gesture is masked out of the answer: its probability is zeroed and the rest
+# renormalised, which is what the model would say if it had never been asked
+# to tell that gesture apart. NOTHING is retrained and nothing on disk or in a
+# model changes, so switching it back on is instant. Only a gesture the model
+# has never been trained on needs a retrain (emg_app/class_mask.py).
+# Saved with the gesture set in <DATA_FOLDER>/GESTURE_SETUP_FILE.
+CLASSIFIER_OFF = []
+
 
 def known_gestures():
     """

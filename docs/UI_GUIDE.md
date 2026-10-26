@@ -344,36 +344,71 @@ number. Every result is saved to `datasets/<person>/model_tests.jsonl`.
 
 ---
 
-## 10. Adding a new gesture
+## 10. Settings: adding gestures, and switching them on and off
 
-![Gestures dialog](images/ui_gestures.png)
+![Settings dialog](images/ui_settings.png)
 
-**GESTURES…** (`Ctrl+Shift+G`, in the RECORDING PLAN panel) is where the
-label set lives.
+The **gear icon** at the top right of the window (`Ctrl+,`) opens SETTINGS.
+Its **Gestures** tab is where the label set lives. (The older **GESTURES…**
+button in the RECORDING PLAN panel, `Ctrl+Shift+G`, opens the same editor.)
+
+Every gesture has **two independent switches**:
+
+| Switch | What it decides | Needs a retrain? |
+|---|---|---|
+| **RECORD** (tick next to the name) | cued by START SESSION, offered in every dropdown, calibrated by the sweep | no |
+| **USE IN CLASSIFIER** (tick on the right) | whether the live **ML model and the neural net** may answer with it | **no, in either direction** |
+
+### Switching a gesture off, and back on
+
+Untick **USE IN CLASSIFIER** for a gesture and press **APPLY**. From the next
+window on, neither model can answer with it: its probability is zeroed and
+the rest renormalised, and its bar reads `off`. **Nothing is retrained, no
+file is touched, and the neural net is not restarted**, so ticking it again
+brings it back at once, with exactly the answers it gave before.
+
+Use it to try a smaller gesture set, to take a gesture out while it is being
+re-recorded, or to see how much a hard pair (OPEN against WAVE_RIGHT) costs.
+
+Two things to know when you read the result:
+
+- **It is the best of what is left, not the answer of a model trained
+  without that gesture.** If you do the gesture that is off, the model still
+  *sees* it; the panel then shows `?` (nothing left to choose from) or adds
+  `only N % of the model's own probability was on gestures that are on`.
+- MODEL STATS and NN STATS still describe the models as they were trained, on
+  all their gestures.
+
+At least two gestures must stay on for each model (the dialog says which model
+would be left short), and switching REST off warns once, because REST is the
+only "no gesture" answer. While a recording session runs, what is *recorded* is
+locked, but the classifier switches still work.
+
+### Adding a new gesture
 
 1. Under **ADD YOUR OWN**, type a **Name** (`WRIST_FLEX` — it becomes a
    folder name) and an **Instruction** ("bend the wrist down, fingers
-   relaxed"). Press **ADD GESTURE**, then **USE THESE**.
+   relaxed"). Press **ADD GESTURE**, then **APPLY**.
 2. From then on it is **everywhere**: every gesture dropdown, START
    SESSION's plan, the calibration sweep, the session banner and TEST MODEL
    (with your instruction under the name), the recordings counts, and its own
    colour in the graph, the bars and the feature space. It is saved in
    `datasets/gestures.json`, so it is still there after a restart.
-3. **Nothing retrains.** Each row in the dialog says whether the models know
-   the gesture. Once you have recorded it, the LIVE CLASSIFIER panel says
-   `NOT IN THE MODEL YET: WRIST_FLEX (… rec) — RETRAIN when you choose`. The
-   models learn it only when you press **RETRAIN ML + NEURAL NET**.
+3. **A new gesture has no classifier switch** (`n/a`): no model has been
+   trained on it, so there is no output to switch. Record it, then
+   **RETRAIN ML + NEURAL NET**. Once it is recorded, the editor says what a
+   retrain would pick up, the LIVE CLASSIFIER panel says
+   `NOT IN THE MODEL YET: WRIST_FLEX (… rec)`, and **APPLY + RETRAIN** appears
+   in the dialog as a shortcut (it still asks for confirmation first).
 
 **Before you retrain, record it on at least two people** — and calibrate
 them again, since the sweep now includes it. With only one person, the
 trainer cannot hold a person out for that gesture, so it switches to the
-within-person protocol and its score looks much better than it is. The dialog
+within-person protocol and its score looks much better than it is. The editor
 warns about exactly this.
 
-Unchecking a gesture only stops it being cued. Its recordings stay on disk,
+Unticking RECORD only stops a gesture being cued. Its recordings stay on disk,
 and the models keep using them.
-
----
 
 ## Keyboard shortcuts
 
@@ -386,6 +421,8 @@ and the models keep using them.
 | `Ctrl+B` | add a break marker |
 | `Ctrl+Shift+Space` | CUT SINCE LAST MARKER |
 | `Ctrl+Shift+M` | MODEL SPEC editor |
+| `Ctrl+,` | SETTINGS (the gear icon): gestures, and switching them on/off in the classifiers |
+| `Ctrl+Shift+G` | GESTURES… (the same editor, from the plan panel) |
 | `Ctrl+Return` | ACCEPT & NEXT (review step) |
 | `Ctrl+R` | REDO this repetition (review step) |
 

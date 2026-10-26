@@ -16,6 +16,7 @@ from typing import List, TYPE_CHECKING
 import numpy as np
 
 from emg_app import config as cfg
+from emg_app.class_mask import NO_ANSWER, describe_off, kept_note, off_key
 from emg_app.dataset import dataset_summary
 from emg_app.gui.dialogs.neural_setup import NeuralSetupDialog
 from emg_app.gui.dialogs.neural_stats import NeuralStatsDialog
@@ -164,14 +165,19 @@ class NeuralMixin:
         #  label set, and borrowing the other one's list would silently
         #  mislabel every bar.
         labels = list(engine.labels) if (engine and engine.ready) else []
+        gone = off_key(labels)
         for row, name in enumerate(labels):
-            caption = make_label(name, 9, True, cfg.label_color(name))
+            #  Switched off in the settings: dimmed, and it says so.
+            off = name in gone
+            caption = make_label(name + ("  (off)" if off else ""), 9, True,
+                                 COL_TEXT_DIM if off else cfg.label_color(name))
             bar = QtWidgets.QProgressBar()
             bar.setRange(0, 1000)
             bar.setValue(0)
             bar.setTextVisible(False)
             bar.setFixedHeight(10)
-            value = make_label("0 %", 9, False, COL_TEXT_DIM)
+            bar.setEnabled(not off)
+            value = make_label("off" if off else "0 %", 9, False, COL_TEXT_DIM)
             value.setFixedWidth(38)
             value.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
             grid.addWidget(caption, row, 0)
@@ -221,6 +227,13 @@ class NeuralMixin:
         state_colour = {"ready": COL_GOOD, "error": COL_BAD,
                         "starting": COL_WARN}.get(engine.state, COL_TEXT_DIM)
         text = engine.describe() if engine.ready else engine.status
+        #  Which gestures the net may answer with: the worker's labels when it
+        #  runs, the sidecar's when it does not -- the mask applies either way.
+        net_labels = engine.labels or (
+            (load_nn_stats(engine.model_path) or {}).get("labels") or [])
+        mask = describe_off(net_labels)
+        if mask:
+            text += "\n" + mask
 
         #  Whether the net is CURRENT is asked of the checkpoint on disk, not
         #  of the running worker, so it is answered whether or not the net is
@@ -389,6 +402,21 @@ class NeuralMixin:
         over one corner is exactly the blurring section 8L exists to prevent),
         and never touches `self.prob_bars`.
         """
+        if not getattr(prediction, "answered", True):
+            #  The mask left nothing to answer with: say so, never guess.
+            self.nn_label.setText(NO_ANSWER)
+            self.nn_label.setStyleSheet(
+                f"color: {COL_WARN}; background: transparent;")
+            self.nn_conf.setText(
+                "no answer: the net only sees switched-off gestures")
+            self.nn_conf.setStyleSheet(
+                f"color: {COL_WARN}; background: transparent;")
+            self.nn_agreement.setText("")
+            for name, (bar, value) in self.nn_prob_bars.items():
+                bar.setValue(0)
+                value.setText("off" if name in prediction.off else "--")
+            self._refresh_nn_perf()
+            return
         certain = prediction.certain
         colour = COL_GOOD if certain else COL_WARN
         self.nn_label.setText(prediction.label if certain
@@ -399,10 +427,15 @@ class NeuralMixin:
             f"{prediction.percent}"
             + ("" if certain else "   (below the confidence threshold)")
             + (f"   ·  {prediction.smoothed_over} window vote"
-               if prediction.smoothed_over > 1 else ""))
+               if prediction.smoothed_over > 1 else "")
+            + kept_note(prediction))
         self.nn_conf.setStyleSheet(f"color: {colour}; background: transparent;")
 
         for name, (bar, value) in self.nn_prob_bars.items():
+            if name in getattr(prediction, "off", ()):
+                bar.setValue(0)
+                value.setText("off")
+                continue
             if name in prediction.labels:
                 p = prediction.probabilities[prediction.labels.index(name)]
             else:
