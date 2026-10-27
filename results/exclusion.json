@@ -1,0 +1,817 @@
+{
+ "person": "Barbora",
+ "rotation": {
+  "ml": {
+   "model": "vote(ET+RF)",
+   "baseline": {
+    "Barbora": 0.45918367346938777,
+    "Betka": 0.8270833333333334,
+    "Bruno": 0.7985927880386982,
+    "Dano": 0.8886430678466076,
+    "Miso": 0.8771929824561403
+   },
+   "rotate": {
+    "Barbora": 0.41609977324263037,
+    "Betka": 0.8229166666666666,
+    "Bruno": 0.7590149516270888,
+    "Dano": 0.8783185840707964,
+    "Miso": 0.6423001949317738
+   },
+   "baseline_shift": {
+    "Barbora": 0.32596371882086167,
+    "Betka": 0.5744791666666667,
+    "Bruno": 0.5241864555848724,
+    "Dano": 0.37979351032448383,
+    "Miso": 0.3835282651072125
+   },
+   "rotate_shift": {
+    "Barbora": 0.3707482993197279,
+    "Betka": 0.7703124999999998,
+    "Bruno": 0.7405452946350044,
+    "Dano": 0.6386430678466076,
+    "Miso": 0.5341130604288499
+   },
+   "person_seeds_baseline": [
+    0.45918367346938777,
+    0.45918367346938777,
+    0.45918367346938777
+   ],
+   "person_seeds_rotate": [
+    0.41156462585034015,
+    0.40816326530612246,
+    0.42857142857142855
+   ]
+  },
+  "nn": {
+   "model": "gru",
+   "baseline": {
+    "Barbora": 0.3673469387755102,
+    "Betka": 0.8604651162790696,
+    "Bruno": 0.6921373200442967,
+    "Dano": 0.7466294746629475,
+    "Miso": 0.7208029197080292
+   },
+   "rotate": {
+    "Barbora": 0.5612244897959183,
+    "Betka": 0.7338501291989664,
+    "Bruno": 0.6517165005537099,
+    "Dano": 0.7647605764760578,
+    "Miso": 0.4671532846715329
+   },
+   "baseline_shift": {
+    "Barbora": 0.37278911564625844,
+    "Betka": 0.4928940568475452,
+    "Bruno": 0.5188261351052049,
+    "Dano": 0.42305904230590424,
+    "Miso": 0.4717153284671533
+   },
+   "rotate_shift": {
+    "Barbora": 0.39183673469387753,
+    "Betka": 0.7167312661498708,
+    "Bruno": 0.6666666666666666,
+    "Dano": 0.7545327754532775,
+    "Miso": 0.5812043795620437
+   },
+   "person_seeds_baseline": [
+    0.48775510204081635,
+    0.2979591836734694,
+    0.3163265306122449
+   ],
+   "person_seeds_rotate": [
+    0.42244897959183675,
+    0.6163265306122448,
+    0.6448979591836734
+   ]
+  }
+ },
+ "pairs": [
+  {
+   "headline_with": 0.7943233197547818,
+   "headline_without": 0.8636253954054166,
+   "id": "ml-et-500-leaf3-without-barbora",
+   "base_id": "ml-et-500-leaf3",
+   "family": "ml",
+   "name": "ET-500-leaf3",
+   "with": {
+    "Betka": 0.821875,
+    "Bruno": 0.7379067722075637,
+    "Dano": 0.9469026548672567,
+    "Miso": 0.8606237816764133
+   },
+   "without": {
+    "Betka": 0.8177083333333334,
+    "Bruno": 0.7906772207563764,
+    "Dano": 0.9572271386430679,
+    "Miso": 0.888888888888889
+   },
+   "held_out": 0.6043083900226757,
+   "mean_with": 0.8636253954054166,
+   "size_bytes": 8402669,
+   "seeds": 3,
+   "delta": {
+    "Betka": -0.004166666666666652,
+    "Bruno": 0.05277044854881263,
+    "Dano": 0.010324483775811188,
+    "Miso": 0.02826510721247566
+   },
+   "mean_delta": 0.021798343217608207
+  },
+  {
+   "headline_with": 0.8077851307430373,
+   "headline_without": 0.8619501009427476,
+   "id": "ml-rf-500-leaf3-without-barbora",
+   "base_id": "ml-rf-500-leaf3",
+   "family": "ml",
+   "name": "RF-500-leaf3",
+   "with": {
+    "Betka": 0.821875,
+    "Bruno": 0.7176781002638523,
+    "Dano": 0.9358407079646018,
+    "Miso": 0.9580896686159844
+   },
+   "without": {
+    "Betka": 0.7895833333333334,
+    "Bruno": 0.8091468777484608,
+    "Dano": 0.9328908554572272,
+    "Miso": 0.9161793372319688
+   },
+   "held_out": 0.6054421768707483,
+   "mean_with": 0.8619501009427476,
+   "size_bytes": 3401421,
+   "seeds": 3,
+   "delta": {
+    "Betka": -0.03229166666666661,
+    "Bruno": 0.09146877748460858,
+    "Dano": -0.002949852507374673,
+    "Miso": -0.041910331384015675
+   },
+   "mean_delta": 0.003579231731637905
+  },
+  {
+   "headline_with": 0.8049202797197754,
+   "headline_without": 0.8626391150327549,
+   "id": "ml-rf-500-without-barbora",
+   "base_id": "ml-rf-500",
+   "family": "ml",
+   "name": "RF-500",
+   "with": {
+    "Betka": 0.8354166666666666,
+    "Bruno": 0.7132805628847846,
+    "Dano": 0.937315634218289,
+    "Miso": 0.9580896686159844
+   },
+   "without": {
+    "Betka": 0.7895833333333333,
+    "Bruno": 0.8082673702726474,
+    "Dano": 0.9306784660766961,
+    "Miso": 0.9220272904483431
+   },
+   "held_out": 0.5804988662131519,
+   "mean_with": 0.8626391150327549,
+   "size_bytes": 3981127,
+   "seeds": 3,
+   "delta": {
+    "Betka": -0.04583333333333328,
+    "Bruno": 0.0949868073878628,
+    "Dano": -0.006637168141592875,
+    "Miso": -0.03606237816764135
+   },
+   "mean_delta": 0.001613481936323824
+  },
+  {
+   "headline_with": 0.6603635719392531,
+   "headline_without": 0.74072216377291,
+   "id": "nn-chan-transformer-without-barbora",
+   "base_id": "nn-chan-transformer",
+   "family": "nn",
+   "name": "NN-chan_transformer",
+   "with": {
+    "Betka": 0.7577519379844961,
+    "Bruno": 0.7275747508305648,
+    "Dano": 0.7740585774058577,
+    "Miso": 0.6587591240875912
+   },
+   "without": {
+    "Betka": 0.7170542635658914,
+    "Bruno": 0.7749169435215947,
+    "Dano": 0.7866108786610879,
+    "Miso": 0.6843065693430657
+   },
+   "held_out": 0.3836734693877551,
+   "mean_with": 0.74072216377291,
+   "size_bytes": 94342,
+   "seeds": 2,
+   "delta": {
+    "Betka": -0.04069767441860472,
+    "Bruno": 0.047342192691029905,
+    "Dano": 0.012552301255230214,
+    "Miso": 0.025547445255474477
+   },
+   "mean_delta": 0.011186066195782468
+  },
+  {
+   "headline_with": 0.6773043186189542,
+   "headline_without": 0.7539779262330559,
+   "id": "nn-gru-without-barbora",
+   "base_id": "nn-gru",
+   "family": "nn",
+   "name": "NN-gru",
+   "with": {
+    "Betka": 0.8372093023255813,
+    "Bruno": 0.6935215946843853,
+    "Dano": 0.7622036262203626,
+    "Miso": 0.7007299270072993
+   },
+   "without": {
+    "Betka": 0.9060077519379846,
+    "Bruno": 0.7051495016611296,
+    "Dano": 0.7615062761506276,
+    "Miso": 0.6432481751824817
+   },
+   "held_out": 0.3928571428571429,
+   "mean_with": 0.7539779262330559,
+   "size_bytes": 24077,
+   "seeds": 2,
+   "delta": {
+    "Betka": 0.06879844961240322,
+    "Bruno": 0.011627906976744207,
+    "Dano": -0.0006973500697350365,
+    "Miso": -0.05748175182481763
+   },
+   "mean_delta": 0.005561813673648691
+  },
+  {
+   "headline_with": 0.6632346080939668,
+   "headline_without": 0.7364824702034493,
+   "id": "nn-tsmixer-without-barbora",
+   "base_id": "nn-tsmixer",
+   "family": "nn",
+   "name": "NN-tsmixer",
+   "with": {
+    "Betka": 0.7984496124031009,
+    "Bruno": 0.7906976744186047,
+    "Dano": 0.701534170153417,
+    "Miso": 0.6122262773722628
+   },
+   "without": {
+    "Betka": 0.7722868217054264,
+    "Bruno": 0.7940199335548173,
+    "Dano": 0.6861924686192469,
+    "Miso": 0.6934306569343065
+   },
+   "held_out": 0.413265306122449,
+   "mean_with": 0.7364824702034493,
+   "size_bytes": 46939,
+   "seeds": 2,
+   "delta": {
+    "Betka": -0.026162790697674465,
+    "Bruno": 0.0033222591362125353,
+    "Dano": -0.015341701534170138,
+    "Miso": 0.08120437956204374
+   },
+   "mean_delta": 0.010755536616602918
+  }
+ ],
+ "adapt_barbora": {
+  "vote(ET+RF) without adaptation": 0.45918367346938777,
+  "vote(ET+RF) with adaptation": 0.6054421768707483,
+  "ET-500 without adaptation": 0.42290249433106575,
+  "ET-500 with adaptation": 0.6009070294784581,
+  "RF-500-leaf3 without adaptation": 0.4557823129251701,
+  "RF-500-leaf3 with adaptation": 0.6054421768707483
+ },
+ "switches": {
+  "ml": {
+   "kind": "vote(ET+RF)",
+   "kept": [
+    "Betka",
+    "Bruno",
+    "Dano",
+    "Miso"
+   ],
+   "seeds_with": 3,
+   "seeds_without": 3,
+   "switches": {
+    "aug:gain": {
+     "label": "gain",
+     "with_acc": -0.0646685430875368,
+     "with_shift": -0.029581227460146034,
+     "with_per_person": {
+      "Betka": -0.014583333333333393,
+      "Bruno": -0.07211961301671033,
+      "Dano": -0.10471976401179939,
+      "Miso": -0.06725146198830412
+     },
+     "without_acc": -0.031913662586000924,
+     "without_shift": -0.0313265771470078,
+     "without_per_person": {
+      "Betka": -0.011458333333333348,
+      "Bruno": -0.05364995602462619,
+      "Dano": -0.10250737463126836,
+      "Miso": 0.0399610136452242
+     },
+     "verdict": {
+      "with": {
+       "verdict": "hurts",
+       "delta_acc": -0.04651941496889567,
+       "people_better": 1,
+       "n_people": 5,
+       "worthy": false
+      },
+      "without": {
+       "verdict": "hurts",
+       "delta_acc": -0.031913662586000924,
+       "people_better": 1,
+       "n_people": 4,
+       "worthy": false
+      }
+     }
+    },
+    "aug:noise": {
+     "label": "noise",
+     "with_acc": 0.00026677960318935434,
+     "with_shift": -0.012770336650341371,
+     "with_per_person": {
+      "Betka": -0.00520833333333337,
+      "Bruno": -0.0017590149516270026,
+      "Dano": -0.0007374631268436405,
+      "Miso": 0.00877192982456143
+     },
+     "without_acc": 0.006792700331461871,
+     "without_shift": -0.002226840900253005,
+     "without_per_person": {
+      "Betka": -0.008333333333333193,
+      "Bruno": 0.006156552330694787,
+      "Dano": -0.015486725663716783,
+      "Miso": 0.04483430799220267
+     },
+     "verdict": {
+      "with": {
+       "verdict": "no evidence",
+       "delta_acc": 0.0004401810521659888,
+       "people_better": 2,
+       "n_people": 5,
+       "worthy": false
+      },
+      "without": {
+       "verdict": "no evidence",
+       "delta_acc": 0.006792700331461871,
+       "people_better": 2,
+       "n_people": 4,
+       "worthy": false
+      }
+     }
+    },
+    "aug:timewarp": {
+     "label": "time warp",
+     "with_acc": -0.0012138366244654752,
+     "with_shift": -0.008325292506472765,
+     "with_per_person": {
+      "Betka": 0.006249999999999978,
+      "Bruno": 0.0008795074758136678,
+      "Dano": -0.005162241887905594,
+      "Miso": -0.006822612085769952
+     },
+     "without_acc": -0.0025330689639138926,
+     "without_shift": -0.006384214638552613,
+     "without_per_person": {
+      "Betka": 0.002083333333333437,
+      "Bruno": 0.0070360598065083435,
+      "Dano": -0.02802359882005878,
+      "Miso": 0.00877192982456143
+     },
+     "verdict": {
+      "with": {
+       "verdict": "no evidence",
+       "delta_acc": -0.0007443119299578749,
+       "people_better": 3,
+       "n_people": 5,
+       "worthy": false
+      },
+      "without": {
+       "verdict": "no evidence",
+       "delta_acc": -0.0025330689639138926,
+       "people_better": 3,
+       "n_people": 4,
+       "worthy": false
+      }
+     }
+    },
+    "aug:rotate": {
+     "label": "band rotation",
+     "with_acc": -0.07224044359461346,
+     "with_shift": 0.2054066313068066,
+     "with_per_person": {
+      "Betka": -0.004166666666666763,
+      "Bruno": -0.03957783641160939,
+      "Dano": -0.010324483775811188,
+      "Miso": -0.2348927875243665
+     },
+     "without_acc": -0.06069945548898137,
+     "without_shift": 0.22111164614567907,
+     "without_per_person": {
+      "Betka": 0.044791666666666785,
+      "Bruno": -0.02638522427440637,
+      "Dano": -0.02728613569321514,
+      "Miso": -0.23391812865497075
+     },
+     "verdict": {
+      "with": {
+       "verdict": "hurts",
+       "delta_acc": -0.06640913492104225,
+       "people_better": 0,
+       "n_people": 5,
+       "worthy": false
+      },
+      "without": {
+       "verdict": "hurts",
+       "delta_acc": -0.06069945548898137,
+       "people_better": 1,
+       "n_people": 4,
+       "worthy": false
+      }
+     }
+    },
+    "aug:chandrop": {
+     "label": "dead electrode",
+     "with_acc": -0.029441352699782486,
+     "with_shift": -0.023031224220111335,
+     "with_per_person": {
+      "Betka": -0.019791666666666763,
+      "Bruno": 0.010554089709762682,
+      "Dano": -0.011061946902654829,
+      "Miso": -0.09746588693957103
+     },
+     "without_acc": -0.02217859885140816,
+     "without_shift": -0.01098043847806407,
+     "without_per_person": {
+      "Betka": -0.0031249999999998224,
+      "Bruno": 0.0017590149516270026,
+      "Dano": -0.01327433628318575,
+      "Miso": -0.07407407407407407
+     },
+     "verdict": {
+      "with": {
+       "verdict": "hurts",
+       "delta_acc": -0.04169367172898699,
+       "people_better": 1,
+       "n_people": 5,
+       "worthy": false
+      },
+      "without": {
+       "verdict": "hurts",
+       "delta_acc": -0.02217859885140816,
+       "people_better": 1,
+       "n_people": 4,
+       "worthy": false
+      }
+     }
+    },
+    "adapt": {
+     "label": "adaptation",
+     "with_acc": 0.01724011006121412,
+     "with_shift": 0.0061602328580303845,
+     "with_per_person": {
+      "Betka": -0.006250000000000089,
+      "Bruno": -0.062445030782761535,
+      "Dano": 0.053834808259586975,
+      "Miso": 0.08382066276803113
+     },
+     "without_acc": 0.04199076852689351,
+     "without_shift": 0.03205567462921226,
+     "without_per_person": {
+      "Betka": -0.009374999999999911,
+      "Bruno": -0.006156552330694787,
+      "Dano": 0.029498525073746396,
+      "Miso": 0.15399610136452235
+     },
+     "verdict": {
+      "with": {
+       "verdict": "helps robustness",
+       "delta_acc": 0.0430437887292434,
+       "people_better": 3,
+       "n_people": 5,
+       "worthy": true
+      },
+      "without": {
+       "verdict": "no evidence",
+       "delta_acc": 0.04199076852689351,
+       "people_better": 2,
+       "n_people": 4,
+       "worthy": false
+      }
+     }
+    }
+   },
+   "baseline_with": {
+    "Betka": 0.8270833333333334,
+    "Bruno": 0.7985927880386982,
+    "Dano": 0.8886430678466076,
+    "Miso": 0.8771929824561403
+   },
+   "baseline_without": {
+    "Betka": 0.81875,
+    "Bruno": 0.8135444151275286,
+    "Dano": 0.9144542772861356,
+    "Miso": 0.7602339181286549
+   },
+   "baseline_with_all": {
+    "Barbora": 0.45918367346938777,
+    "Betka": 0.8270833333333334,
+    "Bruno": 0.7985927880386982,
+    "Dano": 0.8886430678466076,
+    "Miso": 0.8771929824561403
+   },
+   "baseline_shift_with": {
+    "Betka": 0.5744791666666667,
+    "Bruno": 0.5241864555848724,
+    "Dano": 0.37979351032448383,
+    "Miso": 0.3835282651072125
+   },
+   "baseline_shift_without": {
+    "Betka": 0.5260416666666666,
+    "Bruno": 0.5466138962181178,
+    "Dano": 0.3783185840707965,
+    "Miso": 0.3182261208576998
+   },
+   "defaults_with": {
+    "augmentation": [],
+    "adaptation": true
+   },
+   "defaults_without": {
+    "augmentation": [],
+    "adaptation": false
+   },
+   "seed_std": {
+    "with": 0.008317125427564815,
+    "without": 0.004282906462375592
+   }
+  },
+  "nn": {
+   "kind": "gru",
+   "kept": [
+    "Betka",
+    "Bruno",
+    "Dano",
+    "Miso"
+   ],
+   "seeds_with": 3,
+   "seeds_without": 3,
+   "switches": {
+    "aug:gain": {
+     "label": "gain",
+     "with_acc": -0.005790155785201756,
+     "with_shift": -0.0005916911284000737,
+     "with_per_person": {
+      "Betka": 0.004521963824289488,
+      "Bruno": -0.01439645625692132,
+      "Dano": 0.021385402138540233,
+      "Miso": -0.034671532846715425
+     },
+     "without_acc": 0.0022402168765426056,
+     "without_shift": -0.014748036423848185,
+     "without_per_person": {
+      "Betka": -0.03811369509043916,
+      "Bruno": -0.019379844961240233,
+      "Dano": 0.04881450488145056,
+      "Miso": 0.017639902676399255
+     },
+     "verdict": {
+      "with": {
+       "verdict": "hurts",
+       "delta_acc": -0.018237566805032145,
+       "people_better": 2,
+       "n_people": 5,
+       "worthy": false
+      },
+      "without": {
+       "verdict": "no evidence",
+       "delta_acc": 0.0022402168765426056,
+       "people_better": 2,
+       "n_people": 4,
+       "worthy": false
+      }
+     }
+    },
+    "aug:noise": {
+     "label": "noise",
+     "with_acc": 0.010499279730178751,
+     "with_shift": 0.01036049573043811,
+     "with_per_person": {
+      "Betka": 0.04198966408268745,
+      "Bruno": -0.006644518272425182,
+      "Dano": 0.006043700604370095,
+      "Miso": 0.000608272506082641
+     },
+     "without_acc": -0.009642244634199187,
+     "without_shift": -0.011729480906409517,
+     "without_per_person": {
+      "Betka": -0.004521963824289377,
+      "Bruno": -0.02657807308970095,
+      "Dano": -0.017201301720130124,
+      "Miso": 0.0097323600973237
+     },
+     "verdict": {
+      "with": {
+       "verdict": "no evidence",
+       "delta_acc": 0.004181736709313067,
+       "people_better": 3,
+       "n_people": 5,
+       "worthy": false
+      },
+      "without": {
+       "verdict": "no evidence",
+       "delta_acc": -0.009642244634199187,
+       "people_better": 1,
+       "n_people": 4,
+       "worthy": false
+      }
+     }
+    },
+    "aug:timewarp": {
+     "label": "time warp",
+     "with_acc": 0.011751684063412066,
+     "with_shift": 0.006032733959846312,
+     "with_per_person": {
+      "Betka": 0.03617571059431546,
+      "Bruno": -0.008859357696566872,
+      "Dano": -0.020455602045560184,
+      "Miso": 0.04014598540145986
+     },
+     "without_acc": -0.004066027198834199,
+     "without_shift": -0.011211822731629142,
+     "without_per_person": {
+      "Betka": -0.01033591731266148,
+      "Bruno": -0.0055370985603543366,
+      "Dano": -0.004649000464900133,
+      "Miso": 0.0042579075425791535
+     },
+     "verdict": {
+      "with": {
+       "verdict": "no evidence",
+       "delta_acc": -0.0042040949261411,
+       "people_better": 2,
+       "n_people": 5,
+       "worthy": false
+      },
+      "without": {
+       "verdict": "no evidence",
+       "delta_acc": -0.004066027198834199,
+       "people_better": 1,
+       "n_people": 4,
+       "worthy": false
+      }
+     }
+    },
+    "aug:rotate": {
+     "label": "band rotation",
+     "with_acc": -0.10063858494851903,
+     "with_shift": 0.20316013127651272,
+     "with_per_person": {
+      "Betka": -0.12661498708010321,
+      "Bruno": -0.040420819490586846,
+      "Dano": 0.018131101813110284,
+      "Miso": -0.25364963503649635
+     },
+     "without_acc": -0.016598407548514715,
+     "without_shift": 0.16768131556995097,
+     "without_per_person": {
+      "Betka": -0.08462532299741599,
+      "Bruno": -0.023809523809523725,
+      "Dano": 0.06880520688052061,
+      "Miso": -0.02676399026763976
+     },
+     "verdict": {
+      "with": {
+       "verdict": "hurts",
+       "delta_acc": -0.0417353577547336,
+       "people_better": 2,
+       "n_people": 5,
+       "worthy": false
+      },
+      "without": {
+       "verdict": "hurts",
+       "delta_acc": -0.016598407548514715,
+       "people_better": 1,
+       "n_people": 4,
+       "worthy": false
+      }
+     }
+    },
+    "aug:chandrop": {
+     "label": "dead electrode",
+     "with_acc": -0.02129095892350988,
+     "with_shift": 0.05584043394676978,
+     "with_per_person": {
+      "Betka": -0.05426356589147274,
+      "Bruno": 0.001107419712070845,
+      "Dano": 0.03672710367271037,
+      "Miso": -0.06873479318734799
+     },
+     "without_acc": 0.027476570613742146,
+     "without_shift": 0.020234296230088683,
+     "without_per_person": {
+      "Betka": -0.040051679586563305,
+      "Bruno": 0.05149501661129574,
+      "Dano": 0.07717340771734071,
+      "Miso": 0.021289537712895434
+     },
+     "verdict": {
+      "with": {
+       "verdict": "hurts",
+       "delta_acc": -0.010502154893909954,
+       "people_better": 3,
+       "n_people": 5,
+       "worthy": false
+      },
+      "without": {
+       "verdict": "no evidence",
+       "delta_acc": 0.027476570613742146,
+       "people_better": 3,
+       "n_people": 4,
+       "worthy": false
+      }
+     }
+    },
+    "adapt": {
+     "label": "adaptation",
+     "with_acc": -0.010137343820861483,
+     "with_shift": 0.017093120253262206,
+     "with_per_person": {
+      "Betka": -0.07364341085271298,
+      "Bruno": 0.006090808416389759,
+      "Dano": 0.020920502092050097,
+      "Miso": 0.006082725060827188
+     },
+     "without_acc": -0.04710043046179502,
+     "without_shift": -0.03180410127026269,
+     "without_per_person": {
+      "Betka": -0.11111111111111094,
+      "Bruno": 0.01605758582502781,
+      "Dano": -0.006973500697350032,
+      "Miso": -0.08637469586374691
+     },
+     "verdict": {
+      "with": {
+       "verdict": "no evidence",
+       "delta_acc": 0.04508740385487545,
+       "people_better": 4,
+       "n_people": 5,
+       "worthy": false
+      },
+      "without": {
+       "verdict": "hurts",
+       "delta_acc": -0.04710043046179502,
+       "people_better": 1,
+       "n_people": 4,
+       "worthy": false
+      }
+     }
+    }
+   },
+   "baseline_with": {
+    "Betka": 0.8604651162790696,
+    "Bruno": 0.6921373200442967,
+    "Dano": 0.7466294746629475,
+    "Miso": 0.7208029197080292
+   },
+   "baseline_without": {
+    "Betka": 0.9089147286821705,
+    "Bruno": 0.7048726467331118,
+    "Dano": 0.7517433751743375,
+    "Miso": 0.6380778588807785
+   },
+   "baseline_with_all": {
+    "Barbora": 0.3673469387755102,
+    "Betka": 0.8604651162790696,
+    "Bruno": 0.6921373200442967,
+    "Dano": 0.7466294746629475,
+    "Miso": 0.7208029197080292
+   },
+   "baseline_shift_with": {
+    "Betka": 0.4928940568475452,
+    "Bruno": 0.5188261351052049,
+    "Dano": 0.42305904230590424,
+    "Miso": 0.4717153284671533
+   },
+   "baseline_shift_without": {
+    "Betka": 0.58656330749354,
+    "Bruno": 0.5146733111849391,
+    "Dano": 0.44746629474662947,
+    "Miso": 0.38108272506082724
+   },
+   "defaults_with": {
+    "augmentation": [],
+    "adaptation": false
+   },
+   "defaults_without": {
+    "augmentation": [],
+    "adaptation": false
+   },
+   "seed_std": {
+    "with": 0.04449220215979617,
+    "without": 0.019788870688279163
+   }
+  }
+ }
+}

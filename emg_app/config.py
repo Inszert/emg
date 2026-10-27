@@ -146,6 +146,14 @@ TRAIN_AUGMENT_ML = []
 TRAIN_ADAPT_NN = False
 TRAIN_ADAPT_ML = True       # measured; tests/test_defaults.py checks it against results/experiments.json
 
+# TRAIN WITHOUT SOME PEOPLE. Person ids whose recordings the trainers started from
+# the GUI (RETRAIN, TRAIN NEURAL NET, the model zoo) leave out. Nothing on disk
+# is touched, and a model already trained keeps what it learned. The zoo saves
+# such models as separate `<id>-without-<name>` entries beside the ordinary
+# ones. Off ([]) = every person is trained on, as before. Why this exists:
+# docs/EXCLUDING_PEOPLE.md (Barbora, the hard fold).
+TRAIN_EXCLUDE_PERSONS = []
+
 # ADAPTATION AT RUN TIME. Only has an effect on a model that was trained with
 # adaptation; with it off such a model uses its stored global statistics.
 ADAPT_LIVE = True

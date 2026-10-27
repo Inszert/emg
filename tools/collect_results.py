@@ -78,7 +78,10 @@ def models_block():
     stars = zoo.compute_stars(entries, ensembles)
     rows = []
     for fam in ("ml", "nn"):
-        ranked = zoo.rank([e for e in entries if e.family == fam])
+        #  Models trained WITHOUT somebody are scored over fewer people: they
+        #  are not ranked with the ordinary ones (see variants_block).
+        ranked = zoo.rank([e for e in entries
+                           if e.family == fam and not e.excluded])
         for place, e in enumerate(ranked, 1):
             sc = e.scores
             rows.append({
@@ -101,6 +104,73 @@ def models_block():
         combos.append(dict(c, family=fam, starred=fam in stars["ensembles"],
                            star_reason=stars["ensembles"].get(fam)))
     return rows, combos
+
+
+def variants_block():
+    """
+    The models trained without somebody, each against the ordinary model it is a
+    variant of ON THE SAME PEOPLE (never its headline score: that one is over
+    fewer, easier people). The blue stars are decided in `zoo.variant_stars`.
+    """
+    entries = zoo.list_entries()
+    blue = zoo.variant_stars(entries)
+    by_id = {e.id: e for e in entries}
+    rows = []
+    for e in entries:
+        if not e.excluded:
+            continue
+        sc = e.scores
+        mine = sc.get("per_person") or {}
+        base = sc.get("base_per_person") or {}
+        base_entry = by_id.get(e.meta.get("variant_of"))
+        rows.append({
+            "id": e.id, "variant_of": e.meta.get("variant_of"),
+            "family": e.family, "name": e.name, "excluded": e.excluded,
+            "per_person": mine, "base_per_person": base,
+            "delta": {p: mine[p] - base[p] for p in mine if p in base},
+            "mean_delta": zoo.variant_gain(e),
+            "excluded_held_out": sc.get("excluded_held_out"),
+            "window_acc": e.window_acc,
+            "base_window_acc": None if base_entry is None
+            else base_entry.window_acc,
+            "size_bytes": e.size_bytes, "seeds": sc.get("seeds"),
+            "blue_star": e.id in blue, "blue_star_reason": blue.get(e.id),
+            "base_starred": bool(base_entry) and e.meta.get("variant_of") in
+            zoo.compute_stars(entries, {})["models"]})
+    return rows
+
+
+def without_blocks():
+    """The training-switch ablation re-run WITHOUT somebody, one block per
+    results/ablation_without_<name>/ folder, judged by the same rule."""
+    out = []
+    root = os.path.join(ROOT, "results")
+    for name in sorted(os.listdir(root)):
+        if not name.startswith("ablation_without_"):
+            continue
+        folder = os.path.join(root, name)
+        nn_runs = read_jsonl(os.path.join(folder, "nn", "runs.jsonl"))
+        ml_runs = read_jsonl(os.path.join(folder, "ml", "runs.jsonl"))
+        abl = []
+        for kind in sorted({r["kind"] for r in nn_runs}):
+            abl += ablation_rows("nn", nn_runs, kind)
+        if ml_runs:
+            abl += ablation_rows("ml", ml_runs, "vote(ET+RF)")
+        if not abl:
+            continue
+        defaults = []
+        for fam in ("nn", "ml"):
+            rows = [r for r in abl if r["family"] == fam]
+            if any(r["config"] == "baseline" for r in rows):
+                defaults += decide(rows, fam)
+        out.append({
+            "excluded": name[len("ablation_without_"):],
+            "people": sorted({f["person"] for r in nn_runs + ml_runs
+                              for f in r["folds"]}),
+            "seeds": {"nn": max([r["seed"] for r in nn_runs], default=-1) + 1,
+                      "ml": max([r["seed"] for r in ml_runs], default=-1) + 1},
+            "ablation": abl, "defaults": defaults})
+    return out
 
 
 # ---- ablation ------------------------------------------------------------------------
@@ -278,13 +348,16 @@ def main(argv):
             "note": "latencies are measured while other jobs ran; see the "
                     "report for the quiet-machine benchmark"},
         "models": models, "ensembles": combos, "ablation": abl,
+        "variants": variants_block(), "without": without_blocks(),
         "voting": voting, "new_models": new_models_block(),
         "defaults": defaults, "tests": tests_block()}
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", encoding="utf-8") as fh:
         json.dump(doc, fh, indent=1, default=str)
     print(f"wrote {os.path.relpath(OUT, ROOT)}: {len(models)} models, "
-          f"{len(abl)} ablation rows, {len(defaults)} default decisions")
+          f"{len(doc['variants'])} trained-without variants, "
+          f"{len(abl)} ablation rows, {len(defaults)} default decisions, "
+          f"{len(doc['without'])} 'without' ablation(s)")
     if "--print" in argv:
         for d in defaults:
             print(f"  {d['family']:<3} {d['setting']:<13} -> {d['value']!s:<28} "

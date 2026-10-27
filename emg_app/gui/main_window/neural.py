@@ -16,6 +16,7 @@ from typing import List, TYPE_CHECKING
 import numpy as np
 
 from emg_app import config as cfg
+from emg_app import settings_store
 from emg_app.class_mask import NO_ANSWER, describe_off, kept_note, off_key
 from emg_app.dataset import dataset_summary
 from emg_app.gui.dialogs.neural_setup import NeuralSetupDialog
@@ -644,6 +645,8 @@ class NeuralMixin:
                 #  with, passed explicitly like every other path and flag.
                 "--augment", ",".join(cfg.TRAIN_AUGMENT_NN) or "none",
                 "--adapt" if cfg.TRAIN_ADAPT_NN else "--no-adapt"]
+        #  Settings -> Training -> "Train without these people".
+        args += settings_store.person_args(root)
         if quick:
             args.append("--quick")
         else:

@@ -1,0 +1,128 @@
+  building windows + features (calibration affine) ...
+  1493 windows x 50 features
+[ml] baseline  seed 0  (0 min 11 s elapsed)
+      held out Betka    ET-500  84.4  RF-500-leaf3  65.0  svm_rbf  93.4  lda  86.6
+      held out Bruno    ET-500  81.5  RF-500-leaf3  81.8  svm_rbf  80.7  lda  83.9
+      held out Dano     ET-500  91.2  RF-500-leaf3  88.9  svm_rbf  69.7  lda  85.8
+      held out Miso     ET-500  78.4  RF-500-leaf3  75.7  svm_rbf  66.4  lda  69.0
+      -> vote(ET+RF) 82.5 %  robust {'noise': 0.8067630577621758, 'shift': 0.4443570437304062, 'gain': 0.796255962743382}
+[ml] baseline  seed 1  (0 min 26 s elapsed)
+      held out Betka    ET-500  84.4  RF-500-leaf3  76.6  svm_rbf  93.4  lda  86.6
+      held out Bruno    ET-500  79.4  RF-500-leaf3  81.8  svm_rbf  81.3  lda  83.9
+      held out Dano     ET-500  92.7  RF-500-leaf3  88.9  svm_rbf  71.9  lda  85.8
+      held out Miso     ET-500  76.0  RF-500-leaf3  75.4  svm_rbf  66.1  lda  69.0
+      -> vote(ET+RF) 83.0 %  robust {'noise': 0.8107249085152123, 'shift': 0.4353863586556487, 'gain': 0.8038928678417806}
+[ml] baseline  seed 2  (0 min 39 s elapsed)
+      held out Betka    ET-500  83.8  RF-500-leaf3  74.7  svm_rbf  93.1  lda  86.6
+      held out Bruno    ET-500  78.6  RF-500-leaf3  81.8  svm_rbf  81.5  lda  83.9
+      held out Dano     ET-500  91.2  RF-500-leaf3  88.5  svm_rbf  69.7  lda  85.8
+      held out Miso     ET-500  74.6  RF-500-leaf3  74.9  svm_rbf  66.1  lda  69.0
+      -> vote(ET+RF) 82.5 %  robust {'noise': 0.8023225162089637, 'shift': 0.44715679847390566, 'gain': 0.7991624757865761}
+[ml] aug:gain  seed 0  (0 min 53 s elapsed)
+      held out Betka    ET-500  85.0  RF-500-leaf3  78.8
+      held out Bruno    ET-500  72.8  RF-500-leaf3  77.8
+      held out Dano     ET-500  84.1  RF-500-leaf3  82.7
+      held out Miso     ET-500  73.1  RF-500-leaf3  82.5
+      -> vote(ET+RF) 79.9 %  robust {'noise': 0.7857796273583766, 'shift': 0.40594799350067734, 'gain': 0.7813687657474305}
+[ml] aug:gain  seed 1  (1 min 21 s elapsed)
+      held out Betka    ET-500  86.2  RF-500-leaf3  76.9
+      held out Bruno    ET-500  74.9  RF-500-leaf3  78.9
+      held out Dano     ET-500  84.1  RF-500-leaf3  77.7
+      held out Miso     ET-500  78.4  RF-500-leaf3  82.7
+      -> vote(ET+RF) 79.1 %  robust {'noise': 0.7760499040483766, 'shift': 0.4078230245120721, 'gain': 0.8035990257561805}
+[ml] aug:gain  seed 2  (1 min 47 s elapsed)
+      held out Betka    ET-500  85.6  RF-500-leaf3  75.9
+      held out Bruno    ET-500  72.8  RF-500-leaf3  77.3
+      held out Dano     ET-500  84.3  RF-500-leaf3  79.0
+      held out Miso     ET-500  81.6  RF-500-leaf3  90.1
+      -> vote(ET+RF) 79.4 %  robust {'noise': 0.7686401568292848, 'shift': 0.4191494514061878, 'gain': 0.8098335459816778}
+[ml] aug:noise  seed 0  (2 min 12 s elapsed)
+      held out Betka    ET-500  83.4  RF-500-leaf3  67.5
+      held out Bruno    ET-500  81.0  RF-500-leaf3  81.8
+      held out Dano     ET-500  90.5  RF-500-leaf3  83.6
+      held out Miso     ET-500  78.9  RF-500-leaf3  86.5
+      -> vote(ET+RF) 83.3 %  robust {'noise': 0.8034407540308711, 'shift': 0.4400063009670725, 'gain': 0.7889108515063732}
+[ml] aug:noise  seed 1  (2 min 33 s elapsed)
+      held out Betka    ET-500  85.9  RF-500-leaf3  72.5
+      held out Bruno    ET-500  79.4  RF-500-leaf3  82.1
+      held out Dano     ET-500  90.0  RF-500-leaf3  83.0
+      held out Miso     ET-500  79.2  RF-500-leaf3  85.4
+      -> vote(ET+RF) 83.3 %  robust {'noise': 0.8096344766170969, 'shift': 0.4392003313544586, 'gain': 0.7922462224814251}
+[ml] aug:noise  seed 2  (2 min 55 s elapsed)
+      held out Betka    ET-500  84.4  RF-500-leaf3  70.3
+      held out Bruno    ET-500  80.5  RF-500-leaf3  82.3
+      held out Dano     ET-500  92.9  RF-500-leaf3  83.6
+      held out Miso     ET-500  78.1  RF-500-leaf3  84.5
+      -> vote(ET+RF) 83.5 %  robust {'noise': 0.8051449570091394, 'shift': 0.4410130458376705, 'gain': 0.8012180760574265}
+[ml] aug:timewarp  seed 0  (3 min 16 s elapsed)
+      held out Betka    ET-500  86.6  RF-500-leaf3  76.2
+      held out Bruno    ET-500  80.5  RF-500-leaf3  82.3
+      held out Dano     ET-500  90.9  RF-500-leaf3  82.5
+      held out Miso     ET-500  78.1  RF-500-leaf3  81.0
+      -> vote(ET+RF) 83.0 %  robust {'noise': 0.8073718313886127, 'shift': 0.4368345019775263, 'gain': 0.7990850906755685}
+[ml] aug:timewarp  seed 1  (3 min 37 s elapsed)
+      held out Betka    ET-500  85.0  RF-500-leaf3  71.2
+      held out Bruno    ET-500  80.5  RF-500-leaf3  82.6
+      held out Dano     ET-500  90.3  RF-500-leaf3  81.6
+      held out Miso     ET-500  77.5  RF-500-leaf3  79.2
+      -> vote(ET+RF) 82.1 %  robust {'noise': 0.796705168609305, 'shift': 0.4387502066679564, 'gain': 0.7979346617031708}
+[ml] aug:timewarp  seed 2  (3 min 59 s elapsed)
+      held out Betka    ET-500  85.9  RF-500-leaf3  65.9
+      held out Bruno    ET-500  80.5  RF-500-leaf3  82.6
+      held out Dano     ET-500  90.5  RF-500-leaf3  83.6
+      held out Miso     ET-500  76.9  RF-500-leaf3  75.1
+      -> vote(ET+RF) 82.1 %  robust {'noise': 0.797482623420529, 'shift': 0.4321628482988201, 'gain': 0.7989034742081463}
+[ml] aug:rotate  seed 0  (4 min 20 s elapsed)
+      held out Betka    ET-500  86.6  RF-500-leaf3  86.2
+      held out Bruno    ET-500  81.0  RF-500-leaf3  78.6
+      held out Dano     ET-500  86.3  RF-500-leaf3  87.4
+      held out Miso     ET-500  56.4  RF-500-leaf3  51.8
+      -> vote(ET+RF) 76.5 %  robust {'noise': 0.7542450306581613, 'shift': 0.6590341686640266, 'gain': 0.7427938470141398}
+[ml] aug:rotate  seed 1  (4 min 42 s elapsed)
+      held out Betka    ET-500  87.5  RF-500-leaf3  86.2
+      held out Bruno    ET-500  78.4  RF-500-leaf3  76.3
+      held out Dano     ET-500  88.1  RF-500-leaf3  88.7
+      held out Miso     ET-500  51.8  RF-500-leaf3  50.6
+      -> vote(ET+RF) 75.9 %  robust {'noise': 0.7377501690382371, 'shift': 0.6686085019508312, 'gain': 0.7241352559536074}
+[ml] aug:rotate  seed 2  (5 min 04 s elapsed)
+      held out Betka    ET-500  86.6  RF-500-leaf3  85.3
+      held out Bruno    ET-500  78.9  RF-500-leaf3  76.8
+      held out Dano     ET-500  86.1  RF-500-leaf3  87.4
+      held out Miso     ET-500  59.6  RF-500-leaf3  54.4
+      -> vote(ET+RF) 77.4 %  robust {'noise': 0.7363582775806703, 'shift': 0.6625924686821398, 'gain': 0.7392789833241437}
+[ml] aug:chandrop  seed 0  (5 min 26 s elapsed)
+      held out Betka    ET-500  85.9  RF-500-leaf3  67.2
+      held out Bruno    ET-500  79.2  RF-500-leaf3  82.6
+      held out Dano     ET-500  90.7  RF-500-leaf3  90.0
+      held out Miso     ET-500  68.7  RF-500-leaf3  65.5
+      -> vote(ET+RF) 80.4 %  robust {'noise': 0.7680955668687512, 'shift': 0.4266910266559142, 'gain': 0.766055273553486}
+[ml] aug:chandrop  seed 1  (5 min 47 s elapsed)
+      held out Betka    ET-500  87.8  RF-500-leaf3  67.8
+      held out Bruno    ET-500  78.9  RF-500-leaf3  81.5
+      held out Dano     ET-500  88.3  RF-500-leaf3  88.9
+      held out Miso     ET-500  68.7  RF-500-leaf3  66.1
+      -> vote(ET+RF) 80.1 %  robust {'noise': 0.770940880572723, 'shift': 0.43425084720954027, 'gain': 0.7725491134722356}
+[ml] aug:chandrop  seed 2  (6 min 08 s elapsed)
+      held out Betka    ET-500  85.6  RF-500-leaf3  68.4
+      held out Bruno    ET-500  80.7  RF-500-leaf3  82.1
+      held out Dano     ET-500  89.6  RF-500-leaf3  89.8
+      held out Miso     ET-500  68.1  RF-500-leaf3  68.7
+      -> vote(ET+RF) 80.8 %  robust {'noise': 0.7874816017193544, 'shift': 0.433017011560314, 'gain': 0.7686834536221275}
+[ml] adapt  seed 0  (6 min 33 s elapsed)
+      held out Betka    ET-500  81.6  RF-500-leaf3  78.8
+      held out Bruno    ET-500  81.0  RF-500-leaf3  80.2
+      held out Dano     ET-500  98.2  RF-500-leaf3  94.7
+      held out Miso     ET-500  91.5  RF-500-leaf3  90.1
+      -> vote(ET+RF) 87.5 %  robust {'noise': 0.8227863902192105, 'shift': 0.49790154767832423, 'gain': 0.7940346368112727}
+[ml] adapt  seed 1  (6 min 49 s elapsed)
+      held out Betka    ET-500  86.6  RF-500-leaf3  79.7
+      held out Bruno    ET-500  82.3  RF-500-leaf3  82.8
+      held out Dano     ET-500  96.7  RF-500-leaf3  96.7
+      held out Miso     ET-500  82.5  RF-500-leaf3  92.4
+      -> vote(ET+RF) 87.8 %  robust {'noise': 0.838990261265677, 'shift': 0.43002266532907385, 'gain': 0.8403563915032765}
+[ml] adapt  seed 2  (7 min 05 s elapsed)
+      held out Betka    ET-500  81.9  RF-500-leaf3  78.4
+      held out Bruno    ET-500  76.3  RF-500-leaf3  79.7
+      held out Dano     ET-500  88.9  RF-500-leaf3  88.5
+      held out Miso     ET-500  93.0  RF-500-leaf3  92.4
+      -> vote(ET+RF) 85.4 %  robust {'noise': 0.844384496335522, 'shift': 0.4951430117401993, 'gain': 0.8009360696140886}

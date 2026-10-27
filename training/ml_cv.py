@@ -26,11 +26,12 @@ import train_nn as NN                                           # noqa: E402
 from zoo_roster import ML_SETUP                                 # noqa: E402
 
 
-def build_windows(root, calib_mode, setup=None):
+def build_windows(root, calib_mode, setup=None, exclude_persons=()):
     """Uncalibrated windows + per-window calibration, deduped (train_model's rules)."""
     setup = setup or ML_SETUP
     recs, dropped = TM.load_recordings(
-        root, persons=None, exclude_codes=NN.EXCLUDE_SETS["no_errors"])
+        root, persons=None, exclude_codes=NN.EXCLUDE_SETS["no_errors"],
+        exclude_persons=exclude_persons)
     people = sorted({r.person_id for r in recs})
     cal, filled, used = T.training_calibrations(root, calib_mode, recs, people)
     win = max(4, int(round(setup["window_s"] * TM.MODEL_FS)))

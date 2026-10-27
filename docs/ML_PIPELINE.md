@@ -476,10 +476,16 @@ after at most a short calibration. The route, in order of value per hour spent:
 2. **Train on `share`-style features** (`feature_set="level"` already includes
    them) or `representation="normalized"`, so absolute amplitude — the most
    subject-specific thing in the signal — carries less weight.
-3. **Augment with `augment_rotate_channels`.** Armband rotation is the single
-   biggest cross-wearer nuisance and this is nearly free. Augment inside the
-   training fold only.
-4. **Then calibrate per user.** The literature's practical answer is a general
+3. **Augment with `augment_rotate_channels`.** Armband rotation is a
+   cross-wearer nuisance and this is nearly free. Augment inside the training
+   fold only. *Measured here (2026-10-27): it does raise accuracy when the band
+   is slid, but costs more on clean data than it gains and did not help the
+   hardest wearer, so it is not a default -- see
+   [EXCLUDING_PEOPLE.md](EXCLUDING_PEOPLE.md).*
+4. **Leave a person out of training** when one wearer's data pulls the others
+   down: Settings -> Training -> *Train without these people*. On this
+   dataset it changed the others by under a point on average (same document).
+5. **Then calibrate per user.** The literature's practical answer is a general
    model plus a small per-user adaptation: pre-training on a pool of source
    subjects cuts the calibration data a new subject needs, meta-learning
    frameworks report ~97 % on a 7-class protocol from 10 % subject-specific
@@ -548,7 +554,7 @@ for i in range(X.shape[0]):
 | `augment_noise` | electrical noise, poorer contact |
 | `augment_channel_dropout` | a lifted electrode |
 | `augment_baseline_shift` | electrode drift between sessions |
-| `augment_rotate_channels` | **the armband worn rotated** — usually the single most valuable one for cross-subject robustness |
+| `augment_rotate_channels` | **the armband worn rotated** — the literature's most valuable one for cross-subject robustness; *measured on this dataset* it lifts band-shifted accuracy by ~20 points but costs 4–7 points on clean data, so it is off by default ([REPORT.md](REPORT.md), [EXCLUDING_PEOPLE.md](EXCLUDING_PEOPLE.md)) |
 
 Two rules:
 

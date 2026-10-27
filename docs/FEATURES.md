@@ -18,6 +18,7 @@ Defaults overview:
 | adaptation (NN) | off | did not pass the rule (+4.5 points, better for 4/5 people, no evidence) -- stays off, selectable in the settings |
 | augmentation (ML) | off | no augmentation passed the rule (>= 1 point and 2x the seed noise, better for >= 4 of 5 people, or the same on robustness) -- stays off, selectable in the settings |
 | adaptation (ML) | on | helps robustness: +4.3 points per window, better for 3/5 people |
+| train without some people | off | measured: the others change by ML +0.9, NN +0.9 points on average, mixed per person (EXCLUDING_PEOPLE.md) |
 | calibration question | on | asked for; turn off in General |
 | retrain question | on | asked for; turn off in General |
 | application icon | on | assets/icons/ |
@@ -63,8 +64,9 @@ recomputed after every training (training rewrites each model's `meta.json`).
 The tooltip on a star gives the rank, the score and the size.
 
 **How to turn it on.** SETTINGS -> Models -> tick "Use the models selected
-below", then tick models (or press *Select starred models* / *Select best
-combination*). Saved in `<DATA_FOLDER>/app_settings.json`.
+below", then tick models, or press a quick selector: *Yellow ★* (the top-3 models),
+*Blue ★* (the models that score higher than their yellow star), *Yellow + blue ★*
+or *Best combination ★* (a quick selector also switches the master box on). Saved in `<DATA_FOLDER>/app_settings.json`.
 
 **How to turn it off.** Untick the same box. The application then loads
 `MODEL_PATH` / `NN_MODEL_PATH` exactly as before (checked bit for bit by
@@ -229,3 +231,39 @@ nothing else changes.
 
 **Where it is in the code.** `emg_app/gui/icon.py` (`apply_app_icon`, called
 from `emg_app/app.py`), `tests/test_icon.py`.
+
+## 10. Train without some people
+
+STATUS: implemented (off by default, measured)
+
+**What it does.** SETTINGS -> Training -> *Train without these people* leaves the
+ticked people's recordings out of the **next** training: RETRAIN and TRAIN NEURAL
+NET pass `--person` for everybody who stays, and the model zoo
+(`train_zoo.py --exclude-person`) saves `<id>-without-<name>` variants beside the
+ordinary models, scored leave-one-person-out on the people left. Each person's box
+shows how well the best ordinary model reads them when they were held out. The
+variants appear in SETTINGS -> Models as `... (without <name>)`, after the ordinary
+models, and are never ranked against them (a score over fewer people is not
+comparable). A **blue star** marks every variant that scores higher than its
+yellow star on the same held-out people (any gain, computed live from the scores,
+so it follows every retraining); the yellow star stays the default.
+
+**How to turn it on.** Tick a person under Training and APPLY, then retrain; or
+select the ready-trained variants under Models (*Blue ★* or *Yellow + blue ★*, APPLY: no
+retraining). The six recommended (starred) models are trained without Barbora and
+ready.
+
+**How to turn it off.** Untick everybody. Nothing on disk is changed by either
+state, a trained model keeps what it learned, and with nobody ticked every trainer
+behaves exactly as before. At least two people must stay in.
+
+**Default and why.** Off. Measured on this dataset (docs/EXCLUDING_PEOPLE.md):
+leaving Barbora out changed the other four people by about +0.9 points (ML and NN),
+mixed per person and inside the noise, and a model that never saw her reads her far
+worse. Use the models trained *with* her when she is the one wearing the band.
+
+**Where it is in the code.** `cfg.TRAIN_EXCLUDE_PERSONS` (saved in
+`app_settings.json`), `settings_store.person_args`, `train_model.load_recordings
+(exclude_persons=)`, `train_zoo.py` (`--exclude-person`, `mark_variant`),
+`zoo.variant_id` / `zoo.variant_stars`, `ModelsTab` / `TrainingTab` in
+`emg_app/gui/dialogs/settings_tabs.py`, `tests/test_app_settings.py`.

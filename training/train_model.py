@@ -624,11 +624,21 @@ def select_recordings(recs, include):
 
 
 def load_recordings(root, persons=None, sessions=None, exclude_codes=(),
-                    include=None):
-    """Load recordings, dropping the ones whose quality codes are excluded."""
+                    include=None, exclude_persons=()):
+    """
+    Load recordings, dropping the ones whose quality codes are excluded.
+
+    `exclude_persons` leaves those people's recordings out entirely (they are
+    not reported in `dropped`: they were never candidates). It is an explicit
+    argument, never read from the configuration, so the research tools that
+    share this loader keep measuring the whole dataset.
+    """
     recs = select_recordings(
         T.load_dataset(root, persons=persons, sessions=sessions,
                        stage="prefer_trimmed", prefer="npz"), include)
+    if exclude_persons:
+        out = set(exclude_persons)
+        recs = [r for r in recs if r.person_id not in out]
     kept, dropped = [], []
     for rec in recs:
         codes = {i.code for i in rec.issues}

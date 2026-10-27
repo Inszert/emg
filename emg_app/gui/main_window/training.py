@@ -16,6 +16,7 @@ from typing import List
 import numpy as np
 
 from emg_app import config as cfg
+from emg_app import settings_store
 from emg_app.dataset import dataset_summary, describe_training_data
 from emg_app.gui.dialogs.model_spec import ModelSpecDialog
 from emg_app.gui.qt import QtWidgets
@@ -464,6 +465,8 @@ class TrainingMixin:
                 # calibrate the way the GUI is set to, not the way its own
                 # module default happens to read.
                 "--calibration", cfg.CALIBRATION_MODE]
+        #  Settings -> Training -> "Train without these people".
+        args += settings_store.person_args(root)
 
         # Write the spec out first so the subprocess reads exactly what the
         # GUI is showing, even if it was never saved from the dialog.
@@ -750,6 +753,12 @@ class TrainingMixin:
                 "--augment-ml", ",".join(cfg.TRAIN_AUGMENT_ML) or "none",
                 "--adapt-nn", "on" if cfg.TRAIN_ADAPT_NN else "off",
                 "--adapt-ml", "on" if cfg.TRAIN_ADAPT_ML else "off"]
+        #  Excluded people give `<id>-without-<name>` variants beside the
+        #  ordinary models, never a replacement of them.
+        kept, excluded = settings_store.training_people()
+        if excluded and len(kept) >= 2:
+            for p in excluded:
+                args += ["--exclude-person", p]
         return args
 
     def retrain_zoo(self, ids) -> None:

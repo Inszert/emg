@@ -499,9 +499,23 @@ each feature does and how to turn it off: [FEATURES.md](FEATURES.md).
 
 * **Models** -- the model zoo with stars, sizes and soft voting. Off by default
   (the original deployed models are used). `python training/train_zoo.py all`
-  builds the zoo.
-* **Training** -- augmentation and adaptation to the person, per family. They
-  affect training only; defaults come from the ablation study.
+  builds the zoo. A yellow **★** is a top-3 model of its family; a **blue ★**
+  marks every model trained *without* somebody that scores higher than its
+  yellow star on the same people (any gain, computed live -- see
+  [EXCLUDING_PEOPLE.md](EXCLUDING_PEOPLE.md)). Rows named `... (without <name>)`
+  are those models; they are listed after the ordinary ones and never ranked
+  against them, because their score covers fewer people. Each list scrolls on
+  its own (8 rows visible), also while *Use the selected models* is off.
+* **Training** -- augmentation and adaptation to the person, per family, each
+  with a measured **Recommended** setting and a *Use recommended* button, and
+  **Train without these people** (one box per person with recordings, showing
+  how well the best model reads them when they were held out). They affect
+  training only; defaults come from the ablation study. Excluding a person makes
+  RETRAIN / TRAIN NEURAL NET pass `--person` for everybody who stays, and the
+  model zoo save `<id>-without-<name>` variants beside the ordinary models.
+  At least two people must stay; with nobody ticked nothing changes. What it did
+  on this dataset (Barbora), with the figures and the with/without comparison of
+  every training switch: [EXCLUDING_PEOPLE.md](EXCLUDING_PEOPLE.md).
 * **General** -- the calibration question before PREDICT / START NN and the
   retrain question at startup.
 
@@ -1229,8 +1243,11 @@ What changed that day, in one place:
   pass (1912 checks).
 
 **Barbora, held out, scores 28–46 % with every model** while the other four
-score 70–92 %. That is the per-channel pattern of a rotated band, and the
-next real steps are more wearers and rotation augmentation, not tuning.
+score 70–92 %. It was suspected to be the per-channel pattern of a rotated
+band; testing that (2026-10-27) did **not** support it -- rotation
+augmentation and a one-pod shift do not explain her
+([EXCLUDING_PEOPLE.md](EXCLUDING_PEOPLE.md)). The next real steps are more
+wearers and a better fit of the band on her arm, not tuning.
 
 ### Earlier: mid re-record, one wearer (2026-10-15)
 

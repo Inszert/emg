@@ -27,6 +27,10 @@ Full list, with how to turn each on and off: [`docs/FEATURES.md`](docs/FEATURES.
   by default, the original models stay the default
 - Augmentation and adaptation to the person (per family), switched on only
   where the ablation study measured a gain ([`docs/REPORT.md`](docs/REPORT.md))
+- **Train without some people** (Settings -> Training), with ready-trained
+  `... (without <name>)` models, blue stars for the ones that score higher than their
+  yellow-star model on the same people, and the measured with/without comparison of every
+  training switch ([`docs/EXCLUDING_PEOPLE.md`](docs/EXCLUDING_PEOPLE.md))
 - Two questions the application asks: calibrate the hand before PREDICT /
   START NN (reuse the last calibration only after a restart), and retrain all /
   only the selected models when something is out of date
@@ -410,10 +414,13 @@ majority class           ~18 %
 ```
 
 - **Read the ± before the mean.** Held out one at a time, four people score
-  70–92 %, while **Barbora scores 28–46 % with every model**. That is the
-  per-channel pattern of a band sitting rotated on the arm — not something
-  tuning fixes. More wearers, and rotation augmentation, are the next real
-  steps.
+  70–92 %, while **Barbora scores 28–46 % with every model**. It was
+  suspected to be a band sitting rotated on the arm; testing that did **not**
+  support it (rotation augmentation and a one-pod shift do not explain her,
+  and leaving her out of training changes the others by under a point on
+  average: [`docs/EXCLUDING_PEOPLE.md`](docs/EXCLUDING_PEOPLE.md)). Not
+  something tuning fixes; more wearers and a better fit of the band on her
+  arm are the next steps.
 - **What the ML model reads.** Its DC-only control equals its full score
   (77.8 % against 77.6 %): it reads each channel's calibrated activation
   level and nothing else. The net's timing is worth +9.2 points to it.

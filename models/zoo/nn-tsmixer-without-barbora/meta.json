@@ -1,0 +1,72 @@
+{
+ "id": "nn-tsmixer-without-barbora",
+ "family": "nn",
+ "name": "NN-tsmixer (without Barbora)",
+ "kind": "tsmixer",
+ "description": "all-MLP TSMixer: time-mixing and feature-mixing blocks, mean ++ max pooling  Trained without Barbora's recordings; scored on the people left.",
+ "file": "model.pt",
+ "sidecar": "model.json",
+ "params": 9066,
+ "size_bytes": 46939,
+ "scores": {
+  "window_acc": 0.7364824702034493,
+  "window_acc_std": 0.047368381227585146,
+  "macro_f1": 0.6979847086577731,
+  "vote_acc": 0.7579588348643227,
+  "per_person": {
+   "Betka": 0.7722868217054264,
+   "Bruno": 0.7940199335548173,
+   "Dano": 0.6861924686192469,
+   "Miso": 0.6934306569343065
+  },
+  "seeds": 2,
+  "seed_std": 0.02606360462586956,
+  "protocol": "leave-one-person-out among the people kept; Barbora excluded from training and from the folds",
+  "n_people": 4,
+  "excluded_persons": [
+   "Barbora"
+  ],
+  "base_per_person": {
+   "Barbora": 0.413265306122449,
+   "Betka": 0.7984496124031009,
+   "Bruno": 0.7906976744186047,
+   "Dano": 0.701534170153417,
+   "Miso": 0.6122262773722628
+  },
+  "excluded_held_out": {
+   "Barbora": 0.413265306122449
+  }
+ },
+ "latency_ms": 1.2636500002827233,
+ "latency_note": "batch of 1 on CUDA, synchronised, machine not idle",
+ "setup": {
+  "window_s": 0.7,
+  "overlap": 0.75
+ },
+ "trained_with": {
+  "augment": [],
+  "adapt": false,
+  "calibration": "affine"
+ },
+ "compat": {
+  "labels": [
+   "FIST",
+   "OPEN",
+   "REST",
+   "THUMB_UP",
+   "WAVE_LEFT",
+   "WAVE_RIGHT"
+  ],
+  "window_s": 0.7,
+  "win_samples": 42,
+  "n_channels": 8,
+  "calibration_mode": "affine"
+ },
+ "n_windows": 2383,
+ "created_iso": "2026-10-27T15:57:18.938",
+ "data_digest": "237a717be2327de9",
+ "excluded_persons": [
+  "Barbora"
+ ],
+ "variant_of": "nn-tsmixer"
+}

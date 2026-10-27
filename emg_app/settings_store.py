@@ -31,6 +31,7 @@ SETTINGS = {
     "TRAIN_AUGMENT_ML": list,
     "TRAIN_ADAPT_NN": bool,
     "TRAIN_ADAPT_ML": bool,
+    "TRAIN_EXCLUDE_PERSONS": list,
     "ADAPT_LIVE": bool,
     "ASK_CALIBRATION_BEFORE_PREDICT": bool,
     "ASK_RETRAIN_ON_NEW_DATA": bool,
@@ -65,6 +66,39 @@ def _clean(name: str, value):
         if bad:
             raise ValueError(f"unknown augmentation {bad}; known: "
                              f"{', '.join(known)}")
+    return out
+
+
+def people_on_disk(root: str = None) -> list:
+    """Person ids that have recordings (one directory walk over file names)."""
+    from emg_app.dataset import dataset_fingerprint
+    root = root or os.path.join(cfg.PROJECT_DIR, cfg.DATA_FOLDER)
+    return sorted(dataset_fingerprint(root).get("subjects") or [])
+
+
+def training_people(root: str = None):
+    """
+    `(kept, excluded)` for the next training: everyone on disk minus
+    `TRAIN_EXCLUDE_PERSONS`. A name that is no longer on disk is ignored.
+    """
+    people = people_on_disk(root)
+    out = set(cfg.TRAIN_EXCLUDE_PERSONS)
+    return [p for p in people if p not in out], [p for p in people if p in out]
+
+
+def person_args(root: str = None) -> list:
+    """
+    `--person X` for every KEPT person, for train_model.py / train_nn.py (their
+    `--person` is an include list), or nothing when nobody is excluded. At
+    least two people must stay (a held-out person needs someone to train on),
+    otherwise the exclusion is ignored rather than producing a one-person set.
+    """
+    kept, excluded = training_people(root)
+    if not excluded or len(kept) < 2:
+        return []
+    out = []
+    for p in kept:
+        out += ["--person", p]
     return out
 
 

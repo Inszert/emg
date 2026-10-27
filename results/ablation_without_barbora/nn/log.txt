@@ -1,0 +1,127 @@
+2026-10-27 16:25  ablation_nn  kind=gru  2383 windows, 4 people, 3 seed(s), 150 epochs, NVIDIA GeForce GTX 1650
+[gru] baseline  seed 0  (0 min 00 s elapsed)
+      held out Betka     92.2 %   noise 92.2  shift 61.3  gain 91.9    32.6 s
+      held out Bruno     68.6 %   noise 71.4  shift 52.7  gain 74.6    22.1 s
+      held out Dano      73.2 %   noise 71.5  shift 44.5  gain 68.9    19.0 s
+      held out Miso      64.2 %   noise 64.8  shift 37.5  gain 63.0    21.4 s
+      -> 74.6 %  robust {'noise': 0.750014431241743, 'shift': 0.4901725188469861, 'gain': 0.745748934984083}
+[gru] baseline  seed 1  (1 min 35 s elapsed)
+      held out Betka     89.0 %   noise 88.2  shift 56.3  gain 77.9    21.4 s
+      held out Bruno     72.4 %   noise 75.7  shift 53.9  gain 79.4    20.4 s
+      held out Dano      79.1 %   noise 77.0  shift 45.0  gain 69.5    19.6 s
+      held out Miso      64.4 %   noise 62.4  shift 39.7  gain 64.1    20.8 s
+      -> 76.2 %  robust {'noise': 0.7583050242553091, 'shift': 0.48717741154314675, 'gain': 0.7270403298394635}
+[gru] baseline  seed 2  (2 min 58 s elapsed)
+      held out Betka     91.5 %   noise 90.9  shift 58.3  gain 90.9    22.2 s
+      held out Bruno     70.4 %   noise 73.1  shift 47.8  gain 73.4    23.5 s
+      held out Dano      73.2 %   noise 72.9  shift 44.8  gain 70.3    23.9 s
+      held out Miso      62.8 %   noise 62.8  shift 37.1  gain 61.7    24.6 s
+      -> 74.5 %  robust {'noise': 0.7492442844672843, 'shift': 0.4699892984743191, 'gain': 0.7407127973114827}
+[gru] aug:gain  seed 0  (4 min 32 s elapsed)
+      held out Betka     91.5 %   noise 89.9  shift 62.5  gain 89.7    27.5 s
+      held out Bruno     69.6 %   noise 71.4  shift 50.6  gain 72.1    22.2 s
+      held out Dano      76.0 %   noise 75.7  shift 46.2  gain 70.6    21.3 s
+      held out Miso      68.8 %   noise 68.1  shift 31.2  gain 70.4    22.1 s
+      -> 76.5 %  robust {'noise': 0.7628724076315129, 'shift': 0.47612587381834615, 'gain': 0.7570787217197972}
+[gru] aug:gain  seed 1  (6 min 05 s elapsed)
+      held out Betka     83.7 %   noise 81.6  shift 53.1  gain 77.3    23.0 s
+      held out Bruno     67.9 %   noise 70.6  shift 51.2  gain 68.8    21.7 s
+      held out Dano      86.8 %   noise 82.8  shift 46.0  gain 74.3    20.5 s
+      held out Miso      66.6 %   noise 66.6  shift 39.6  gain 67.2    22.1 s
+      -> 76.3 %  robust {'noise': 0.7540954540797931, 'shift': 0.4745436890824881, 'gain': 0.7189678690505868}
+[gru] aug:gain  seed 2  (7 min 32 s elapsed)
+      held out Betka     86.0 %   noise 86.0  shift 55.6  gain 81.4    22.7 s
+      held out Bruno     68.1 %   noise 68.6  shift 48.2  gain 68.6    25.5 s
+      held out Dano      77.4 %   noise 74.5  shift 43.2  gain 71.1    24.8 s
+      held out Miso      61.3 %   noise 61.9  shift 33.9  gain 62.0    23.8 s
+      -> 73.2 %  robust {'noise': 0.7274736602675239, 'shift': 0.45242555669207307, 'gain': 0.7079337568335217}
+[gru] aug:noise  seed 0  (9 min 09 s elapsed)
+      held out Betka     89.7 %   noise 88.4  shift 59.0  gain 82.9    22.5 s
+      held out Bruno     68.9 %   noise 71.3  shift 52.3  gain 73.4    21.5 s
+      held out Dano      75.2 %   noise 72.8  shift 44.0  gain 68.8    20.8 s
+      held out Miso      67.2 %   noise 67.0  shift 36.5  gain 69.9    22.2 s
+      -> 75.2 %  robust {'noise': 0.7485217542376483, 'shift': 0.47959087266892003, 'gain': 0.7375422279229609}
+[gru] aug:noise  seed 1  (10 min 36 s elapsed)
+      held out Betka     90.7 %   noise 90.3  shift 54.7  gain 85.1    23.0 s
+      held out Bruno     66.6 %   noise 66.6  shift 48.5  gain 66.1    21.6 s
+      held out Dano      73.9 %   noise 72.9  shift 45.5  gain 69.0    20.6 s
+      held out Miso      63.0 %   noise 61.7  shift 37.7  gain 61.9    22.4 s
+      -> 73.5 %  robust {'noise': 0.7288575565287825, 'shift': 0.4659389687123069, 'gain': 0.7052236174071375}
+[gru] aug:noise  seed 2  (12 min 04 s elapsed)
+      held out Betka     90.9 %   noise 90.9  shift 52.4  gain 89.0    23.3 s
+      held out Bruno     67.9 %   noise 71.4  shift 50.2  gain 70.1    21.6 s
+      held out Dano      71.3 %   noise 69.7  shift 44.6  gain 64.3    21.0 s
+      held out Miso      64.2 %   noise 65.5  shift 39.4  gain 63.7    22.0 s
+      -> 73.6 %  robust {'noise': 0.7439150004384967, 'shift': 0.46662094476399635, 'gain': 0.7175874099065208}
+[gru] aug:timewarp  seed 0  (13 min 32 s elapsed)
+      held out Betka     88.4 %   noise 88.6  shift 60.9  gain 87.0    27.9 s
+      held out Bruno     67.3 %   noise 69.3  shift 47.8  gain 71.9    24.7 s
+      held out Dano      71.7 %   noise 71.7  shift 44.4  gain 67.6    23.6 s
+      held out Miso      66.6 %   noise 66.2  shift 38.5  gain 66.2    25.4 s
+      -> 73.5 %  robust {'noise': 0.7394086438601722, 'shift': 0.47904523454228204, 'gain': 0.7320656171291919}
+[gru] aug:timewarp  seed 1  (15 min 13 s elapsed)
+      held out Betka     89.1 %   noise 88.2  shift 54.2  gain 85.1    27.0 s
+      held out Bruno     71.8 %   noise 73.6  shift 46.2  gain 78.6    24.2 s
+      held out Dano      79.4 %   noise 76.7  shift 44.3  gain 70.6    24.3 s
+      held out Miso      62.4 %   noise 60.4  shift 36.4  gain 62.6    25.7 s
+      -> 75.7 %  robust {'noise': 0.747190754914046, 'shift': 0.4525822689431155, 'gain': 0.7420300397109216}
+[gru] aug:timewarp  seed 2  (16 min 55 s elapsed)
+      held out Betka     92.1 %   noise 92.6  shift 57.7  gain 91.9    27.0 s
+      held out Bruno     70.8 %   noise 73.9  shift 50.2  gain 74.8    24.7 s
+      held out Dano      73.1 %   noise 73.2  shift 45.3  gain 70.2    23.9 s
+      held out Miso      63.7 %   noise 64.2  shift 39.6  gain 63.9    26.2 s
+      -> 74.9 %  robust {'noise': 0.7600281466499277, 'shift': 0.48207625718416686, 'gain': 0.7515833145877273}
+[gru] aug:rotate  seed 0  (18 min 37 s elapsed)
+      held out Betka     80.6 %   noise 79.7  shift 70.0  gain 78.9    27.7 s
+      held out Bruno     68.4 %   noise 67.9  shift 65.9  gain 67.9    27.0 s
+      held out Dano      84.5 %   noise 82.7  shift 74.7  gain 76.6    26.6 s
+      held out Miso      58.0 %   noise 56.0  shift 49.7  gain 57.1    29.7 s
+      -> 72.9 %  robust {'noise': 0.7157974455175916, 'shift': 0.6508013850119504, 'gain': 0.7012549857646697}
+[gru] aug:rotate  seed 1  (20 min 28 s elapsed)
+      held out Betka     81.6 %   noise 82.6  shift 63.2  gain 76.0    29.4 s
+      held out Bruno     67.8 %   noise 68.3  shift 69.6  gain 66.9    25.3 s
+      held out Dano      84.1 %   noise 83.5  shift 74.7  gain 71.0    22.5 s
+      held out Miso      63.3 %   noise 59.3  shift 52.7  gain 65.9    22.8 s
+      -> 74.2 %  robust {'noise': 0.7341991812034317, 'shift': 0.6505076055582235, 'gain': 0.6994466583763231}
+[gru] aug:rotate  seed 2  (22 min 07 s elapsed)
+      held out Betka     85.1 %   noise 82.4  shift 76.6  gain 75.8    24.2 s
+      held out Bruno     68.1 %   noise 66.8  shift 68.5  gain 65.4    22.6 s
+      held out Dano      77.5 %   noise 78.0  shift 66.1  gain 74.3    22.1 s
+      held out Miso      62.0 %   noise 61.5  shift 48.4  gain 58.8    22.8 s
+      -> 73.2 %  robust {'noise': 0.721504594711206, 'shift': 0.6490741850041308, 'gain': 0.6858008507579533}
+[gru] aug:chandrop  seed 0  (23 min 39 s elapsed)
+      held out Betka     87.8 %   noise 89.1  shift 61.6  gain 87.2    24.1 s
+      held out Bruno     78.2 %   noise 78.9  shift 58.3  gain 77.1    22.5 s
+      held out Dano      83.1 %   noise 83.5  shift 50.5  gain 77.3    20.7 s
+      held out Miso      65.9 %   noise 66.6  shift 33.2  gain 65.0    23.7 s
+      -> 78.8 %  robust {'noise': 0.7954982976926688, 'shift': 0.5090834467455176, 'gain': 0.7662890141549702}
+[gru] aug:chandrop  seed 1  (25 min 10 s elapsed)
+      held out Betka     82.0 %   noise 81.4  shift 45.3  gain 75.4    25.7 s
+      held out Bruno     78.1 %   noise 77.6  shift 56.8  gain 73.9    34.3 s
+      held out Dano      84.5 %   noise 84.0  shift 52.9  gain 80.9    28.7 s
+      held out Miso      67.0 %   noise 66.4  shift 37.7  gain 64.8    28.7 s
+      -> 77.9 %  robust {'noise': 0.7733860143202562, 'shift': 0.4819270512081252, 'gain': 0.7374537316675668}
+[gru] aug:chandrop  seed 2  (27 min 08 s elapsed)
+      held out Betka     90.9 %   noise 90.1  shift 64.9  gain 82.2    29.9 s
+      held out Bruno     70.6 %   noise 72.9  shift 61.0  gain 75.2    28.5 s
+      held out Dano      81.0 %   noise 80.1  shift 47.4  gain 79.8    27.1 s
+      held out Miso      65.0 %   noise 64.6  shift 33.6  gain 64.2    27.7 s
+      -> 76.9 %  robust {'noise': 0.769235488152997, 'shift': 0.5170316196010752, 'gain': 0.7535753417272386}
+[gru] adapt  seed 0  (29 min 01 s elapsed)
+      held out Betka     77.9 %   noise 77.3  shift 42.9  gain 75.4    26.3 s
+      held out Bruno     71.9 %   noise 69.3  shift 50.7  gain 60.0    24.9 s
+      held out Dano      79.2 %   noise 76.4  shift 44.9  gain 70.7    23.9 s
+      held out Miso      54.7 %   noise 54.0  shift 28.9  gain 59.5    25.5 s
+      -> 70.9 %  robust {'noise': 0.6925971264212121, 'shift': 0.4185587764288946, 'gain': 0.6638868061847072}
+[gru] adapt  seed 1  (30 min 41 s elapsed)
+      held out Betka     75.6 %   noise 75.4  shift 57.6  gain 75.0    22.0 s
+      held out Bruno     64.3 %   noise 62.3  shift 51.7  gain 58.8    18.7 s
+      held out Dano      74.5 %   noise 73.4  shift 47.8  gain 69.5    18.5 s
+      held out Miso      54.9 %   noise 52.2  shift 30.2  gain 53.6    20.1 s
+      -> 67.3 %  robust {'noise': 0.6580774101530802, 'shift': 0.46835317573056023, 'gain': 0.6422742217326662}
+[gru] adapt  seed 2  (32 min 01 s elapsed)
+      held out Betka     85.9 %   noise 86.6  shift 52.9  gain 81.2    20.9 s
+      held out Bruno     80.1 %   noise 80.6  shift 49.8  gain 81.4    24.6 s
+      held out Dano      69.7 %   noise 69.9  shift 50.4  gain 65.8    21.0 s
+      held out Miso      55.8 %   noise 52.2  shift 32.8  gain 61.7    22.7 s
+      -> 72.9 %  robust {'noise': 0.7231423725981146, 'shift': 0.4650149728942089, 'gain': 0.725263944811448}

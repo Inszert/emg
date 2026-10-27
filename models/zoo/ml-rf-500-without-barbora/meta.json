@@ -1,0 +1,78 @@
+{
+ "id": "ml-rf-500-without-barbora",
+ "family": "ml",
+ "name": "RF-500 (without Barbora)",
+ "kind": "random_forest",
+ "description": "random forest (n_estimators=500)  Trained without Barbora's recordings; scored on the people left.",
+ "file": "model.joblib",
+ "params": null,
+ "size_bytes": 3981127,
+ "scores": {
+  "window_acc": 0.8626391150327549,
+  "window_acc_std": 0.06412827484356093,
+  "macro_f1": 0.8340897153729928,
+  "vote_acc": 0.8836705469327422,
+  "per_person": {
+   "Betka": 0.7895833333333333,
+   "Bruno": 0.8082673702726474,
+   "Dano": 0.9306784660766961,
+   "Miso": 0.9220272904483431
+  },
+  "seeds": 3,
+  "seed_std": 0.012310055274664614,
+  "protocol": "leave-one-person-out among the people kept; Barbora excluded from training and from the folds",
+  "n_people": 4,
+  "excluded_persons": [
+   "Barbora"
+  ],
+  "base_per_person": {
+   "Barbora": 0.5804988662131519,
+   "Betka": 0.8354166666666666,
+   "Bruno": 0.7132805628847846,
+   "Dano": 0.937315634218289,
+   "Miso": 0.9580896686159844
+  },
+  "excluded_held_out": {
+   "Barbora": 0.5804988662131519
+  }
+ },
+ "latency_ms": 26.458700000148383,
+ "latency_note": "predict_proba of one row, 1 thread, machine not idle",
+ "setup": {
+  "window_s": 1.0,
+  "overlap": 0.75,
+  "representation": "bandpass",
+  "freq_features": false,
+  "feature_set": "level"
+ },
+ "trained_with": {
+  "augment": [],
+  "adapt": true,
+  "calibration": "affine"
+ },
+ "compat": {
+  "labels": [
+   "FIST",
+   "OPEN",
+   "REST",
+   "THUMB_UP",
+   "WAVE_LEFT",
+   "WAVE_RIGHT"
+  ],
+  "fs": 60.0,
+  "window_s": 1.0,
+  "window_samples": 60,
+  "representation": "bandpass",
+  "feature_set": "level",
+  "freq_features": false,
+  "calibration_mode": "affine",
+  "adaptation_mode": "person_features"
+ },
+ "n_windows": 1493,
+ "created_iso": "2026-10-27T15:55:09.038",
+ "data_digest": "237a717be2327de9",
+ "excluded_persons": [
+  "Barbora"
+ ],
+ "variant_of": "ml-rf-500"
+}

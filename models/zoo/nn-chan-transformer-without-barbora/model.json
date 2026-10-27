@@ -1,0 +1,187 @@
+{
+  "format": "emg_nn_v1",
+  "kind": "chan_transformer",
+  "architecture": "each electrode's whole window is one token (iTransformer style), 2 pre-norm encoder layers",
+  "labels": [
+    "FIST",
+    "OPEN",
+    "REST",
+    "THUMB_UP",
+    "WAVE_LEFT",
+    "WAVE_RIGHT"
+  ],
+  "n_channels": 8,
+  "win_samples": 42,
+  "window_s": 0.7,
+  "overlap": 0.75,
+  "model_fs": 60.0,
+  "hidden": 32,
+  "dropout": 0.25,
+  "emg_mode": "filtered",
+  "calibration": {
+    "mode": "affine",
+    "requested": "affine",
+    "subjects": [
+      "Betka",
+      "Bruno",
+      "Dano",
+      "Miso"
+    ],
+    "target": 600.0
+  },
+  "adaptation": {
+    "mode": "off"
+  },
+  "augmentation": [],
+  "data": {
+    "root": "C:\\Users\\danie\\OneDrive\\Po\u010d\u00edta\u010d\\EMG\\datasets",
+    "n_recordings": 211,
+    "labels": {
+      "FIST": 29,
+      "OPEN": 35,
+      "REST": 44,
+      "THUMB_UP": 32,
+      "WAVE_LEFT": 36,
+      "WAVE_RIGHT": 35
+    },
+    "subjects": [
+      "Barbora",
+      "Betka",
+      "Bruno",
+      "Dano",
+      "Miso"
+    ],
+    "sessions": [
+      "Barbora/session_01",
+      "Betka/session_01",
+      "Bruno/session_01",
+      "Dano/session_01",
+      "Miso/session_01"
+    ],
+    "newest_stamp": "20261021-221112-488",
+    "newest_unix": 1792613472.488,
+    "uid_digest": "237a717be2327de9"
+  },
+  "stats": {
+    "model_name": "NN-chan_transformer",
+    "trainer": "train_zoo.py",
+    "kind": "chan_transformer",
+    "validation_protocol": "leave-one-person-out among the people kept; Barbora excluded from training and from the folds",
+    "grouping": "subject",
+    "grouping_note": "leave-one-person-out",
+    "grouping_contrast": null,
+    "dc_only_control": null,
+    "majority_class_baseline": 0.18464120856063784,
+    "train_fit_accuracy": 1.0,
+    "subjects": [
+      "Betka",
+      "Bruno",
+      "Dano",
+      "Miso"
+    ],
+    "labels": [
+      "FIST",
+      "OPEN",
+      "REST",
+      "THUMB_UP",
+      "WAVE_LEFT",
+      "WAVE_RIGHT"
+    ],
+    "epochs": 150,
+    "batch_size": 64,
+    "learning_rate": 0.003,
+    "weight_decay": 0.001,
+    "label_smoothing": 0.05,
+    "early_stopping": false,
+    "deduped": true,
+    "augmentation": [],
+    "adaptation": false,
+    "subject_independent": {
+      "per_subject": {
+        "Betka": 0.7170542635658914,
+        "Bruno": 0.7749169435215947,
+        "Dano": 0.7866108786610879,
+        "Miso": 0.6843065693430657
+      },
+      "mean": 0.74072216377291,
+      "std": 0.041886590668230604
+    },
+    "window_accuracy": 0.74072216377291,
+    "window_accuracy_std": 0.041886590668230604,
+    "window_macro_f1": 0.6977700390531796,
+    "recording_vote_accuracy": 0.7645381295533735,
+    "n_recordings_voted": 167,
+    "n_splits": 4,
+    "fold_accuracies": [
+      0.7170542635658914,
+      0.7749169435215947,
+      0.7866108786610879,
+      0.6843065693430657
+    ],
+    "confusion_matrix": [
+      [
+        273,
+        68,
+        4,
+        10,
+        1,
+        0
+      ],
+      [
+        44,
+        217,
+        0,
+        48,
+        3,
+        115
+      ],
+      [
+        1,
+        0,
+        324,
+        104,
+        0,
+        0
+      ],
+      [
+        78,
+        84,
+        5,
+        160,
+        0,
+        0
+      ],
+      [
+        5,
+        0,
+        0,
+        0,
+        433,
+        2
+      ],
+      [
+        4,
+        27,
+        0,
+        0,
+        0,
+        373
+      ]
+    ],
+    "n_windows": 2383,
+    "n_parameters": 20326,
+    "window_s": 0.7,
+    "overlap": 0.75,
+    "win_samples": 42,
+    "architecture_note": "each electrode's whole window is one token (iTransformer style), 2 pre-norm encoder layers",
+    "separation_note": "This net is NOT part of the deployed answer unless it is selected in the settings; it is never blended with the ML models.",
+    "created_iso": "2026-10-27T15:56:36.155"
+  },
+  "device_trained_on": {
+    "device": "cuda",
+    "gpu": "NVIDIA GeForce GTX 1650",
+    "torch": "2.9.1+cu128"
+  },
+  "created": "2026-10-27T15:56:36",
+  "created_iso": "2026-10-27T15:56:36.183"
+}

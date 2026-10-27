@@ -1,0 +1,78 @@
+{
+ "id": "ml-et-500-leaf3-without-barbora",
+ "family": "ml",
+ "name": "ET-500-leaf3 (without Barbora)",
+ "kind": "extra_trees",
+ "description": "extra trees (n_estimators=500, min_samples_leaf=3)  Trained without Barbora's recordings; scored on the people left.",
+ "file": "model.joblib",
+ "params": null,
+ "size_bytes": 8402669,
+ "scores": {
+  "window_acc": 0.8636253954054166,
+  "window_acc_std": 0.0648639792451771,
+  "macro_f1": 0.8330091704129616,
+  "vote_acc": 0.8790784588040687,
+  "per_person": {
+   "Betka": 0.8177083333333334,
+   "Bruno": 0.7906772207563764,
+   "Dano": 0.9572271386430679,
+   "Miso": 0.888888888888889
+  },
+  "seeds": 3,
+  "seed_std": 0.015635277568163762,
+  "protocol": "leave-one-person-out among the people kept; Barbora excluded from training and from the folds",
+  "n_people": 4,
+  "excluded_persons": [
+   "Barbora"
+  ],
+  "base_per_person": {
+   "Barbora": 0.6043083900226757,
+   "Betka": 0.821875,
+   "Bruno": 0.7379067722075637,
+   "Dano": 0.9469026548672567,
+   "Miso": 0.8606237816764133
+  },
+  "excluded_held_out": {
+   "Barbora": 0.6043083900226757
+  }
+ },
+ "latency_ms": 27.65045000023747,
+ "latency_note": "predict_proba of one row, 1 thread, machine not idle",
+ "setup": {
+  "window_s": 1.0,
+  "overlap": 0.75,
+  "representation": "bandpass",
+  "freq_features": false,
+  "feature_set": "level"
+ },
+ "trained_with": {
+  "augment": [],
+  "adapt": true,
+  "calibration": "affine"
+ },
+ "compat": {
+  "labels": [
+   "FIST",
+   "OPEN",
+   "REST",
+   "THUMB_UP",
+   "WAVE_LEFT",
+   "WAVE_RIGHT"
+  ],
+  "fs": 60.0,
+  "window_s": 1.0,
+  "window_samples": 60,
+  "representation": "bandpass",
+  "feature_set": "level",
+  "freq_features": false,
+  "calibration_mode": "affine",
+  "adaptation_mode": "person_features"
+ },
+ "n_windows": 1493,
+ "created_iso": "2026-10-27T15:55:14.006",
+ "data_digest": "237a717be2327de9",
+ "excluded_persons": [
+  "Barbora"
+ ],
+ "variant_of": "ml-et-500-leaf3"
+}

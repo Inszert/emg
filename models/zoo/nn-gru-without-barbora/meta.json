@@ -1,0 +1,72 @@
+{
+ "id": "nn-gru-without-barbora",
+ "family": "nn",
+ "name": "NN-gru (without Barbora)",
+ "kind": "gru",
+ "description": "single-layer GRU + attention pooling over time  Trained without Barbora's recordings; scored on the people left.",
+ "file": "model.pt",
+ "sidecar": "model.json",
+ "params": 4455,
+ "size_bytes": 24077,
+ "scores": {
+  "window_acc": 0.7539779262330559,
+  "window_acc_std": 0.09723044375380947,
+  "macro_f1": 0.7153780046041781,
+  "vote_acc": 0.7623716476612818,
+  "per_person": {
+   "Betka": 0.9060077519379846,
+   "Bruno": 0.7051495016611296,
+   "Dano": 0.7615062761506276,
+   "Miso": 0.6432481751824817
+  },
+  "seeds": 2,
+  "seed_std": 0.011607593922756222,
+  "protocol": "leave-one-person-out among the people kept; Barbora excluded from training and from the folds",
+  "n_people": 4,
+  "excluded_persons": [
+   "Barbora"
+  ],
+  "base_per_person": {
+   "Barbora": 0.3928571428571429,
+   "Betka": 0.8372093023255813,
+   "Bruno": 0.6935215946843853,
+   "Dano": 0.7622036262203626,
+   "Miso": 0.7007299270072993
+  },
+  "excluded_held_out": {
+   "Barbora": 0.3928571428571429
+  }
+ },
+ "latency_ms": 0.5769999997937703,
+ "latency_note": "batch of 1 on CUDA, synchronised, machine not idle",
+ "setup": {
+  "window_s": 0.7,
+  "overlap": 0.75
+ },
+ "trained_with": {
+  "augment": [],
+  "adapt": false,
+  "calibration": "affine"
+ },
+ "compat": {
+  "labels": [
+   "FIST",
+   "OPEN",
+   "REST",
+   "THUMB_UP",
+   "WAVE_LEFT",
+   "WAVE_RIGHT"
+  ],
+  "window_s": 0.7,
+  "win_samples": 42,
+  "n_channels": 8,
+  "calibration_mode": "affine"
+ },
+ "n_windows": 2383,
+ "created_iso": "2026-10-27T15:55:41.718",
+ "data_digest": "237a717be2327de9",
+ "excluded_persons": [
+  "Barbora"
+ ],
+ "variant_of": "nn-gru"
+}

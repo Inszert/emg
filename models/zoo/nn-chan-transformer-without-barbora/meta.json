@@ -1,0 +1,72 @@
+{
+ "id": "nn-chan-transformer-without-barbora",
+ "family": "nn",
+ "name": "NN-chan_transformer (without Barbora)",
+ "kind": "chan_transformer",
+ "description": "each electrode's whole window is one token (iTransformer style), 2 pre-norm encoder layers  Trained without Barbora's recordings; scored on the people left.",
+ "file": "model.pt",
+ "sidecar": "model.json",
+ "params": 20326,
+ "size_bytes": 94342,
+ "scores": {
+  "window_acc": 0.74072216377291,
+  "window_acc_std": 0.041886590668230604,
+  "macro_f1": 0.6977700390531796,
+  "vote_acc": 0.7645381295533735,
+  "per_person": {
+   "Betka": 0.7170542635658914,
+   "Bruno": 0.7749169435215947,
+   "Dano": 0.7866108786610879,
+   "Miso": 0.6843065693430657
+  },
+  "seeds": 2,
+  "seed_std": 0.005250738439050586,
+  "protocol": "leave-one-person-out among the people kept; Barbora excluded from training and from the folds",
+  "n_people": 4,
+  "excluded_persons": [
+   "Barbora"
+  ],
+  "base_per_person": {
+   "Barbora": 0.3836734693877551,
+   "Betka": 0.7577519379844961,
+   "Bruno": 0.7275747508305648,
+   "Dano": 0.7740585774058577,
+   "Miso": 0.6587591240875912
+  },
+  "excluded_held_out": {
+   "Barbora": 0.3836734693877551
+  }
+ },
+ "latency_ms": 1.1967000002641726,
+ "latency_note": "batch of 1 on CUDA, synchronised, machine not idle",
+ "setup": {
+  "window_s": 0.7,
+  "overlap": 0.75
+ },
+ "trained_with": {
+  "augment": [],
+  "adapt": false,
+  "calibration": "affine"
+ },
+ "compat": {
+  "labels": [
+   "FIST",
+   "OPEN",
+   "REST",
+   "THUMB_UP",
+   "WAVE_LEFT",
+   "WAVE_RIGHT"
+  ],
+  "window_s": 0.7,
+  "win_samples": 42,
+  "n_channels": 8,
+  "calibration_mode": "affine"
+ },
+ "n_windows": 2383,
+ "created_iso": "2026-10-27T15:56:36.598",
+ "data_digest": "237a717be2327de9",
+ "excluded_persons": [
+  "Barbora"
+ ],
+ "variant_of": "nn-chan-transformer"
+}

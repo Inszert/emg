@@ -1,0 +1,37 @@
+2026-10-27 15:40:57  [eval 1/15] ml-rf-500-without-barbora  seed 0  (0 min 00 s elapsed)
+2026-10-27 15:41:06        ml-rf-500-without-barbora: 86.4 % per window, F1 84.0 %, vote 89.8 %
+2026-10-27 15:41:06  [eval 2/15] ml-rf-500-without-barbora  seed 1  (0 min 09 s elapsed)
+2026-10-27 15:41:11        ml-rf-500-without-barbora: 87.4 % per window, F1 85.7 %, vote 90.9 %
+2026-10-27 15:41:11  [eval 3/15] ml-rf-500-without-barbora  seed 2  (0 min 13 s elapsed)
+2026-10-27 15:41:15        ml-rf-500-without-barbora: 85.0 % per window, F1 80.5 %, vote 84.4 %
+2026-10-27 15:41:15  [eval 4/15] ml-rf-500-leaf3-without-barbora  seed 0  (0 min 18 s elapsed)
+2026-10-27 15:41:19        ml-rf-500-leaf3-without-barbora: 85.9 % per window, F1 83.4 %, vote 89.2 %
+2026-10-27 15:41:19  [eval 5/15] ml-rf-500-leaf3-without-barbora  seed 1  (0 min 22 s elapsed)
+2026-10-27 15:41:24        ml-rf-500-leaf3-without-barbora: 87.9 % per window, F1 86.4 %, vote 90.9 %
+2026-10-27 15:41:24  [eval 6/15] ml-rf-500-leaf3-without-barbora  seed 2  (0 min 26 s elapsed)
+2026-10-27 15:41:28        ml-rf-500-leaf3-without-barbora: 84.8 % per window, F1 80.7 %, vote 85.0 %
+2026-10-27 15:41:28  [eval 7/15] ml-et-500-leaf3-without-barbora  seed 0  (0 min 31 s elapsed)
+2026-10-27 15:41:31        ml-et-500-leaf3-without-barbora: 87.8 % per window, F1 85.1 %, vote 90.3 %
+2026-10-27 15:41:31  [eval 8/15] ml-et-500-leaf3-without-barbora  seed 1  (0 min 33 s elapsed)
+2026-10-27 15:41:33        ml-et-500-leaf3-without-barbora: 86.6 % per window, F1 84.9 %, vote 87.2 %
+2026-10-27 15:41:33  [eval 9/15] ml-et-500-leaf3-without-barbora  seed 2  (0 min 36 s elapsed)
+2026-10-27 15:41:37        ml-et-500-leaf3-without-barbora: 84.7 % per window, F1 79.9 %, vote 86.2 %
+2026-10-27 15:41:37  [eval 10/15] nn-gru-without-barbora  seed 0  (0 min 39 s elapsed)
+2026-10-27 15:43:37        nn-gru-without-barbora: 74.6 % per window, F1 70.4 %, vote 74.8 %
+2026-10-27 15:43:37  [eval 11/15] nn-gru-without-barbora  seed 1  (2 min 40 s elapsed)
+2026-10-27 15:45:06        nn-gru-without-barbora: 76.2 % per window, F1 72.7 %, vote 77.6 %
+2026-10-27 15:45:06  [eval 12/15] nn-chan-transformer-without-barbora  seed 0  (4 min 08 s elapsed)
+2026-10-27 15:48:00        nn-chan-transformer-without-barbora: 74.4 % per window, F1 70.3 %, vote 77.7 %
+2026-10-27 15:48:00  [eval 13/15] nn-chan-transformer-without-barbora  seed 1  (7 min 03 s elapsed)
+2026-10-27 15:50:49        nn-chan-transformer-without-barbora: 73.7 % per window, F1 69.3 %, vote 75.2 %
+2026-10-27 15:50:49  [eval 14/15] nn-tsmixer-without-barbora  seed 0  (9 min 52 s elapsed)
+2026-10-27 15:52:57        nn-tsmixer-without-barbora: 75.5 % per window, F1 72.2 %, vote 79.7 %
+2026-10-27 15:52:57  [eval 15/15] nn-tsmixer-without-barbora  seed 1  (11 min 59 s elapsed)
+2026-10-27 15:55:06        nn-tsmixer-without-barbora: 71.8 % per window, F1 67.4 %, vote 71.9 %
+2026-10-27 15:55:09  [fit 1] ml-rf-500-without-barbora: saved 3.8 MB (0 min 03 s), 86.3 % per window
+2026-10-27 15:55:11  [fit 2] ml-rf-500-leaf3-without-barbora: saved 3.2 MB (0 min 03 s), 86.2 % per window
+2026-10-27 15:55:14  [fit 3] ml-et-500-leaf3-without-barbora: saved 8.0 MB (0 min 02 s), 86.4 % per window
+2026-10-27 15:55:41  [fit 4] nn-gru-without-barbora: saved 23.5 KB (0 min 28 s), 75.4 % per window
+2026-10-27 15:56:36  [fit 5] nn-chan-transformer-without-barbora: saved 92.1 KB (0 min 55 s), 74.1 % per window
+2026-10-27 15:57:18  [fit 6] nn-tsmixer-without-barbora: saved 45.8 KB (0 min 42 s), 73.6 % per window
+2026-10-27 15:57:18  done in 16 min 21 s

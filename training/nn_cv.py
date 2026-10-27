@@ -46,11 +46,13 @@ OVERLAP = 0.75
 ROBUST_KINDS = ("noise", "shift", "gain")
 
 
-def load_windows(root=None, window_s=WINDOW_S, overlap=OVERLAP):
+def load_windows(root=None, window_s=WINDOW_S, overlap=OVERLAP,
+                 exclude_persons=()):
     """The project's windows, calibrated, deduped. Same call as the trainer."""
     root = root or NN.DATASET_ROOT
     recs, _ = TM.load_recordings(root, persons=None,
-                                 exclude_codes=NN.EXCLUDE_SETS["no_errors"])
+                                 exclude_codes=NN.EXCLUDE_SETS["no_errors"],
+                                 exclude_persons=exclude_persons)
     people = sorted({r.person_id for r in recs})
     mode = T.CALIBRATION_MODE or "off"
     cal, _, _ = T.training_calibrations(root, mode, recs, people)

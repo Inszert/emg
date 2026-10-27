@@ -429,8 +429,22 @@ adaptation) is flagged there and **blocks APPLY, with the reason**.
 *Use the selected models* off (the default) means the original deployed
 classifier and net, exactly as before. Several ML models = their soft vote (the
 mean of their probabilities); several nets likewise; the two families are never
-blended. *Select starred models* and *Select best combination* tick the right
-rows for you.
+blended. The **quick selectors** under each list tick the right rows for you: *Yellow ★*
+(the top-3 models), *Blue ★* (every model that scores higher than its yellow star),
+*Yellow + blue ★*, *Best combination ★* and *Clear*. A quick selector also switches
+*Use the models selected below* on, because APPLY would ignore the ticks otherwise.
+
+**Models trained without somebody.** Rows named `... (without Barbora)` are the
+same models trained without that person's recordings (Settings -> Training ->
+*Train without these people*). They are listed after the ordinary models and
+never ranked against them: their score is over fewer, easier people, so a higher
+number is not a better model. A **blue ★** marks every one that scores
+*higher than its yellow ★ on the same held-out people* (any gain, worked out live
+from the scores; yellow stays the default; hover for the numbers, often a
+fraction of a point). *Blue ★* ticks them in one click.
+Each list scrolls inside itself (8 rows visible), also while the selection is
+off; the page around it moves only when the list has nothing left to scroll.
+What they did, with figures: [EXCLUDING_PEOPLE.md](EXCLUDING_PEOPLE.md).
 
 ## 10c. Settings -> Training: augmentation and adaptation
 
@@ -442,7 +456,20 @@ adaptation live* decides whether an adapted model uses the wearer's own
 statistics (from the signal stored with their calibration) or its stored global
 ones. These switches change how models are TRAINED: a model already trained
 keeps what it learned. The defaults are the measured ones
-([REPORT.md](REPORT.md)).
+([REPORT.md](REPORT.md)). Under each family's switches a **Recommended** line
+says what the ablation study recommends for that family and why (read from
+`results/experiments.json`), with a **Use recommended** button that sets only
+that family's switches.
+
+**Train without these people** has one box per person with recordings, each with
+how well the best ordinary ML model / net reads that person when they were held
+out of training (a low number: the others do not cover how that person wears the
+band). Ticked people are left out of the *next* training -- RETRAIN, TRAIN
+NEURAL NET and the model zoo (which saves `<id>-without-<name>` variants beside
+the ordinary models). Nothing on disk changes, a trained model keeps what it
+learned, at least two people must stay, and with nobody ticked every trainer
+behaves exactly as before. Measured effect and the with/without comparison of
+every switch above: [EXCLUDING_PEOPLE.md](EXCLUDING_PEOPLE.md).
 
 ## 10d. Settings -> General, and the two questions
 

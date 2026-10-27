@@ -95,10 +95,11 @@ def make_member(name, entries, seed):
     return pipe
 
 
-def build_windows(root, calib_mode):
+def build_windows(root, calib_mode, exclude_persons=()):
     """Uncalibrated windows + the per-window wearer calibration, deduped."""
     recs, _ = TM.load_recordings(root, persons=None,
-                                 exclude_codes=NN.EXCLUDE_SETS["no_errors"])
+                                 exclude_codes=NN.EXCLUDE_SETS["no_errors"],
+                                 exclude_persons=exclude_persons)
     people = sorted({r.person_id for r in recs})
     cal, _, _ = T.training_calibrations(root, calib_mode, recs, people)
     win = max(4, int(round(SETUP["window_s"] * TM.MODEL_FS)))
@@ -266,7 +267,16 @@ def main(argv=None):
     ap.add_argument("--no-combos", action="store_true")
     ap.add_argument("--no-calib", action="store_true",
                     help="skip the calibration-mode switch")
+    ap.add_argument("--exclude-person", action="append", default=[],
+                    help="run the whole study WITHOUT this person's "
+                         "recordings (repeatable); output defaults to "
+                         "results/ablation_without_<name>/ml")
     args = ap.parse_args(argv)
+    args.exclude_person = sorted(set(args.exclude_person))
+    if args.exclude_person and args.out == DEFAULT_OUT:
+        tag = "-".join(p.lower() for p in args.exclude_person)
+        args.out = os.path.join(ROOT, "results",
+                                f"ablation_without_{tag}", "ml")
     raise SystemExit(_main(args))
 
 
@@ -306,7 +316,7 @@ def _main(args):
         def dataset(calib):
             if calib not in cache:
                 log(f"  building windows + features (calibration {calib}) ...")
-                D = build_windows(root, calib)
+                D = build_windows(root, calib, args.exclude_person)
                 F = featurize(D["W"], D["cals"])
                 pert = {}
                 for variant in ("shift+", "shift-", "gain"):

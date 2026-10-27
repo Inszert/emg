@@ -1,0 +1,49 @@
+family,model,switch,person,change_acc_Barbora_in_training,change_acc_Barbora_left_out
+ml,vote(ET+RF),gain,Betka,-0.0146,-0.0115
+ml,vote(ET+RF),gain,Bruno,-0.0721,-0.0536
+ml,vote(ET+RF),gain,Dano,-0.1047,-0.1025
+ml,vote(ET+RF),gain,Miso,-0.0673,+0.0400
+ml,vote(ET+RF),noise,Betka,-0.0052,-0.0083
+ml,vote(ET+RF),noise,Bruno,-0.0018,+0.0062
+ml,vote(ET+RF),noise,Dano,-0.0007,-0.0155
+ml,vote(ET+RF),noise,Miso,+0.0088,+0.0448
+ml,vote(ET+RF),time warp,Betka,+0.0062,+0.0021
+ml,vote(ET+RF),time warp,Bruno,+0.0009,+0.0070
+ml,vote(ET+RF),time warp,Dano,-0.0052,-0.0280
+ml,vote(ET+RF),time warp,Miso,-0.0068,+0.0088
+ml,vote(ET+RF),band rotation,Betka,-0.0042,+0.0448
+ml,vote(ET+RF),band rotation,Bruno,-0.0396,-0.0264
+ml,vote(ET+RF),band rotation,Dano,-0.0103,-0.0273
+ml,vote(ET+RF),band rotation,Miso,-0.2349,-0.2339
+ml,vote(ET+RF),dead electrode,Betka,-0.0198,-0.0031
+ml,vote(ET+RF),dead electrode,Bruno,+0.0106,+0.0018
+ml,vote(ET+RF),dead electrode,Dano,-0.0111,-0.0133
+ml,vote(ET+RF),dead electrode,Miso,-0.0975,-0.0741
+ml,vote(ET+RF),adaptation,Betka,-0.0063,-0.0094
+ml,vote(ET+RF),adaptation,Bruno,-0.0624,-0.0062
+ml,vote(ET+RF),adaptation,Dano,+0.0538,+0.0295
+ml,vote(ET+RF),adaptation,Miso,+0.0838,+0.1540
+nn,gru,gain,Betka,+0.0045,-0.0381
+nn,gru,gain,Bruno,-0.0144,-0.0194
+nn,gru,gain,Dano,+0.0214,+0.0488
+nn,gru,gain,Miso,-0.0347,+0.0176
+nn,gru,noise,Betka,+0.0420,-0.0045
+nn,gru,noise,Bruno,-0.0066,-0.0266
+nn,gru,noise,Dano,+0.0060,-0.0172
+nn,gru,noise,Miso,+0.0006,+0.0097
+nn,gru,time warp,Betka,+0.0362,-0.0103
+nn,gru,time warp,Bruno,-0.0089,-0.0055
+nn,gru,time warp,Dano,-0.0205,-0.0046
+nn,gru,time warp,Miso,+0.0401,+0.0043
+nn,gru,band rotation,Betka,-0.1266,-0.0846
+nn,gru,band rotation,Bruno,-0.0404,-0.0238
+nn,gru,band rotation,Dano,+0.0181,+0.0688
+nn,gru,band rotation,Miso,-0.2536,-0.0268
+nn,gru,dead electrode,Betka,-0.0543,-0.0401
+nn,gru,dead electrode,Bruno,+0.0011,+0.0515
+nn,gru,dead electrode,Dano,+0.0367,+0.0772
+nn,gru,dead electrode,Miso,-0.0687,+0.0213
+nn,gru,adaptation,Betka,-0.0736,-0.1111
+nn,gru,adaptation,Bruno,+0.0061,+0.0161
+nn,gru,adaptation,Dano,+0.0209,-0.0070
+nn,gru,adaptation,Miso,+0.0061,-0.0864

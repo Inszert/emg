@@ -84,7 +84,16 @@ def main(argv=None):
     ap.add_argument("--summary-only", action="store_true")
     ap.add_argument("--no-combos", action="store_true",
                     help="stage A only")
+    ap.add_argument("--exclude-person", action="append", default=[],
+                    help="run the whole study WITHOUT this person's "
+                         "recordings (repeatable); output defaults to "
+                         "results/ablation_without_<name>/nn")
     args = ap.parse_args(argv)
+    args.exclude_person = sorted(set(args.exclude_person))
+    if args.exclude_person and args.out == DEFAULT_OUT:
+        tag = "-".join(p.lower() for p in args.exclude_person)
+        args.out = os.path.join(ROOT, "results",
+                                f"ablation_without_{tag}", "nn")
 
     os.makedirs(args.out, exist_ok=True)
     runs_path = os.path.join(args.out, "runs.jsonl")
@@ -102,7 +111,8 @@ def main(argv=None):
             raise SystemExit("CUDA is not available -- refusing to fall back "
                              "to the CPU.")
         device = torch.device("cuda")
-        data = nn_cv.load_windows()
+        data = nn_cv.load_windows(
+            exclude_persons=args.exclude_person)
         log(f"{datetime.now():%Y-%m-%d %H:%M}  ablation_nn  kind={args.kind}  "
             f"{data['X'].shape[0]} windows, "
             f"{len(set(data['persons'].tolist()))} people, "

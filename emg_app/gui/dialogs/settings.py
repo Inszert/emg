@@ -40,7 +40,7 @@ class SettingsDialog(QtWidgets.QDialog):
                  defaults_note: str = ""):
         super().__init__(parent)
         self.setWindowTitle("Settings")
-        fit_to_screen(self, 700, 780, min_width=460, min_height=420)
+        fit_to_screen(self, 940, 780, min_width=460, min_height=420)
         self.retrain_requested = False
 
         layout = QtWidgets.QVBoxLayout(self)
@@ -59,9 +59,11 @@ class SettingsDialog(QtWidgets.QDialog):
         self.models_tab = ModelsTab(self, zoo_entries, zoo_ensembles)
         self.training_tab = TrainingTab(self, defaults_note)
         self.general_tab = GeneralTab(self)
-        self.tabs.addTab(self.models_tab, "Models")
-        self.tabs.addTab(self.training_tab, "Training")
-        self.tabs.addTab(self.general_tab, "General")
+        #  Each tab is taller than a laptop screen once the model tables and
+        #  the recommendations are in, so each scrolls instead of squeezing.
+        self.tabs.addTab(self._scrolled(self.models_tab), "Models")
+        self.tabs.addTab(self._scrolled(self.training_tab), "Training")
+        self.tabs.addTab(self._scrolled(self.general_tab), "General")
         layout.addWidget(self.tabs, 1)
 
         buttons = QtWidgets.QHBoxLayout()
@@ -88,6 +90,14 @@ class SettingsDialog(QtWidgets.QDialog):
         self.apply_button.clicked.connect(self._apply)
         buttons.addWidget(self.apply_button)
         layout.addLayout(buttons)
+
+    @staticmethod
+    def _scrolled(widget) -> QtWidgets.QScrollArea:
+        area = QtWidgets.QScrollArea()
+        area.setWidgetResizable(True)
+        area.setFrameShape(QtWidgets.QFrame.NoFrame)
+        area.setWidget(widget)
+        return area
 
     def _models_line(self, model_labels) -> QtWidgets.QLabel:
         """What each deployed model was trained on, in one line."""
@@ -129,9 +139,15 @@ class SettingsDialog(QtWidgets.QDialog):
             self.tabs.setCurrentIndex(0)
             self.editor.warning.setText(message)
             return message
+        problems = self.training_tab.problems()
+        if problems:
+            self.tabs.setCurrentIndex(2)
+            QtWidgets.QMessageBox.warning(
+                self, "Training", "\n".join(problems))
+            return problems[0]
         problems = self.models_tab.problems()
         if problems:
-            self.tabs.setCurrentWidget(self.models_tab)
+            self.tabs.setCurrentIndex(1)
             QtWidgets.QMessageBox.warning(
                 self, "Models", "The selection cannot be applied:\n\n"
                 + "\n".join(problems))

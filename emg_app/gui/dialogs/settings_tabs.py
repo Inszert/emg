@@ -15,11 +15,15 @@ from typing import List
 
 from emg_app import config as cfg
 from emg_app import zoo
-from emg_app.gui.qt import QtCore, QtWidgets
-from emg_app.gui.tokens import COL_ACCENT, COL_BAD, COL_TEXT_DIM, COL_WARN
-from emg_app.gui.widgets import make_label, wrap_label
+from emg_app.gui.qt import QtCore, QtGui, QtWidgets
+from emg_app.gui.tokens import (
+    COL_ACCENT, COL_BAD, COL_TEXT, COL_TEXT_DIM, COL_WARN)
+from emg_app.gui.widgets import fit_table_height, make_label, wrap_label
 
 STAR = "★"
+BLUE_STAR = "#2a78d6"       # the project's ML blue
+YELLOW_STAR = "#c9a227"     # the default star
+EXISTS_ROLE = QtCore.Qt.UserRole + 1     # does the model file exist
 
 AUG_LABELS = {
     "gain": ("Gain", "Random overall and per-channel gain: electrode pressure "
@@ -39,8 +43,67 @@ def _pct(v) -> str:
     return "--" if v is None else f"{v * 100:.1f} %"
 
 
+def training_recommendations() -> dict:
+    """
+    What the ablation study recommends for each family's training switches:
+    {"nn": {"augment": [...], "adapt": bool, "reasons": [...]}, "ml": {...}}.
+
+    The values come from the measured decisions in results/experiments.json
+    (tools/collect_results.py builds it) so the reasons are the real ones; if
+    the file is missing the shipped defaults are used and the reason says so.
+    """
+    from emg_app import settings_store
+    out = {}
+    for fam in ("nn", "ml"):
+        out[fam] = {
+            "augment": list(settings_store.DEFAULTS[f"TRAIN_AUGMENT_{fam.upper()}"]),
+            "adapt": bool(settings_store.DEFAULTS[f"TRAIN_ADAPT_{fam.upper()}"]),
+            "reasons": [], "measured": False}
+    try:
+        import json
+        import os
+        with open(os.path.join(cfg.PROJECT_DIR, "results", "experiments.json"),
+                  encoding="utf-8") as fh:
+            doc = json.load(fh)
+        for d in doc.get("defaults", []):
+            rec = out.get(d.get("family"))
+            if rec is None:
+                continue
+            if d.get("setting") == "augmentation":
+                rec["augment"] = list(d.get("value") or [])
+            elif d.get("setting") == "adaptation":
+                rec["adapt"] = bool(d.get("value"))
+            rec["reasons"].append(f"{d['setting']}: {d.get('reason', '')}")
+            rec["measured"] = True
+    except (OSError, ValueError, KeyError, TypeError):
+        for rec in out.values():
+            rec["reasons"] = ["the shipped defaults (results/experiments.json "
+                              "was not found, so the reasons are not shown)"]
+    return out
+
+
+class ContainedTable(QtWidgets.QTableWidget):
+    """
+    A table inside a scrolling page that keeps the mouse wheel for itself.
+
+    Qt hands a wheel event to the parent as soon as the table is at the end of
+    its range (or not scrollable), so the whole settings page moved when the
+    list was only meant to. This consumes the wheel whenever the table has
+    something to scroll; a table that fits entirely lets the page have it.
+    """
+
+    def wheelEvent(self, event) -> None:
+        if self.verticalScrollBar().maximum() > 0:
+            super().wheelEvent(event)
+            event.accept()
+        else:
+            event.ignore()
+
+
 class ModelsTab(QtWidgets.QWidget):
     """Choose the models the live classifiers use."""
+
+    VISIBLE_ROWS = 8          # rows a model list shows before it scrolls itself
 
     COLS = ["", "", "model", "per window", "macro-F1", "size", "parameters",
             "ms / window", "trained with"]
@@ -84,6 +147,14 @@ class ModelsTab(QtWidgets.QWidget):
             "macro-F1), and a soft-vote combination when it beats every "
             "single model. Recomputed after every training. ML models and "
             "neural nets are never voted together.", 10, False, COL_TEXT_DIM))
+        layout.addWidget(wrap_label(
+            f"A blue {STAR} marks a model trained WITHOUT somebody that scores "
+            f"HIGHER than its yellow {STAR} on the same held-out people. It is "
+            "worked out live from the scores, so it follows every retraining. "
+            "Yellow stays the default; the hover text says by how much (often "
+            "a fraction of a point). The models' own headline scores cover "
+            "fewer people and are not what is compared. "
+            "See docs/EXCLUDING_PEOPLE.md.", 10, False, COL_TEXT_DIM))
 
         for family, title in (("ml", "ML classifiers"),
                               ("nn", "Neural nets")):
@@ -96,13 +167,19 @@ class ModelsTab(QtWidgets.QWidget):
     def _family_box(self, family: str, title: str) -> QtWidgets.QGroupBox:
         box = QtWidgets.QGroupBox(title)
         v = QtWidgets.QVBoxLayout(box)
-        rows = zoo.rank([e for e in self.entries if e.family == family])
-        table = QtWidgets.QTableWidget(len(rows), len(self.COLS))
+        #  Ordinary models first. A model trained without someone is scored on
+        #  fewer (and easier) people, so its number must not sort it to the top.
+        mine = [e for e in self.entries if e.family == family]
+        rows = (zoo.rank([e for e in mine if not e.excluded])
+                + zoo.rank([e for e in mine if e.excluded]))
+        table = ContainedTable(len(rows), len(self.COLS))
         table.setHorizontalHeaderLabels(self.COLS)
         table.verticalHeader().setVisible(False)
         table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
         table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
-        table.setMinimumHeight(110)
+        #  A fixed height, so the list scrolls inside itself (and the page
+        #  around it has a predictable length) instead of stretching.
+        fit_table_height(table, min(max(len(rows), 1), self.VISIBLE_ROWS))
         head = table.horizontalHeader()
         head.setStretchLastSection(True)
         head.setSectionResizeMode(2, QtWidgets.QHeaderView.Stretch)
@@ -114,16 +191,21 @@ class ModelsTab(QtWidgets.QWidget):
             use.setCheckState(QtCore.Qt.Checked if e.id in selected
                               else QtCore.Qt.Unchecked)
             use.setData(QtCore.Qt.UserRole, e.id)
+            use.setData(EXISTS_ROLE, bool(e.exists))
             use.setToolTip("Use this model in the live classifier")
             if not e.exists:
                 use.setFlags(QtCore.Qt.NoItemFlags)
                 use.setToolTip("the model file is missing")
             table.setItem(r, 0, use)
+            blue = e.id in self.stars.get("variants", {})
             star = QtWidgets.QTableWidgetItem(
-                STAR if e.id in self.stars["models"] else "")
-            star.setForeground(QtCore.Qt.darkYellow)
+                STAR if (e.id in self.stars["models"] or blue) else "")
+            star.setForeground(QtGui.QColor(BLUE_STAR if blue
+                                            else YELLOW_STAR))
             if e.id in self.stars["models"]:
                 star.setToolTip(self.stars["models"][e.id])
+            elif blue:
+                star.setToolTip(self.stars["variants"][e.id])
             table.setItem(r, 1, star)
             lat = e.meta.get("latency_ms")
             tw = e.trained_with
@@ -135,7 +217,9 @@ class ModelsTab(QtWidgets.QWidget):
                      ", ".join(filter(None, [
                          "aug " + "+".join(tw.get("augment") or [])
                          if tw.get("augment") else "",
-                         "adaptation" if tw.get("adapt") else ""])) or "plain"]
+                         "adaptation" if tw.get("adapt") else "",
+                         "without " + ", ".join(e.excluded)
+                         if e.excluded else ""])) or "plain"]
             for c, text in enumerate(cells, start=2):
                 item = QtWidgets.QTableWidgetItem(text)
                 item.setToolTip(e.meta.get("description", ""))
@@ -153,10 +237,25 @@ class ModelsTab(QtWidgets.QWidget):
         v.addWidget(self.vote_notes[family])
 
         buttons = QtWidgets.QHBoxLayout()
-        top = QtWidgets.QPushButton(f"Select {STAR} models")
-        top.setToolTip("Tick exactly the starred models of this family")
-        top.clicked.connect(lambda: self._select_stars(family))
-        best = QtWidgets.QPushButton(f"Select best combination {STAR}")
+        yellow = self._star_button(
+            f"Yellow {STAR}", YELLOW_STAR,
+            "Tick exactly the yellow-starred models of this family (the top "
+            f"{zoo.STAR_TOP_N} by accuracy with a person held out).",
+            lambda: self._select_stars(family))
+        n_blue = len(self._blue_ids(family))
+        blue = self._star_button(
+            f"Blue {STAR}", BLUE_STAR,
+            "Tick every model of this family that scores higher than its "
+            "yellow star on the same held-out people (worked out live; see "
+            "the hover text of a blue star)." if n_blue else
+            "No model of this family has a blue star yet: none trained "
+            "without somebody scores higher than its yellow star.",
+            lambda: self._select_blue(family), enabled=bool(n_blue))
+        both = self._star_button(
+            f"Yellow + blue {STAR}", None,
+            "Tick the yellow-starred models and the blue-starred ones.",
+            lambda: self._select_both(family), enabled=bool(n_blue))
+        best = QtWidgets.QPushButton(f"Best combination {STAR}")
         best.setToolTip("Tick the members of the best soft-voting subset "
                         "(only offered when it beats every single model)")
         best.setEnabled(family in self.stars["ensembles"])
@@ -165,7 +264,7 @@ class ModelsTab(QtWidgets.QWidget):
         best.clicked.connect(lambda: self._select_combo(family))
         clear = QtWidgets.QPushButton("Clear")
         clear.clicked.connect(lambda: self._set_checked(family, []))
-        for b in (top, best, clear):
+        for b in (yellow, blue, both, best, clear):
             buttons.addWidget(b)
         buttons.addStretch(1)
         v.addLayout(buttons)
@@ -178,17 +277,54 @@ class ModelsTab(QtWidgets.QWidget):
         self._building = True
         for r in range(table.rowCount()):
             item = table.item(r, 0)
-            if item.flags() & QtCore.Qt.ItemIsUserCheckable:
+            if item.data(EXISTS_ROLE):
                 item.setCheckState(QtCore.Qt.Checked
                                    if item.data(QtCore.Qt.UserRole) in ids
                                    else QtCore.Qt.Unchecked)
         self._building = False
         self._refresh()
 
-    def _select_stars(self, family: str) -> None:
-        ids = [e.id for e in self.entries
-               if e.family == family and e.id in self.stars["models"]]
+    @staticmethod
+    def _star_button(text, colour, tip, slot, enabled=True):
+        """A quick-selector button whose text has the colour of its star."""
+        button = QtWidgets.QPushButton(text)
+        if colour:
+            button.setStyleSheet(f"QPushButton {{ color: {colour}; "
+                                 "font-weight: bold; }"
+                                 "QPushButton:disabled { color: gray; }")
+        button.setToolTip(tip)
+        button.setEnabled(enabled)
+        button.clicked.connect(lambda _=False: slot())
+        return button
+
+    def _blue_ids(self, family: str) -> List[str]:
+        """Ids of the blue-starred models of a family, from the live stars."""
+        by_id = {e.id: e for e in self.entries}
+        return [i for i in self.stars.get("variants", {})
+                if i in by_id and by_id[i].family == family
+                and by_id[i].exists]
+
+    def _yellow_ids(self, family: str) -> List[str]:
+        return [e.id for e in self.entries
+                if e.family == family and e.id in self.stars["models"]]
+
+    def _quick(self, family: str, ids: List[str]) -> None:
+        """Tick `ids` exactly; choosing models means to use them, so the
+        'use the selected models' switch goes on (APPLY would ignore the
+        ticks otherwise)."""
+        if ids and not self.enable_box.isChecked():
+            self.enable_box.setChecked(True)
         self._set_checked(family, ids)
+
+    def _select_stars(self, family: str) -> None:
+        """The yellow stars."""
+        self._quick(family, self._yellow_ids(family))
+
+    def _select_blue(self, family: str) -> None:
+        self._quick(family, self._blue_ids(family))
+
+    def _select_both(self, family: str) -> None:
+        self._quick(family, self._yellow_ids(family) + self._blue_ids(family))
 
     def _select_combo(self, family: str) -> None:
         combo = self.ensembles.get(family) or {}
@@ -225,12 +361,36 @@ class ModelsTab(QtWidgets.QWidget):
                     out.append(f"{family.upper()}: {why}")
         return out
 
+    def _lock(self, family: str, on: bool) -> None:
+        """
+        Switch the tick boxes of a family on or off WITHOUT disabling the
+        table: a disabled widget gets no wheel events, so the list could not
+        be scrolled while the selection was off (the default) and the mouse
+        wheel moved the whole page instead.
+        """
+        table = self.tables[family]
+        #  Changing a flag emits itemChanged, which would call _refresh again.
+        was, self._building = self._building, True
+        try:
+            for r in range(table.rowCount()):
+                item = table.item(r, 0)
+                if not item.data(EXISTS_ROLE):
+                    continue
+                flags = QtCore.Qt.ItemIsEnabled
+                if on:
+                    flags |= QtCore.Qt.ItemIsUserCheckable
+                item.setFlags(flags)
+        finally:
+            self._building = was
+        table.setStyleSheet("" if on else f"QTableWidget {{ color: "
+                                          f"{COL_TEXT_DIM}; }}")
+
     def _refresh(self, *_args) -> None:
         if self._building:
             return
         on = self.enable_box.isChecked()
         for family in ("ml", "nn"):
-            self.tables[family].setEnabled(on)
+            self._lock(family, on)
             ids = self.chosen(family)
             sel = self._entries_of(ids)
             s = zoo.selection_summary(sel)
@@ -286,6 +446,8 @@ class TrainingTab(QtWidgets.QWidget):
 
         self.aug_boxes = {"NN": {}, "ML": {}}
         self.adapt_boxes = {}
+        self.recommendations = training_recommendations()
+        self.recommend_buttons = {}
         columns = QtWidgets.QHBoxLayout()
         for fam, title, current_aug, current_adapt in (
                 ("NN", "Neural nets", cfg.TRAIN_AUGMENT_NN,
@@ -303,9 +465,7 @@ class TrainingTab(QtWidgets.QWidget):
                 v.addWidget(check)
             v.addWidget(make_label("Adaptation to the person", 10, True,
                                    COL_TEXT_DIM))
-            adapt = QtWidgets.QCheckBox(
-                "Train with adaptation (each person standardised with "
-                "their own statistics)")
+            adapt = QtWidgets.QCheckBox("Train with adaptation")
             adapt.setChecked(bool(current_adapt))
             adapt.setToolTip(
                 "Each person's signal is standardised with statistics from "
@@ -313,15 +473,39 @@ class TrainingTab(QtWidgets.QWidget):
                 "calibration sweep.")
             self.adapt_boxes[fam] = adapt
             v.addWidget(adapt)
+
+            rec = self.recommendations[fam.lower()]
+            v.addWidget(make_label("Recommended", 10, True, COL_ACCENT))
+            v.addWidget(wrap_label(
+                f"augmentation {', '.join(rec['augment']) or 'none'}; "
+                f"adaptation {'on' if rec['adapt'] else 'off'}", 10, True,
+                COL_TEXT))
+            v.addWidget(wrap_label("\n".join(rec["reasons"]), 9, False,
+                                   COL_TEXT_DIM))
+            use = QtWidgets.QPushButton("Use recommended")
+            use.setToolTip(
+                f"Set the {title} switches above to the measured "
+                "recommendation. Applies on APPLY; train again for it to "
+                "take effect.")
+            use.clicked.connect(lambda _=False, f=fam: self.use_recommended(f))
+            self.recommend_buttons[fam] = use
+            v.addWidget(use)
             v.addStretch(1)
             columns.addWidget(box, 1)
         layout.addLayout(columns)
 
-        self.adapt_live = QtWidgets.QCheckBox(
-            "Use adaptation live (only models that were trained with it; off "
-            "= they use their stored global statistics)")
+        layout.addWidget(self._exclusion_box())
+
+        self.adapt_live = QtWidgets.QCheckBox("Use adaptation live")
         self.adapt_live.setChecked(bool(cfg.ADAPT_LIVE))
+        self.adapt_live.setToolTip(
+            "Only models that were trained with adaptation; off = they use "
+            "their stored global statistics.")
         layout.addWidget(self.adapt_live)
+        layout.addWidget(wrap_label(
+            "Only models that were trained with adaptation use it; off = "
+            "they use their stored global statistics.", 10, False,
+            COL_TEXT_DIM))
         layout.addWidget(wrap_label(
             "The person's statistics come from the calibration: the signal "
             "captured while the hand is calibrated is stored with it. The "
@@ -329,6 +513,76 @@ class TrainingTab(QtWidgets.QWidget):
             "(training/train_zoo.py); the classic RETRAIN sweep trains "
             "plain models.", 10, False, COL_TEXT_DIM))
         layout.addStretch(1)
+
+    # -- train without some people ---------------------------------------------
+
+    @staticmethod
+    def _held_out_scores() -> dict:
+        """`{family: {person: window accuracy}}` of the best ordinary model of
+        each family: how well a model that never saw that person reads them."""
+        out = {}
+        entries = [e for e in zoo.list_entries() if not e.excluded]
+        for fam in zoo.FAMILIES:
+            ranked = [e for e in zoo.rank([e for e in entries
+                                           if e.family == fam and e.exists])
+                      if e.window_acc is not None]
+            if ranked:
+                out[fam] = dict(ranked[0].scores.get("per_person") or {})
+        return out
+
+    def _exclusion_box(self) -> QtWidgets.QGroupBox:
+        from emg_app import settings_store
+        try:
+            people = settings_store.people_on_disk()
+        except OSError:
+            people = []
+        box = QtWidgets.QGroupBox("Train without these people")
+        v = QtWidgets.QVBoxLayout(box)
+        v.addWidget(wrap_label(
+            "Leaves a person's recordings out of the NEXT training (RETRAIN, "
+            "TRAIN NEURAL NET and the model zoo). Nothing on disk changes and "
+            "a trained model keeps what it learned. The zoo saves these as "
+            "separate '<model> (without <name>)' entries beside the ordinary "
+            "ones, so both can be compared. The percentages are how well the "
+            "best ordinary ML model / neural net reads that person when they "
+            "were held out of training -- a low number means the other people "
+            "do not cover how that person wears the band, so including them "
+            "may cost the rest. Measured: docs/EXCLUDING_PEOPLE.md.",
+            10, False, COL_TEXT_DIM))
+        scores = self._held_out_scores()
+        self.exclude_boxes = {}
+        for person in people:
+            held = ", ".join(
+                f"{fam.upper()} {scores[fam][person] * 100:.0f} %"
+                for fam in zoo.FAMILIES
+                if person in scores.get(fam, {}))
+            check = QtWidgets.QCheckBox(
+                person + (f"   (held out: {held})" if held else ""))
+            check.setChecked(person in cfg.TRAIN_EXCLUDE_PERSONS)
+            check.setToolTip(f"Train without {person}'s recordings")
+            self.exclude_boxes[person] = check
+            v.addWidget(check)
+        if not people:
+            v.addWidget(wrap_label("No recordings found.", 10, False,
+                                   COL_WARN))
+        self.exclude_note = wrap_label("", 10, False, COL_BAD)
+        v.addWidget(self.exclude_note)
+        return box
+
+    def problems(self) -> List[str]:
+        """Why the current choice cannot be applied (empty = fine)."""
+        left = [p for p, b in self.exclude_boxes.items() if not b.isChecked()]
+        if self.exclude_boxes and len(left) < 2:
+            return ["Train without these people: at least two people must "
+                    "stay in, otherwise there is nobody to hold out."]
+        return []
+
+    def use_recommended(self, fam: str) -> None:
+        """Tick one family's switches to the measured recommendation."""
+        rec = self.recommendations[fam.lower()]
+        for name, box in self.aug_boxes[fam].items():
+            box.setChecked(name in rec["augment"])
+        self.adapt_boxes[fam].setChecked(rec["adapt"])
 
     def values(self) -> dict:
         return {
@@ -338,6 +592,8 @@ class TrainingTab(QtWidgets.QWidget):
                                  if b.isChecked()],
             "TRAIN_ADAPT_NN": self.adapt_boxes["NN"].isChecked(),
             "TRAIN_ADAPT_ML": self.adapt_boxes["ML"].isChecked(),
+            "TRAIN_EXCLUDE_PERSONS": [p for p, b in self.exclude_boxes.items()
+                                      if b.isChecked()],
             "ADAPT_LIVE": self.adapt_live.isChecked()}
 
 
@@ -351,25 +607,31 @@ class GeneralTab(QtWidgets.QWidget):
         box = QtWidgets.QGroupBox("Questions")
         v = QtWidgets.QVBoxLayout(box)
         self.ask_calibration = QtWidgets.QCheckBox(
-            "Before PREDICT / START NN, ask whether to calibrate the hand")
+            "Ask to calibrate before PREDICT / START NN")
         self.ask_calibration.setChecked(bool(cfg.ASK_CALIBRATION_BEFORE_PREDICT))
         self.ask_calibration.setToolTip(
             "The question offers to reuse the last calibration only when the "
             "application was restarted while the band stayed on the arm.")
         v.addWidget(self.ask_calibration)
+        v.addWidget(wrap_label(
+            "Asks whether to calibrate the hand first; offers the last "
+            "calibration only if the band stayed on the arm.", 10, False,
+            COL_TEXT_DIM))
         self.ask_retrain = QtWidgets.QCheckBox(
-            "When new gestures or new recordings make models out of date, "
-            "ask whether to retrain (all models or only the selected)")
+            "Ask to retrain when the models are out of date")
         self.ask_retrain.setChecked(bool(cfg.ASK_RETRAIN_ON_NEW_DATA))
         self.ask_retrain.setToolTip(
             "Shown when the application opens; turn it off to stop being "
             "asked. RETRAIN stays available in the TRAINING panel.")
         v.addWidget(self.ask_retrain)
+        v.addWidget(wrap_label(
+            "When new gestures or recordings make models out of date: "
+            "retrain all models or only the selected.", 10, False,
+            COL_TEXT_DIM))
         layout.addWidget(box)
         look = QtWidgets.QGroupBox("Appearance")
         lv = QtWidgets.QVBoxLayout(look)
-        self.icon_box = QtWidgets.QCheckBox(
-            "Show the application icon (window corner, dialogs, taskbar)")
+        self.icon_box = QtWidgets.QCheckBox("Show the application icon")
         self.icon_box.setChecked(bool(cfg.APP_ICON_ENABLED))
         self.icon_box.setToolTip(
             "Off: the toolkit's default icon. Takes effect the next time the "

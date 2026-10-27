@@ -1,0 +1,187 @@
+{
+  "format": "emg_nn_v1",
+  "kind": "tsmixer",
+  "architecture": "all-MLP TSMixer: time-mixing and feature-mixing blocks, mean ++ max pooling",
+  "labels": [
+    "FIST",
+    "OPEN",
+    "REST",
+    "THUMB_UP",
+    "WAVE_LEFT",
+    "WAVE_RIGHT"
+  ],
+  "n_channels": 8,
+  "win_samples": 42,
+  "window_s": 0.7,
+  "overlap": 0.75,
+  "model_fs": 60.0,
+  "hidden": 32,
+  "dropout": 0.25,
+  "emg_mode": "filtered",
+  "calibration": {
+    "mode": "affine",
+    "requested": "affine",
+    "subjects": [
+      "Betka",
+      "Bruno",
+      "Dano",
+      "Miso"
+    ],
+    "target": 600.0
+  },
+  "adaptation": {
+    "mode": "off"
+  },
+  "augmentation": [],
+  "data": {
+    "root": "C:\\Users\\danie\\OneDrive\\Po\u010d\u00edta\u010d\\EMG\\datasets",
+    "n_recordings": 211,
+    "labels": {
+      "FIST": 29,
+      "OPEN": 35,
+      "REST": 44,
+      "THUMB_UP": 32,
+      "WAVE_LEFT": 36,
+      "WAVE_RIGHT": 35
+    },
+    "subjects": [
+      "Barbora",
+      "Betka",
+      "Bruno",
+      "Dano",
+      "Miso"
+    ],
+    "sessions": [
+      "Barbora/session_01",
+      "Betka/session_01",
+      "Bruno/session_01",
+      "Dano/session_01",
+      "Miso/session_01"
+    ],
+    "newest_stamp": "20261021-221112-488",
+    "newest_unix": 1792613472.488,
+    "uid_digest": "237a717be2327de9"
+  },
+  "stats": {
+    "model_name": "NN-tsmixer",
+    "trainer": "train_zoo.py",
+    "kind": "tsmixer",
+    "validation_protocol": "leave-one-person-out among the people kept; Barbora excluded from training and from the folds",
+    "grouping": "subject",
+    "grouping_note": "leave-one-person-out",
+    "grouping_contrast": null,
+    "dc_only_control": null,
+    "majority_class_baseline": 0.18464120856063784,
+    "train_fit_accuracy": 1.0,
+    "subjects": [
+      "Betka",
+      "Bruno",
+      "Dano",
+      "Miso"
+    ],
+    "labels": [
+      "FIST",
+      "OPEN",
+      "REST",
+      "THUMB_UP",
+      "WAVE_LEFT",
+      "WAVE_RIGHT"
+    ],
+    "epochs": 150,
+    "batch_size": 64,
+    "learning_rate": 0.003,
+    "weight_decay": 0.001,
+    "label_smoothing": 0.05,
+    "early_stopping": false,
+    "deduped": true,
+    "augmentation": [],
+    "adaptation": false,
+    "subject_independent": {
+      "per_subject": {
+        "Betka": 0.7722868217054264,
+        "Bruno": 0.7940199335548173,
+        "Dano": 0.6861924686192469,
+        "Miso": 0.6934306569343065
+      },
+      "mean": 0.7364824702034493,
+      "std": 0.047368381227585146
+    },
+    "window_accuracy": 0.7364824702034493,
+    "window_accuracy_std": 0.047368381227585146,
+    "window_macro_f1": 0.6979847086577731,
+    "recording_vote_accuracy": 0.7579588348643227,
+    "n_recordings_voted": 167,
+    "n_splits": 4,
+    "fold_accuracies": [
+      0.7722868217054264,
+      0.7940199335548173,
+      0.6861924686192469,
+      0.6934306569343065
+    ],
+    "confusion_matrix": [
+      [
+        312,
+        30,
+        0,
+        6,
+        8,
+        0
+      ],
+      [
+        133,
+        190,
+        0,
+        16,
+        0,
+        88
+      ],
+      [
+        0,
+        0,
+        325,
+        94,
+        10,
+        0
+      ],
+      [
+        20,
+        64,
+        88,
+        150,
+        5,
+        0
+      ],
+      [
+        0,
+        0,
+        2,
+        0,
+        438,
+        0
+      ],
+      [
+        3,
+        19,
+        1,
+        0,
+        2,
+        379
+      ]
+    ],
+    "n_windows": 2383,
+    "n_parameters": 9066,
+    "window_s": 0.7,
+    "overlap": 0.75,
+    "win_samples": 42,
+    "architecture_note": "all-MLP TSMixer: time-mixing and feature-mixing blocks, mean ++ max pooling",
+    "separation_note": "This net is NOT part of the deployed answer unless it is selected in the settings; it is never blended with the ML models.",
+    "created_iso": "2026-10-27T15:57:18.464"
+  },
+  "device_trained_on": {
+    "device": "cuda",
+    "gpu": "NVIDIA GeForce GTX 1650",
+    "torch": "2.9.1+cu128"
+  },
+  "created": "2026-10-27T15:57:18",
+  "created_iso": "2026-10-27T15:57:18.492"
+}

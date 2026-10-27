@@ -1,6 +1,6 @@
 # Report: models, ablation, defaults and verification
 
-*Generated 2026-10-27 06:28 by `tools/make_report.py` from `results/experiments.json`. Re-run it after any new measurement; nothing below is typed by hand.*
+*Generated 2026-10-27 18:11 by `tools/make_report.py` from `results/experiments.json`. Re-run it after any new measurement; nothing below is typed by hand.*
 
 ## 1. Goal and context
 
@@ -157,6 +157,44 @@ The combination test's winner, the ET-500 + RF-500-leaf3 vote, reads 77.0 % agai
 
 The calibration mode was also measured for the ML pair: the shipped `affine` is kept because switching calibration off or to per-channel scaling measurably hurts. A single global gain was **not** judged better (it helps some people a great deal, notably the weakest, and hurts others), which is a lead to follow with more people, not a default.
 
+### The same study without one person
+
+The weakest person's recordings were left out of training and of the folds, and models were compared with and without them **on the same held-out people** (a 4-person score is over easier people and is never set against a 5-person one). Full account, every table and the figures: [EXCLUDING_PEOPLE.md](EXCLUDING_PEOPLE.md); the setting is SETTINGS -> Training -> *Train without these people*.
+
+<!-- TABLE: variants -->
+
+| family | model (trained without) | same people, with | same people, without | change | held-out person's score | star |
+|---|---|---|---|---|---|---|
+| ML | ET-500-leaf3 (without Barbora) | 84.2 % | 86.4 % | +2.2 | 60.4 % | blue |
+| ML | RF-500 (without Barbora) | 86.1 % | 86.3 % | +0.2 | 58.0 % | blue |
+| ML | RF-500-leaf3 (without Barbora) | 85.8 % | 86.2 % | +0.4 | 60.5 % | blue |
+| NN | NN-chan_transformer (without Barbora) | 73.0 % | 74.1 % | +1.1 | 38.4 % | blue |
+| NN | NN-gru (without Barbora) | 74.8 % | 75.4 % | +0.6 | 39.3 % | blue |
+| NN | NN-tsmixer (without Barbora) | 72.6 % | 73.6 % | +1.1 | 41.3 % | blue |
+
+![With and without](figures/exclusion_per_person.png)
+
+The ablation of the training switches, repeated without Barbora (4 people, 3 ML / 3 NN seeds): accuracy per window and the rule's verdict (the rule needs four people better, which with four people left means all four).
+
+| family | setting | per window | change | people better | verdict |
+|---|---|---|---|---|---|
+| NN | baseline | 75.1 % | -- | -- | reference |
+| NN | aug:gain | 75.3 % | +0.2 | 2/4 | no evidence |
+| NN | aug:noise | 74.1 % | -1.0 | 1/4 | no evidence |
+| NN | aug:timewarp | 74.7 % | -0.4 | 1/4 | no evidence |
+| NN | aug:rotate | 73.4 % | -1.7 | 1/4 | hurts |
+| NN | aug:chandrop | 77.8 % | +2.7 | 3/4 | no evidence |
+| NN | adapt | 70.4 % | -4.7 | 1/4 | hurts |
+| ML | baseline | 82.7 % | -- | -- | reference |
+| ML | aug:gain | 79.5 % | -3.2 | 1/4 | hurts |
+| ML | aug:noise | 83.4 % | +0.7 | 2/4 | no evidence |
+| ML | aug:timewarp | 82.4 % | -0.3 | 3/4 | no evidence |
+| ML | aug:rotate | 76.6 % | -6.1 | 1/4 | hurts |
+| ML | aug:chandrop | 80.5 % | -2.2 | 1/4 | hurts |
+| ML | adapt | 86.9 % | +4.2 | 2/4 | no evidence |
+
+![Switches with and without](figures/exclusion_switches.png)
+
 ## 7. Robustness
 
 <!-- TABLE: robustness -->
@@ -186,7 +224,7 @@ The calibration mode was also measured for the ML pair: the shipped `affine` is 
 - **neural net:** a band slid one pod costs 22 points (67.7 % -> 45.6 %); training with `rotate` augmentation brings the shifted score to 62.2 % but costs 4.2 points on clean data, so it does not pass the rule for a default. It is the right switch if the band is likely to be refitted between calibration and use.
 - **ML pair:** a band slid one pod costs 33 points (77.0 % -> 43.8 %); training with `rotate` augmentation brings the shifted score to 61.1 % but costs 6.6 points on clean data, so it does not pass the rule for a default. It is the right switch if the band is likely to be refitted between calibration and use.
 
-A shifted band is the probe every model fails and the open problem the weakest person's score reflects; only `rotate` addresses it.
+A shifted band is the probe every model fails, and only `rotate` addresses it. It does **not** explain the weakest person's score, though: with the band slid a pod her accuracy barely moves while everybody else's drops, and rotation augmentation did not help her in a usable way ([EXCLUDING_PEOPLE.md](EXCLUDING_PEOPLE.md)).
 
 ## 8. Adaptation to the person
 

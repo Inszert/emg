@@ -298,6 +298,60 @@ w("The calibration mode was also measured for the ML pair: the shipped `affine` 
   "some people a great deal, notably the weakest, and hurts others), which is a "
   "lead to follow with more people, not a default.")
 w("")
+variants = DOC.get("variants") or []
+without = DOC.get("without") or []
+if variants or without:
+    w("### The same study without one person")
+    w("")
+    w("The weakest person's recordings were left out of training and of the "
+      "folds, and models were compared with and without them **on the same "
+      "held-out people** (a 4-person score is over easier people and is never "
+      "set against a 5-person one). Full account, every table and the "
+      "figures: [EXCLUDING_PEOPLE.md](EXCLUDING_PEOPLE.md); the setting is "
+      "SETTINGS -> Training -> *Train without these people*.")
+    w("")
+    if variants:
+        w("<!-- TABLE: variants -->")
+        w("")
+        rows_v = []
+        for v in sorted(variants, key=lambda v: (v["family"], v["name"])):
+            keep = sorted(v["delta"])
+            mw = sum(v["base_per_person"][p] for p in keep) / len(keep)
+            mo = sum(v["per_person"][p] for p in keep) / len(keep)
+            rows_v.append((v["family"].upper(), v["name"], pct(mw), pct(mo),
+                           pts(v["mean_delta"]),
+                           pct(v["excluded_held_out"].get(v["excluded"][0]))
+                           if v.get("excluded_held_out")
+                           and v["excluded_held_out"].get(v["excluded"][0])
+                           is not None else "--",
+                           "blue" if v["blue_star"] else ""))
+        w(table(["family", "model (trained without)", "same people, with",
+                 "same people, without", "change", "held-out person's score",
+                 "star"], rows_v))
+        w("")
+        w("![With and without](figures/exclusion_per_person.png)")
+        w("")
+    for blk in without:
+        names = " and ".join(p.capitalize() for p in blk["excluded"].split("-"))
+        w(f"The ablation of the training switches, repeated without "
+          f"{names} ({len(blk['people'])} people, "
+          f"{blk['seeds']['ml']} ML / {blk['seeds']['nn']} NN seeds): "
+          "accuracy per window and the rule's verdict (the rule needs four "
+          "people better, which with four people left means all four).")
+        w("")
+        w(table(["family", "setting", "per window", "change", "people better",
+                 "verdict"],
+                [(r["family"].upper(), r["config"], pct(r["acc_mean"]),
+                  "--" if r["delta_acc"] is None else pts(r["delta_acc"]),
+                  "--" if r["people_better"] is None
+                  else f"{r['people_better']}/{r['n_people']}", r["verdict"])
+                 for r in blk["ablation"]
+                 if r["setting"] in ("baseline", "augmentation",
+                                     "adaptation")]))
+        w("")
+        w("![Switches with and without](figures/exclusion_switches.png)")
+        w("")
+
 w("## 7. Robustness")
 w("")
 w("<!-- TABLE: robustness -->")
@@ -326,8 +380,11 @@ for fam, name in (("nn", "neural net"), ("ml", "ML pair")):
           "so it does not pass the rule for a default. It is the right switch "
           "if the band is likely to be refitted between calibration and use.")
 w("")
-w("A shifted band is the probe every model fails and the open problem the "
-  "weakest person's score reflects; only `rotate` addresses it.")
+w("A shifted band is the probe every model fails, and only `rotate` addresses "
+  "it. It does **not** explain the weakest person's score, though: with the "
+  "band slid a pod her accuracy barely moves while everybody else's drops, and "
+  "rotation augmentation did not help her in a usable way "
+  "([EXCLUDING_PEOPLE.md](EXCLUDING_PEOPLE.md)).")
 w("")
 w("## 8. Adaptation to the person")
 w("")
@@ -464,6 +521,19 @@ def fill_features_defaults():
                  and d["value"] else "off")
         rows.append((f"{d['setting']} ({d['family'].upper()})", value,
                      d["reason"]))
+    def _fam_gain(fam):
+        g = [v["mean_delta"] for v in (DOC.get("variants") or [])
+             if v["family"] == fam and v.get("mean_delta") is not None]
+        return None if not g else sum(g) / len(g)
+
+    gains = {f: _fam_gain(f) for f in ("ml", "nn")}
+    rows.append(("train without some people", "off",
+                 "measured: the others change by "
+                 + ", ".join(f"{f.upper()} {g * 100:+.1f}" for f, g in
+                             gains.items() if g is not None)
+                 + " points on average, mixed per person (EXCLUDING_PEOPLE.md)"
+                 if any(g is not None for g in gains.values())
+                 else "not measured yet"))
     rows += [("calibration question", "on", "asked for; turn off in General"),
              ("retrain question", "on", "asked for; turn off in General"),
              ("application icon", "on", "assets/icons/")]

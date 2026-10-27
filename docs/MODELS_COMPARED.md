@@ -160,14 +160,21 @@ average wins. Scored on the same stored out-of-fold windows (pooled):
 | Miso | **90.1 %** | 74.6 % | 74.6 % |
 
 **Barbora is the hard case for every model.** Her gestures have a
-different per-channel pattern, which is what a band sitting rotated on the
-arm looks like (CLAUDE.md §8, §8h). No model or setting fixes that.
+different per-channel pattern. It was suspected to be a band sitting rotated
+on the arm (CLAUDE.md §8, §8h); **that was tested on 2026-10-27 and is not
+supported**: rotation augmentation did not help her in a usable way (ML
+45.9 → 41.6 %; NN 36.7 → 56.1 % but unstable across seeds, and −25 points
+for Miso), and with the band slid one pod her score barely moves (33 → 37 %)
+while everybody else's rises by 11–33 points. What did help the ML models is
+adaptation to the person (about 46 → 60 % on her). Details, figures and what
+happens when she is left out of training: [EXCLUDING_PEOPLE.md](EXCLUDING_PEOPLE.md).
 
 What would help:
 
 - **More wearers.** Each new person makes a stranger less strange.
-- **Rotation augmentation.** Train on copies with the 8 channels shifted
-  round the ring by one pod. Not built yet.
+- **A better fit for her.** She has a small arm and the band does not fit
+  tightly; a tighter fit and a new recording sitting would test whether that
+  is the cause (not tested).
 
 The NN beats the ML vote on Betka by 9 points and loses on Dano, Miso,
 Bruno and Barbora. The two models fail differently, which is why NN STATS
@@ -177,6 +184,21 @@ shows where they disagree.
 
 What each person's errors look like, as a confusion matrix per person, is
 in *Behaviour in detail*.
+
+### Trained without Barbora
+
+<!-- exclusion:begin -->
+The recommended (starred) models were trained again without Barbora's recordings and scored on the people who stay in (Betka, Bruno, Dano, Miso), each held out in turn, against the same model trained with her. **Same people, same protocol:** the change is exactly what her recordings did for each of them. Full account, figures and the effect of every training switch: [EXCLUDING_PEOPLE.md](EXCLUDING_PEOPLE.md).
+
+| family | mean over Betka, Bruno, Dano, Miso: with | without | change | Barbora herself (held out) |
+|---|---|---|---|---|
+| ML (3 models) | 85.4 % | 86.3 % | +0.9 | 59.7 % |
+| NN (3 models) | 73.5 % | 74.4 % | +0.9 | 39.7 % |
+
+![](figures/exclusion_per_person.png)
+
+The score of a model trained without her is higher on its own (ML 86.3 %, NN 74.4 %) only because she, the hardest person, is no longer in the average: it is a different set of people and is never compared with the 5-person score above. The blue star in SETTINGS -> Models marks every variant that scores higher than its yellow star on the *same* people (any gain, computed live).
+<!-- exclusion:end -->
 
 ### Per gesture (rows = what was made, % correct)
 
@@ -260,9 +282,10 @@ saved comb-test results (nothing was retrained), with the person held out.
   THUMB_UP → OPEN (83 %), each one answered with a single wrong gesture,
   while REST and both waves are right (94–98 %). That is the pattern of a
   person whose forearm pattern for a gesture lands where another wearer's
-  pattern for a different gesture sits, which is what a rotated band would
-  do (CLAUDE.md §8h). It is a hypothesis consistent with the picture, not
-  something tested here.
+  pattern for a different gesture sits. A rotated band would do that
+  (CLAUDE.md §8h), and it was the hypothesis -- but it was tested afterwards
+  and is **not supported** (rotation augmentation and a one-pod shift do
+  not explain her; [EXCLUDING_PEOPLE.md](EXCLUDING_PEOPLE.md) §2).
 
 ![](figures/person_gesture_heatmap.png)
 

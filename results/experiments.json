@@ -1,6 +1,6 @@
 {
  "meta": {
-  "created": "2026-10-27T06:28:17",
+  "created": "2026-10-27T18:11:31",
   "protocol": "leave-one-person-out, 5 people, project windows / dedup / derived calibration; robustness probes on the held-out person's raw windows (noise, band shifted one pod, 25 % weaker)",
   "rule": "training/ablation_stats.py",
   "people": [
@@ -1277,6 +1277,625 @@
    "seed_noise": 0.004929645109589585,
    "verdict": "hurts",
    "default_worthy": false
+  }
+ ],
+ "variants": [
+  {
+   "id": "ml-et-500-leaf3-without-barbora",
+   "variant_of": "ml-et-500-leaf3",
+   "family": "ml",
+   "name": "ET-500-leaf3 (without Barbora)",
+   "excluded": [
+    "Barbora"
+   ],
+   "per_person": {
+    "Betka": 0.8177083333333334,
+    "Bruno": 0.7906772207563764,
+    "Dano": 0.9572271386430679,
+    "Miso": 0.888888888888889
+   },
+   "base_per_person": {
+    "Barbora": 0.6043083900226757,
+    "Betka": 0.821875,
+    "Bruno": 0.7379067722075637,
+    "Dano": 0.9469026548672567,
+    "Miso": 0.8606237816764133
+   },
+   "delta": {
+    "Betka": -0.004166666666666652,
+    "Bruno": 0.05277044854881263,
+    "Dano": 0.010324483775811188,
+    "Miso": 0.02826510721247566
+   },
+   "mean_delta": 0.021798343217608207,
+   "excluded_held_out": {
+    "Barbora": 0.6043083900226757
+   },
+   "window_acc": 0.8636253954054166,
+   "base_window_acc": 0.7943233197547818,
+   "size_bytes": 8402669,
+   "seeds": 3,
+   "blue_star": true,
+   "blue_star_reason": "higher than its yellow star ET-500-leaf3: 86.4 % against 84.2 % (+2.2 points) on the same 4 people, trained without Barbora (docs/EXCLUDING_PEOPLE.md)",
+   "base_starred": true
+  },
+  {
+   "id": "ml-rf-500-leaf3-without-barbora",
+   "variant_of": "ml-rf-500-leaf3",
+   "family": "ml",
+   "name": "RF-500-leaf3 (without Barbora)",
+   "excluded": [
+    "Barbora"
+   ],
+   "per_person": {
+    "Betka": 0.7895833333333334,
+    "Bruno": 0.8091468777484608,
+    "Dano": 0.9328908554572272,
+    "Miso": 0.9161793372319688
+   },
+   "base_per_person": {
+    "Barbora": 0.6054421768707483,
+    "Betka": 0.821875,
+    "Bruno": 0.7176781002638523,
+    "Dano": 0.9358407079646018,
+    "Miso": 0.9580896686159844
+   },
+   "delta": {
+    "Betka": -0.03229166666666661,
+    "Bruno": 0.09146877748460858,
+    "Dano": -0.002949852507374673,
+    "Miso": -0.041910331384015675
+   },
+   "mean_delta": 0.003579231731637905,
+   "excluded_held_out": {
+    "Barbora": 0.6054421768707483
+   },
+   "window_acc": 0.8619501009427476,
+   "base_window_acc": 0.8077851307430373,
+   "size_bytes": 3401421,
+   "seeds": 3,
+   "blue_star": true,
+   "blue_star_reason": "higher than its yellow star RF-500-leaf3: 86.2 % against 85.8 % (+0.4 points) on the same 4 people, trained without Barbora (docs/EXCLUDING_PEOPLE.md)",
+   "base_starred": true
+  },
+  {
+   "id": "ml-rf-500-without-barbora",
+   "variant_of": "ml-rf-500",
+   "family": "ml",
+   "name": "RF-500 (without Barbora)",
+   "excluded": [
+    "Barbora"
+   ],
+   "per_person": {
+    "Betka": 0.7895833333333333,
+    "Bruno": 0.8082673702726474,
+    "Dano": 0.9306784660766961,
+    "Miso": 0.9220272904483431
+   },
+   "base_per_person": {
+    "Barbora": 0.5804988662131519,
+    "Betka": 0.8354166666666666,
+    "Bruno": 0.7132805628847846,
+    "Dano": 0.937315634218289,
+    "Miso": 0.9580896686159844
+   },
+   "delta": {
+    "Betka": -0.04583333333333328,
+    "Bruno": 0.0949868073878628,
+    "Dano": -0.006637168141592875,
+    "Miso": -0.03606237816764135
+   },
+   "mean_delta": 0.001613481936323824,
+   "excluded_held_out": {
+    "Barbora": 0.5804988662131519
+   },
+   "window_acc": 0.8626391150327549,
+   "base_window_acc": 0.8049202797197754,
+   "size_bytes": 3981127,
+   "seeds": 3,
+   "blue_star": true,
+   "blue_star_reason": "higher than its yellow star RF-500: 86.3 % against 86.1 % (+0.2 points) on the same 4 people, trained without Barbora (docs/EXCLUDING_PEOPLE.md)",
+   "base_starred": true
+  },
+  {
+   "id": "nn-chan-transformer-without-barbora",
+   "variant_of": "nn-chan-transformer",
+   "family": "nn",
+   "name": "NN-chan_transformer (without Barbora)",
+   "excluded": [
+    "Barbora"
+   ],
+   "per_person": {
+    "Betka": 0.7170542635658914,
+    "Bruno": 0.7749169435215947,
+    "Dano": 0.7866108786610879,
+    "Miso": 0.6843065693430657
+   },
+   "base_per_person": {
+    "Barbora": 0.3836734693877551,
+    "Betka": 0.7577519379844961,
+    "Bruno": 0.7275747508305648,
+    "Dano": 0.7740585774058577,
+    "Miso": 0.6587591240875912
+   },
+   "delta": {
+    "Betka": -0.04069767441860472,
+    "Bruno": 0.047342192691029905,
+    "Dano": 0.012552301255230214,
+    "Miso": 0.025547445255474477
+   },
+   "mean_delta": 0.011186066195782468,
+   "excluded_held_out": {
+    "Barbora": 0.3836734693877551
+   },
+   "window_acc": 0.74072216377291,
+   "base_window_acc": 0.6603635719392531,
+   "size_bytes": 94342,
+   "seeds": 2,
+   "blue_star": true,
+   "blue_star_reason": "higher than its yellow star NN-chan_transformer: 74.1 % against 73.0 % (+1.1 points) on the same 4 people, trained without Barbora (docs/EXCLUDING_PEOPLE.md)",
+   "base_starred": true
+  },
+  {
+   "id": "nn-gru-without-barbora",
+   "variant_of": "nn-gru",
+   "family": "nn",
+   "name": "NN-gru (without Barbora)",
+   "excluded": [
+    "Barbora"
+   ],
+   "per_person": {
+    "Betka": 0.9060077519379846,
+    "Bruno": 0.7051495016611296,
+    "Dano": 0.7615062761506276,
+    "Miso": 0.6432481751824817
+   },
+   "base_per_person": {
+    "Barbora": 0.3928571428571429,
+    "Betka": 0.8372093023255813,
+    "Bruno": 0.6935215946843853,
+    "Dano": 0.7622036262203626,
+    "Miso": 0.7007299270072993
+   },
+   "delta": {
+    "Betka": 0.06879844961240322,
+    "Bruno": 0.011627906976744207,
+    "Dano": -0.0006973500697350365,
+    "Miso": -0.05748175182481763
+   },
+   "mean_delta": 0.005561813673648691,
+   "excluded_held_out": {
+    "Barbora": 0.3928571428571429
+   },
+   "window_acc": 0.7539779262330559,
+   "base_window_acc": 0.6773043186189542,
+   "size_bytes": 24077,
+   "seeds": 2,
+   "blue_star": true,
+   "blue_star_reason": "higher than its yellow star NN-gru: 75.4 % against 74.8 % (+0.6 points) on the same 4 people, trained without Barbora (docs/EXCLUDING_PEOPLE.md)",
+   "base_starred": true
+  },
+  {
+   "id": "nn-tsmixer-without-barbora",
+   "variant_of": "nn-tsmixer",
+   "family": "nn",
+   "name": "NN-tsmixer (without Barbora)",
+   "excluded": [
+    "Barbora"
+   ],
+   "per_person": {
+    "Betka": 0.7722868217054264,
+    "Bruno": 0.7940199335548173,
+    "Dano": 0.6861924686192469,
+    "Miso": 0.6934306569343065
+   },
+   "base_per_person": {
+    "Barbora": 0.413265306122449,
+    "Betka": 0.7984496124031009,
+    "Bruno": 0.7906976744186047,
+    "Dano": 0.701534170153417,
+    "Miso": 0.6122262773722628
+   },
+   "delta": {
+    "Betka": -0.026162790697674465,
+    "Bruno": 0.0033222591362125353,
+    "Dano": -0.015341701534170138,
+    "Miso": 0.08120437956204374
+   },
+   "mean_delta": 0.010755536616602918,
+   "excluded_held_out": {
+    "Barbora": 0.413265306122449
+   },
+   "window_acc": 0.7364824702034493,
+   "base_window_acc": 0.6632346080939668,
+   "size_bytes": 46939,
+   "seeds": 2,
+   "blue_star": true,
+   "blue_star_reason": "higher than its yellow star NN-tsmixer: 73.6 % against 72.6 % (+1.1 points) on the same 4 people, trained without Barbora (docs/EXCLUDING_PEOPLE.md)",
+   "base_starred": true
+  }
+ ],
+ "without": [
+  {
+   "excluded": "barbora",
+   "people": [
+    "Betka",
+    "Bruno",
+    "Dano",
+    "Miso"
+   ],
+   "seeds": {
+    "nn": 3,
+    "ml": 3
+   },
+   "ablation": [
+    {
+     "family": "nn",
+     "model": "gru",
+     "setting": "baseline",
+     "config": "baseline",
+     "value": "baseline",
+     "seeds": 3,
+     "acc_mean": 0.7509021523675997,
+     "acc_std": 0.009785155744906411,
+     "f1_mean": 0.7075535790465494,
+     "f1_std": 0.017919980315269528,
+     "latency_ms": 0.806249999868669,
+     "size_bytes": 20813.0,
+     "robust_noise": 0.7525212466547789,
+     "robust_shift": 0.482446409621484,
+     "robust_gain": 0.7378340207116764,
+     "delta_acc": null,
+     "delta_robust": null,
+     "people_better": null,
+     "n_people": null,
+     "seed_noise": null,
+     "verdict": "reference",
+     "default_worthy": false
+    },
+    {
+     "family": "nn",
+     "model": "gru",
+     "setting": "augmentation",
+     "config": "aug:gain",
+     "value": "aug:gain",
+     "seeds": 3,
+     "acc_mean": 0.7531423692441422,
+     "acc_std": 0.018184826468114132,
+     "f1_mean": 0.7019199574518266,
+     "f1_std": 0.03649317677776102,
+     "latency_ms": null,
+     "size_bytes": null,
+     "robust_noise": 0.7481471739929434,
+     "robust_shift": 0.4676983731976358,
+     "robust_gain": 0.7279934492013019,
+     "delta_acc": 0.0022402168765426056,
+     "delta_robust": -0.009654226865352777,
+     "people_better": 2,
+     "n_people": 4,
+     "seed_noise": 0.018184826468114132,
+     "verdict": "no evidence",
+     "default_worthy": false
+    },
+    {
+     "family": "nn",
+     "model": "gru",
+     "setting": "augmentation",
+     "config": "aug:noise",
+     "value": "aug:noise",
+     "seeds": 3,
+     "acc_mean": 0.7412599077334004,
+     "acc_std": 0.009721254679895373,
+     "f1_mean": 0.68482133103845,
+     "f1_std": 0.012466728972721894,
+     "latency_ms": null,
+     "size_bytes": null,
+     "robust_noise": 0.7404314370683092,
+     "robust_shift": 0.4707169287150745,
+     "robust_gain": 0.7201177517455397,
+     "delta_acc": -0.009642244634199187,
+     "delta_robust": -0.013845186486338562,
+     "people_better": 1,
+     "n_people": 4,
+     "seed_noise": 0.009785155744906411,
+     "verdict": "no evidence",
+     "default_worthy": false
+    },
+    {
+     "family": "nn",
+     "model": "gru",
+     "setting": "augmentation",
+     "config": "aug:timewarp",
+     "value": "aug:timewarp",
+     "seeds": 3,
+     "acc_mean": 0.7468361251687655,
+     "acc_std": 0.011072383521025296,
+     "f1_mean": 0.6955539653314377,
+     "f1_std": 0.009018019944621869,
+     "latency_ms": null,
+     "size_bytes": null,
+     "robust_noise": 0.7488758484747153,
+     "robust_shift": 0.4712345868898548,
+     "robust_gain": 0.7418929904759469,
+     "delta_acc": -0.004066027198834199,
+     "delta_robust": -0.0035994170491407407,
+     "people_better": 1,
+     "n_people": 4,
+     "seed_noise": 0.011072383521025296,
+     "verdict": "no evidence",
+     "default_worthy": false
+    },
+    {
+     "family": "nn",
+     "model": "gru",
+     "setting": "augmentation",
+     "config": "aug:rotate",
+     "value": "aug:rotate",
+     "seeds": 3,
+     "acc_mean": 0.7343037448190849,
+     "acc_std": 0.006790610778653633,
+     "f1_mean": 0.6896094798377604,
+     "f1_std": 0.008494853072225963,
+     "latency_ms": null,
+     "size_bytes": null,
+     "robust_noise": 0.7238337404774097,
+     "robust_shift": 0.6501277251914349,
+     "robust_gain": 0.695500831632982,
+     "delta_acc": -0.016598407548514715,
+     "delta_robust": 0.032220206771295806,
+     "people_better": 1,
+     "n_people": 4,
+     "seed_noise": 0.009785155744906411,
+     "verdict": "hurts",
+     "default_worthy": false
+    },
+    {
+     "family": "nn",
+     "model": "gru",
+     "setting": "augmentation",
+     "config": "aug:chandrop",
+     "value": "aug:chandrop",
+     "seeds": 3,
+     "acc_mean": 0.7783787229813418,
+     "acc_std": 0.009439876854411122,
+     "f1_mean": 0.7480811273801128,
+     "f1_std": 0.0167812333391981,
+     "latency_ms": null,
+     "size_bytes": null,
+     "robust_noise": 0.7793732667219739,
+     "robust_shift": 0.5026807058515727,
+     "robust_gain": 0.7524393625165918,
+     "delta_acc": 0.027476570613742146,
+     "delta_robust": 0.020563886034066364,
+     "people_better": 3,
+     "n_people": 4,
+     "seed_noise": 0.009785155744906411,
+     "verdict": "no evidence",
+     "default_worthy": false
+    },
+    {
+     "family": "nn",
+     "model": "gru",
+     "setting": "adaptation",
+     "config": "adapt",
+     "value": "adapt",
+     "seeds": 3,
+     "acc_mean": 0.7038017219058045,
+     "acc_std": 0.028212044759794202,
+     "f1_mean": 0.6533039585138897,
+     "f1_std": 0.034196161113370864,
+     "latency_ms": null,
+     "size_bytes": null,
+     "robust_noise": 0.691272303057469,
+     "robust_shift": 0.4506423083512212,
+     "robust_gain": 0.6771416575762738,
+     "delta_acc": -0.04710043046179502,
+     "delta_robust": -0.0512484693343251,
+     "people_better": 1,
+     "n_people": 4,
+     "seed_noise": 0.028212044759794202,
+     "verdict": "hurts",
+     "default_worthy": false
+    },
+    {
+     "family": "ml",
+     "model": "vote(ET+RF)",
+     "setting": "baseline",
+     "config": "baseline",
+     "value": "baseline",
+     "seeds": 3,
+     "acc_mean": 0.8267456526355798,
+     "acc_std": 0.0027352257571267914,
+     "f1_mean": 0.7825852513361445,
+     "f1_std": 0.0026770120546141885,
+     "latency_ms": 48.856549999982235,
+     "size_bytes": 10276900.0,
+     "robust_noise": 0.8066034941621173,
+     "robust_shift": 0.44230006695332014,
+     "robust_gain": 0.7997704354572462,
+     "delta_acc": null,
+     "delta_robust": null,
+     "people_better": null,
+     "n_people": null,
+     "seed_noise": null,
+     "verdict": "reference",
+     "default_worthy": false
+    },
+    {
+     "family": "ml",
+     "model": "vote(ET+RF)",
+     "setting": "augmentation",
+     "config": "aug:gain",
+     "value": "aug:gain",
+     "seeds": 3,
+     "acc_mean": 0.7948319900495789,
+     "acc_std": 0.0038302331169346227,
+     "f1_mean": 0.7465189141946605,
+     "f1_std": 0.003694258851817498,
+     "latency_ms": null,
+     "size_bytes": null,
+     "robust_noise": 0.7768232294120127,
+     "robust_shift": 0.41097348980631243,
+     "robust_gain": 0.7982671124950963,
+     "delta_acc": -0.031913662586000924,
+     "delta_robust": -0.020870054953087414,
+     "people_better": 1,
+     "n_people": 4,
+     "seed_noise": 0.0038302331169346227,
+     "verdict": "hurts",
+     "default_worthy": false
+    },
+    {
+     "family": "ml",
+     "model": "vote(ET+RF)",
+     "setting": "augmentation",
+     "config": "aug:noise",
+     "value": "aug:noise",
+     "seeds": 3,
+     "acc_mean": 0.8335383529670417,
+     "acc_std": 0.0010034635922766264,
+     "f1_mean": 0.7872525389555217,
+     "f1_std": 0.0008804623102068412,
+     "latency_ms": null,
+     "size_bytes": null,
+     "robust_noise": 0.8060733958857025,
+     "robust_shift": 0.44007322605306715,
+     "robust_gain": 0.7941250500150749,
+     "delta_acc": 0.006792700331461871,
+     "delta_robust": -0.00280077487294636,
+     "people_better": 2,
+     "n_people": 4,
+     "seed_noise": 0.0027352257571267914,
+     "verdict": "no evidence",
+     "default_worthy": false
+    },
+    {
+     "family": "ml",
+     "model": "vote(ET+RF)",
+     "setting": "augmentation",
+     "config": "aug:timewarp",
+     "value": "aug:timewarp",
+     "seeds": 3,
+     "acc_mean": 0.8242125836716658,
+     "acc_std": 0.004982491512125659,
+     "f1_mean": 0.7767864515079931,
+     "f1_std": 0.006253859165348089,
+     "latency_ms": null,
+     "size_bytes": null,
+     "robust_noise": 0.8005198744728155,
+     "robust_shift": 0.43591585231476754,
+     "robust_gain": 0.7986410755289618,
+     "delta_acc": -0.0025330689639138926,
+     "delta_robust": -0.00453239808537953,
+     "people_better": 3,
+     "n_people": 4,
+     "seed_noise": 0.004982491512125659,
+     "verdict": "no evidence",
+     "default_worthy": false
+    },
+    {
+     "family": "ml",
+     "model": "vote(ET+RF)",
+     "setting": "augmentation",
+     "config": "aug:rotate",
+     "value": "aug:rotate",
+     "seeds": 3,
+     "acc_mean": 0.7660461971465984,
+     "acc_std": 0.007738335718460375,
+     "f1_mean": 0.7148355725729357,
+     "f1_std": 0.008510859449507108,
+     "latency_ms": null,
+     "size_bytes": null,
+     "robust_noise": 0.7427844924256896,
+     "robust_shift": 0.6634117130989993,
+     "robust_gain": 0.7354026954306302,
+     "delta_acc": -0.06069945548898137,
+     "delta_robust": 0.030974968127545188,
+     "people_better": 1,
+     "n_people": 4,
+     "seed_noise": 0.007738335718460375,
+     "verdict": "hurts",
+     "default_worthy": false
+    },
+    {
+     "family": "ml",
+     "model": "vote(ET+RF)",
+     "setting": "augmentation",
+     "config": "aug:chandrop",
+     "value": "aug:chandrop",
+     "seeds": 3,
+     "acc_mean": 0.8045670537841715,
+     "acc_std": 0.003622441206796024,
+     "f1_mean": 0.7532613464851762,
+     "f1_std": 0.0029133016697210938,
+     "latency_ms": null,
+     "size_bytes": null,
+     "robust_noise": 0.7755060163869429,
+     "robust_shift": 0.4313196284752561,
+     "robust_gain": 0.7690959468826164,
+     "delta_acc": -0.02217859885140816,
+     "delta_robust": -0.024250801609289385,
+     "people_better": 1,
+     "n_people": 4,
+     "seed_noise": 0.003622441206796024,
+     "verdict": "hurts",
+     "default_worthy": false
+    },
+    {
+     "family": "ml",
+     "model": "vote(ET+RF)",
+     "setting": "adaptation",
+     "config": "adapt",
+     "value": "adapt",
+     "seeds": 3,
+     "acc_mean": 0.8687364211624734,
+     "acc_std": 0.013082493388173652,
+     "f1_mean": 0.8397640964825497,
+     "f1_std": 0.02695667841495385,
+     "latency_ms": null,
+     "size_bytes": null,
+     "robust_noise": 0.83538704927347,
+     "robust_shift": 0.4743557415825325,
+     "robust_gain": 0.8117756993095459,
+     "delta_acc": 0.04199076852689351,
+     "delta_robust": 0.02428149786428821,
+     "people_better": 2,
+     "n_people": 4,
+     "seed_noise": 0.013082493388173652,
+     "verdict": "no evidence",
+     "default_worthy": false
+    }
+   ],
+   "defaults": [
+    {
+     "family": "nn",
+     "setting": "augmentation",
+     "value": [],
+     "reason": "no augmentation passed the rule (>= 1 point and 2x the seed noise, better for >= 4 of 5 people, or the same on robustness) -- stays off, selectable in the settings",
+     "delta_acc": 0.0
+    },
+    {
+     "family": "nn",
+     "setting": "adaptation",
+     "value": false,
+     "reason": "did not pass the rule (-4.7 points, better for 1/4 people, hurts) -- stays off, selectable in the settings",
+     "delta_acc": -0.04710043046179502
+    },
+    {
+     "family": "ml",
+     "setting": "augmentation",
+     "value": [],
+     "reason": "no augmentation passed the rule (>= 1 point and 2x the seed noise, better for >= 4 of 5 people, or the same on robustness) -- stays off, selectable in the settings",
+     "delta_acc": 0.0
+    },
+    {
+     "family": "ml",
+     "setting": "adaptation",
+     "value": false,
+     "reason": "did not pass the rule (+4.2 points, better for 2/4 people, no evidence) -- stays off, selectable in the settings",
+     "delta_acc": 0.04199076852689351
+    }
+   ]
   }
  ],
  "voting": [

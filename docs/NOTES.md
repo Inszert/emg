@@ -105,6 +105,17 @@ Newest at the bottom of each section.
   77.0 % when the subset is chosen without the held-out person (nested), below
   the best single model on the same basis (77.6 %), so it is not starred --
   deliberately: the optimistic number would have starred it.
+- **Barbora, rotation, and training without a person (2026-10-27).** The
+  "rotated band" explanation for the weakest person was tested and is not
+  supported: rotation augmentation does not help her in a usable way and a
+  one-pod shift barely moves her score. What helps the ML models on her is
+  adaptation to the person (about 46 -> 60 %). Leaving her out of training is a
+  setting (off): the other four people change by about +0.9 points (ML and NN),
+  mixed per person. Models trained without her are saved as `<id>-without-<name>`
+  zoo variants, never ranked, with a blue star when they score higher than their
+  yellow-star model on the same people (computed live, no margin). The training-switch ablation was re-run without
+  her. Everything, with graphs, tables, CSVs and a methods paragraph:
+  `docs/EXCLUDING_PEOPLE.md`.
 - **Things found by the sub-agents** (all handled or listed): scikit-learn is now
   pinned `<1.8` (the models were pickled with 1.7.2); `train_job.kill_tree` kills
   only the trainer on POSIX, not joblib workers (open, Linux only);

@@ -146,16 +146,18 @@ def merge_seeds(per_seed):
 
 
 class Data:
-    def __init__(self, root, epochs):
+    def __init__(self, root, epochs, exclude=()):
         self.root = root
         self.epochs = epochs
+        self.exclude = tuple(exclude)
         self._ml = None
         self._nn = None
 
     def ml(self):
         if self._ml is None:
             mode = T.CALIBRATION_MODE or "off"
-            D = ml_cv.build_windows(self.root, mode)
+            D = ml_cv.build_windows(self.root, mode,
+                                  exclude_persons=self.exclude)
             D["F"] = ml_cv.featurize(D["W"], D["cals"])
             self._ml = D
         return self._ml
@@ -163,7 +165,8 @@ class Data:
     def nn(self):
         if self._nn is None:
             import nn_cv
-            self._nn = nn_cv.load_windows(self.root)
+            self._nn = nn_cv.load_windows(self.root,
+                                         exclude_persons=self.exclude)
         return self._nn
 
 
@@ -184,8 +187,12 @@ def read_jsonl(path):
 # ==============================================================================
 
 
-def entries_for(family, ids):
-    """`[(id, family, spec)]` for the roster, filtered."""
+def entries_for(family, ids, exclude=()):
+    """
+    `[(id, family, spec)]` for the roster, filtered. `ids` are the ordinary
+    ids; with people excluded each comes back as its `-without-<name>`
+    variant, so the variants live beside the originals and never replace them.
+    """
     out = []
     if family in ("ml", "all"):
         for spec in ZR.ML_ROSTER:
@@ -195,6 +202,8 @@ def entries_for(family, ids):
             out.append((ZR.nn_id(kind), "nn", kind))
     if ids:
         out = [e for e in out if e[0] in ids]
+    if exclude:
+        out = [(zoo.variant_id(e[0], exclude), e[1], e[2]) for e in out]
     return out
 
 
@@ -223,7 +232,7 @@ def cmd_eval(args, data, log):
     digest = current_digest(data.root)
     done = {run_key(r) for r in read_jsonl(runs_path)}
     t0 = time.perf_counter()
-    todo = entries_for(args.family, args.ids)
+    todo = entries_for(args.family, args.ids, args.exclude_person)
     jobs = [(eid, fam, spec, seed) for eid, fam, spec in todo
             for seed in range(args.seeds if fam == "nn" else args.ml_seeds)]
     n_done = 0
@@ -316,7 +325,8 @@ def cmd_fit(args, data, log):
     import joblib
     zroot = zoo.zoo_root()
     os.makedirs(zroot, exist_ok=True)
-    for n, (eid, fam, spec) in enumerate(entries_for(args.family, args.ids), 1):
+    for n, (eid, fam, spec) in enumerate(
+            entries_for(args.family, args.ids, args.exclude_person), 1):
         augment, adapt = (list(x) if isinstance(x, tuple) else x
                           for x in family_options(args, fam))
         sc = eval_scores(eid)
@@ -340,10 +350,35 @@ def cmd_fit(args, data, log):
             meta = fit_nn(eid, spec, data.nn(), sc, scores, folder, args,
                           augment, adapt)
         meta["data_digest"] = current_digest(data.root)
+        if args.exclude_person:
+            mark_variant(meta, eid, args.exclude_person)
         zoo.write_meta(folder, meta)
         log(f"[fit {n}] {eid}: saved {zoo.human_size(meta['size_bytes'])} "
             f"({fmt_s(time.perf_counter() - t0)}), "
             f"{scores['window_acc'] * 100:.1f} % per window")
+
+
+def mark_variant(meta, eid, excluded):
+    """
+    Describe a model trained WITHOUT some people: who, which model it is a
+    variant of, and what the ordinary model scored on those people and on
+    everybody else -- so the two can be compared without a second lookup.
+    """
+    base_id = eid.split("-without-")[0]
+    base = zoo.get_entry(base_id)
+    base_pp = dict((base.scores.get("per_person") or {})) if base else {}
+    scores = meta["scores"]
+    meta["excluded_persons"] = sorted(excluded)
+    meta["variant_of"] = base_id
+    label = ", ".join(sorted(excluded))
+    meta["name"] = f"{meta.get('name', base_id)} (without {label})"
+    meta["description"] = (f"{meta.get('description', '')}  Trained without "
+                           f"{label}'s recordings; scored on the people left.")
+    scores["excluded_persons"] = sorted(excluded)
+    scores["base_per_person"] = base_pp
+    #  The ordinary model's score on the excluded person is the right number
+    #  for them: it was trained on exactly the people this one was.
+    scores["excluded_held_out"] = {p: base_pp.get(p) for p in excluded}
 
 
 def fit_ml(eid, spec, D, sc, scores, folder, adapt, seeds, joblib, augment=()):
@@ -628,15 +663,22 @@ def cmd_ensembles(args, log):
 def cmd_status(args):
     entries = zoo.list_entries()
     stars = zoo.compute_stars(entries, zoo.read_ensembles())
-    print(f"{'id':<22}{'per window':>11}{'F1':>8}{'vote':>8}{'size':>10}  star")
-    for e in zoo.rank([e for e in entries if e.family == "ml"]) + \
-            zoo.rank([e for e in entries if e.family == "nn"]):
-        print(f"{e.id:<22}"
+    print(f"{'id':<38}{'per window':>11}{'F1':>8}{'vote':>8}{'size':>10}  star")
+    #  Ordinary models first; trained-without variants after them (their score
+    #  is over fewer people). `*` = the yellow star, `b` = the blue one.
+    ordered = []
+    for fam in ("ml", "nn"):
+        mine = [e for e in entries if e.family == fam]
+        ordered += zoo.rank([e for e in mine if not e.excluded])
+        ordered += zoo.rank([e for e in mine if e.excluded])
+    for e in ordered:
+        mark = ("*" if e.id in stars["models"]
+                else "b" if e.id in stars["variants"] else "")
+        print(f"{e.id:<38}"
               f"{(e.window_acc or 0) * 100:10.1f}%"
               f"{(e.macro_f1 or 0) * 100:8.1f}"
               f"{(e.scores.get('vote_acc') or 0) * 100:8.1f}"
-              f"{zoo.human_size(e.size_bytes):>10}  "
-              f"{'*' if e.id in stars['models'] else ''}")
+              f"{zoo.human_size(e.size_bytes):>10}  {mark}")
     for fam, why in stars["ensembles"].items():
         print(f"* {fam}: {why}")
 
@@ -665,7 +707,20 @@ def main(argv=None):
     ap.add_argument("--force", action="store_true",
                     help="re-measure even if a matching run is cached")
     ap.add_argument("--root", default=NN.DATASET_ROOT)
+    ap.add_argument("--exclude-person", action="append", default=[],
+                    help="train WITHOUT this person's recordings (repeatable): "
+                         "saves <id>-without-<name> variants, scored "
+                         "leave-one-person-out on the people left, in "
+                         "results/zoo_eval_without_<name>/")
     args = ap.parse_args(argv)
+    args.exclude_person = sorted(set(args.exclude_person))
+    if args.exclude_person:
+        global EVAL_DIR, PROTOCOL
+        tag = "-".join(zoo.slug(p) for p in args.exclude_person)
+        EVAL_DIR = os.path.join(ROOT, "results", f"zoo_eval_without_{tag}")
+        PROTOCOL = ("leave-one-person-out among the people kept; "
+                    + ", ".join(args.exclude_person)
+                    + " excluded from training and from the folds")
     import nn_augment
     #  Defaults are the application's own per-family settings (config.py).
     def pick(specific, both, default):
@@ -693,13 +748,15 @@ def main(argv=None):
                   encoding="utf-8") as fh:
             fh.write(f"{datetime.now():%Y-%m-%d %H:%M:%S}  {msg}\n")
 
-    data = Data(args.root, args.epochs)
+    data = Data(args.root, args.epochs, args.exclude_person)
     t0 = time.perf_counter()
     if args.command in ("all", "eval"):
         cmd_eval(args, data, log)
     if args.command in ("all", "fit"):
         cmd_fit(args, data, log)
-    if args.command in ("all", "ensembles", "fit"):
+    if args.command in ("all", "ensembles", "fit") and not args.exclude_person:
+        #  Variants are scored on fewer people; they never take part in the
+        #  best-subset search (and must not overwrite ensembles.json).
         cmd_ensembles(args, log)
     log(f"done in {fmt_s(time.perf_counter() - t0)}")
     return 0

@@ -765,6 +765,58 @@ if HAVE_TORCH:
         check("(git history not available: trainer regression skipped)", True)
 
 
+section("11. models trained without somebody (--exclude-person, variants, blue stars)")
+import train_zoo as TZ                                              # noqa: E402
+
+plain = TZ.entries_for("ml", ["ml-rf-500"], [])
+check("no one excluded: the ordinary ids, untouched",
+      [e[0] for e in plain] == ["ml-rf-500"], str(plain))
+var = TZ.entries_for("all", ["ml-rf-500", "nn-gru"], ["Barbora"])
+check("excluding someone: only the `-without-` ids (never the originals)",
+      sorted(e[0] for e in var) == ["ml-rf-500-without-barbora",
+                                    "nn-gru-without-barbora"], str(var))
+check("the roster spec is carried over to the variant",
+      {e[0]: e[2] for e in var}["nn-gru-without-barbora"] == "gru")
+import train_model as TMX                                           # noqa: E402
+_recs, _ = TMX.load_recordings(os.path.join(ROOT_DIR, "datasets"))
+_people = sorted({r.person_id for r in _recs})
+if len(_people) >= 3:
+    _cut, _ = TMX.load_recordings(os.path.join(ROOT_DIR, "datasets"),
+                                  exclude_persons=[_people[0]])
+    check("the shared loader leaves a person out only when asked",
+          len(_cut) < len(_recs) and _people[0] not in
+          {r.person_id for r in _cut} and not any(
+              r.person_id == _people[0] for r in _cut))
+    check("...and the default is the whole dataset",
+          len(TMX.load_recordings(os.path.join(ROOT_DIR, "datasets"),
+                                  exclude_persons=())[0]) == len(_recs))
+sys.path.insert(0, os.path.join(ROOT_DIR, "tools"))
+import collect_results as CR                                         # noqa: E402
+
+_models, _ = CR.models_block()
+_variants = CR.variants_block()
+check("the ranked model table never contains a trained-without variant",
+      not any("-without-" in m["id"] for m in _models)
+      and all(m["rank"] is not None for m in _models if m["window_acc"]))
+check("ranks of the ordinary models are consecutive (variants do not shift "
+      "them)", sorted(m["rank"] for m in _models if m["family"] == "ml"
+                      and m["rank"]) ==
+      list(range(1, 1 + sum(1 for m in _models if m["family"] == "ml"
+                            and m["rank"]))))
+for v in _variants:
+    d = v["delta"]
+    ok = bool(d) and abs(v["mean_delta"] - sum(d.values()) / len(d)) < 1e-9
+    check(f"{v['id']}: the gain is the like-for-like mean over the people it "
+          "was scored on", ok, str(v["mean_delta"]))
+    check(f"{v['id']}: blue star iff it scores higher than its yellow star "
+          "on the same people",
+          v["blue_star"] == (v["base_starred"]
+                             and v["mean_delta"] > zoo.BLUE_STAR_MIN_GAIN),
+          f"{v['mean_delta']:+.4f}")
+check("no variant is a yellow star", not any(
+    v["id"] in zoo.compute_stars(zoo.list_entries(), {})["models"]
+    for v in _variants))
+
 shutil.rmtree(TEMP, ignore_errors=True)
 print()
 passed = sum(OK)

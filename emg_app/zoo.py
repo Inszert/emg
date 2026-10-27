@@ -48,6 +48,10 @@ from typing import Dict, List, Optional, Tuple
 from emg_app import config as cfg
 
 STAR_TOP_N = 3
+#  A model trained WITHOUT someone earns a blue star when it scores higher than
+#  its yellow star on the same held-out people (`variant_stars`). The margin is
+#  zero: any higher score, however small; the tooltip and the docs say how small.
+BLUE_STAR_MIN_GAIN = 0.0
 FAMILIES = ("ml", "nn")
 ENSEMBLES_FILE = "ensembles.json"
 META_FILE = "meta.json"
@@ -92,12 +96,28 @@ def slug(text: str) -> str:
 # ==============================================================================
 
 
+def variant_id(base_id: str, excluded) -> str:
+    """
+    The id of `base_id` trained WITHOUT some people: `ml-rf-500-without-barbora`.
+    No people excluded = the base id itself.
+    """
+    people = sorted(set(excluded or ()))
+    if not people:
+        return base_id
+    return f"{base_id}-without-" + "-".join(slug(p) for p in people)
+
+
 @dataclass
 class ZooEntry:
     id: str
     family: str                       # "ml" | "nn"
     dir: str
     meta: dict = field(default_factory=dict)
+
+    @property
+    def excluded(self) -> List[str]:
+        """People whose data this model was trained WITHOUT (usually none)."""
+        return [str(p) for p in (self.meta.get("excluded_persons") or [])]
 
     @property
     def name(self) -> str:
@@ -236,7 +256,10 @@ def compute_stars(entries: List[ZooEntry], ensembles: dict = None) -> dict:
     ensembles = ensembles if ensembles is not None else {}
     models, combos = {}, {}
     for fam in FAMILIES:
-        fam_entries = [e for e in entries if e.family == fam and e.exists]
+        #  A model trained without someone was scored on fewer people, so its
+        #  number is not comparable with the rest and it is never ranked.
+        fam_entries = [e for e in entries
+                       if e.family == fam and e.exists and not e.excluded]
         ranked = [e for e in rank(fam_entries) if e.window_acc is not None]
         for place, e in enumerate(ranked[:STAR_TOP_N], 1):
             models[e.id] = (f"#{place} of {len(ranked)} {fam.upper()} models: "
@@ -267,7 +290,75 @@ def compute_stars(entries: List[ZooEntry], ensembles: dict = None) -> dict:
                     f"({'nested' if 'nested_acc' in combo else 'same folds'}),"
                     f" better than the best single model "
                     f"({best_single * 100:.1f} %)")
-    return {"models": models, "ensembles": combos}
+    return {"models": models, "ensembles": combos,
+            "variants": variant_stars(entries, models)}
+
+
+def variant_gain(entry: ZooEntry) -> Optional[float]:
+    """
+    How much better a trained-without variant is than the ordinary model it
+    comes from, on the SAME held-out people: mean over the people it was
+    scored on of (its score - the ordinary model's score for that person).
+    `None` when it is not a variant or the comparison is not stored.
+    """
+    if not entry.excluded:
+        return None
+    mine = entry.scores.get("per_person") or {}
+    base = entry.scores.get("base_per_person") or {}
+    common = [p for p in mine if p in base]
+    if not common:
+        return None
+    return sum(float(mine[p]) - float(base[p]) for p in common) / len(common)
+
+
+def variant_reference(entry: ZooEntry, entries: List[ZooEntry],
+                      yellow) -> Optional[ZooEntry]:
+    """
+    The yellow-star model a trained-without variant is judged against: the
+    ordinary model it was made from when that one is starred, otherwise the
+    best yellow star of its family. `None` when the family has no star.
+    """
+    by_id = {e.id: e for e in entries}
+    base = by_id.get(entry.meta.get("variant_of"))
+    if base is not None and base.exists and base.id in yellow:
+        return base
+    starred = rank([e for e in entries if e.family == entry.family
+                    and e.exists and e.id in yellow])
+    return starred[0] if starred else None
+
+
+def variant_stars(entries: List[ZooEntry], yellow=None) -> dict:
+    """
+    `{id: reason}` of the BLUE stars, computed live from the scores: every
+    trained-without variant that scores HIGHER than its yellow star on the
+    people it was scored on (`variant_reference`). Same people on both sides,
+    never the variant's headline score (that one is over fewer, easier
+    people). Nothing is stored, so the stars follow the numbers whenever a
+    model is retrained or a variant is added.
+    """
+    if yellow is None:
+        yellow = compute_stars(entries, {})["models"]
+    out = {}
+    for e in entries:
+        if not e.excluded or not e.exists:
+            continue
+        ref = variant_reference(e, entries, yellow)
+        if ref is None:
+            continue
+        mine = e.scores.get("per_person") or {}
+        theirs = ref.scores.get("per_person") or {}
+        common = [p for p in mine if p in theirs]
+        if not common:
+            continue
+        a = sum(float(mine[p]) for p in common) / len(common)
+        b = sum(float(theirs[p]) for p in common) / len(common)
+        if a - b > BLUE_STAR_MIN_GAIN:
+            out[e.id] = (
+                f"higher than its yellow star {ref.name}: {a * 100:.1f} % "
+                f"against {b * 100:.1f} % ({(a - b) * 100:+.1f} points) on the "
+                f"same {len(common)} people, trained without "
+                f"{', '.join(e.excluded)} (docs/EXCLUDING_PEOPLE.md)")
+    return out
 
 
 def star_mark(entry: ZooEntry, stars: dict) -> str:

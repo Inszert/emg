@@ -547,12 +547,12 @@ gest.reject()
 
 # ====================================================== SETTINGS: the other tabs
 #  Nothing is applied (the dialogs are never accepted).
-def settings_tab(index, filename, title, shots, prepare=None):
+def settings_tab(index, filename, title, shots, prepare=None, height=1000):
     dlg = T.SettingsDialog(win, model_labels=win._model_label_sets(),
                            selected=list(T.GESTURES), classifier_off=[],
                            defaults_note=win._defaults_note())
     dlg.setAttribute(QtCore.Qt.WA_DontShowOnScreen, True)
-    dlg.resize(1100, 1000)
+    dlg.resize(1100, height)     # tall enough that nothing needs scrolling
     dlg.show()
     dlg.tabs.setCurrentIndex(index)
     if prepare:
@@ -567,6 +567,8 @@ def _demo_models(dlg):
     mt = dlg.models_tab
     mt.enable_box.setChecked(True)
     mt._select_stars("ml")
+    #  Show the end of the ML list: the '(without <name>)' rows, blue stars.
+    mt.tables["ml"].scrollToBottom()
 
 
 settings_tab(1, "ui_settings_models.png",
@@ -574,10 +576,13 @@ settings_tab(1, "ui_settings_models.png",
     ("models_tab.enable_box", "USE THE SELECTED MODELS -- off (default) = the "
      "original deployed classifier and net, exactly as before. On = the "
      "models ticked below."),
-    ("models_tab.tables.ml", "THE ML ZOO, best first. \u2605 = top 3 of the "
-     "family by accuracy per window with a person held out (ties by "
-     "macro-F1); hover a star for the rank, score and size. Columns: score, "
-     "size on disk, parameters, latency, what it was trained with."),
+    ("models_tab.tables.ml", "THE ML ZOO, best first; the list scrolls inside "
+     "itself. Yellow \u2605 = top 3 of the family by accuracy per window with a "
+     "person held out (ties by macro-F1); hover a star for the rank, score and "
+     "size. Rows '(without <name>)' are the same models trained without that "
+     "person, listed after the ordinary ones and never ranked with them; a "
+     "BLUE \u2605 = scores higher than its yellow star on the same people. "
+     "Columns: score, size, parameters, latency, what it was trained with."),
     ("models_tab.summaries.ml", "THE SELECTION -- how many, the total size on "
      "disk and parameters."),
     ("models_tab.vote_notes.ml", "SEVERAL MODELS = A SOFT VOTE (the mean of "
@@ -596,9 +601,17 @@ settings_tab(2, "ui_settings_training.png",
     ("training_tab.adapt_boxes.NN", "ADAPTATION TO THE PERSON: each person's "
      "input standardised with statistics from ~9 s of their own unlabelled "
      "signal (the calibration sweep)."),
+    ("training_tab.recommend_buttons.NN", "RECOMMENDED, per family: what the "
+     "ablation study measured to help (with the reason), and USE RECOMMENDED "
+     "to set only that family's switches."),
+    ("training_tab.exclude_boxes.Barbora", "TRAIN WITHOUT THESE PEOPLE -- "
+     "leaves a person's recordings out of the NEXT training (RETRAIN, TRAIN "
+     "NEURAL NET, the zoo, which saves '(without <name>)' variants). The "
+     "percentages are how well the best ordinary ML model / net reads that "
+     "person when they were held out."),
     ("training_tab.adapt_live", "USE ADAPTATION LIVE -- off = adapted models "
      "use their stored global statistics (measured: no loss)."),
-])
+], height=1400)
 
 settings_tab(3, "ui_settings_general.png",
              "10d. SETTINGS -> General  --  the two questions", [

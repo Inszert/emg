@@ -186,11 +186,18 @@ check("the star's tooltip gives rank, score and size",
       mt.tables["ml"].item(0, 1).toolTip())
 check("size and scores are shown", mt.tables["ml"].item(0, 5).text() == "4.9 KB"
       or "KB" in mt.tables["ml"].item(0, 5).text())
-check("selection is OFF by default and the tables are greyed",
-      not mt.enable_box.isChecked() and not mt.tables["ml"].isEnabled())
+def _checkable(table):
+    return [bool(table.item(r, 0).flags() & QtCore.Qt.ItemIsUserCheckable)
+            for r in range(table.rowCount())]
+
+
+check("selection is OFF by default: the tick boxes are locked, the table is "
+      "NOT disabled (a disabled table cannot be scrolled with the wheel)",
+      not mt.enable_box.isChecked() and mt.tables["ml"].isEnabled()
+      and not any(_checkable(mt.tables["ml"])))
 mt.enable_box.setChecked(True)
-check("ticking 'use the selected models' enables them",
-      mt.tables["ml"].isEnabled())
+check("ticking 'use the selected models' makes them tickable",
+      mt.tables["ml"].isEnabled() and all(_checkable(mt.tables["ml"])))
 mt._select_stars("ml")
 check("'select starred' ticks exactly the starred", set(mt.chosen("ml")) ==
       {"ml-rf", "ml-rf2", "ml-lda"} or len(mt.chosen("ml")) == 3, mt.chosen("ml"))
@@ -221,16 +228,198 @@ mt._set_checked("ml", [])
 check("Clear unticks everything", mt.chosen("ml") == [])
 check("with the combination starred, its button is enabled",
       any(b.isEnabled() for b in dialog.findChildren(QtWidgets.QPushButton)
-          if "best combination" in b.text()))
+          if "best combination" in b.text().lower()))
 tr = dialog.training_tab
 check("the Training tab starts at the shipped defaults",
       tr.values() == {k: SS.DEFAULTS[k] for k in (
           "TRAIN_AUGMENT_NN", "TRAIN_AUGMENT_ML", "TRAIN_ADAPT_NN",
-          "TRAIN_ADAPT_ML", "ADAPT_LIVE")}, tr.values())
+          "TRAIN_ADAPT_ML", "TRAIN_EXCLUDE_PERSONS", "ADAPT_LIVE")},
+      tr.values())
 check("one switch per augmentation, for each family",
       set(tr.aug_boxes["NN"]) == set(tr.aug_boxes["ML"]) ==
       {"gain", "noise", "timewarp", "rotate", "chandrop"}
       and set(tr.adapt_boxes) == {"NN", "ML"})
+tr.aug_boxes["NN"]["gain"].setChecked(True)
+tr.adapt_boxes["ML"].setChecked(False)
+tr.use_recommended("NN")
+check("USE RECOMMENDED resets only that family, to the measured value",
+      tr.values()["TRAIN_AUGMENT_NN"] == tr.recommendations["nn"]["augment"]
+      and tr.values()["TRAIN_ADAPT_ML"] is False)
+tr.use_recommended("ML")
+check("...and each family has its own recommendation with a reason",
+      tr.values()["TRAIN_ADAPT_ML"] == tr.recommendations["ml"]["adapt"]
+      and all(r["reasons"] for r in tr.recommendations.values()))
+check("the Models and Training tabs scroll instead of squeezing",
+      all(isinstance(dialog.tabs.widget(i), QtWidgets.QScrollArea)
+          for i in (1, 2, 3)))
+print("\n=== the model lists keep the mouse wheel ===")
+from emg_app.gui.dialogs.settings_tabs import ContainedTable          # noqa: E402
+from PySide6 import QtGui                                             # noqa: E402
+
+
+def _wheel(widget, delta):
+    pos = QtCore.QPointF(widget.width() / 2, widget.height() / 2)
+    ev = QtGui.QWheelEvent(
+        pos, widget.mapToGlobal(pos), QtCore.QPoint(0, 0),
+        QtCore.QPoint(0, delta), QtCore.Qt.NoButton, QtCore.Qt.NoModifier,
+        QtCore.Qt.NoScrollPhase, False)
+    QtWidgets.QApplication.sendEvent(widget, ev)
+    QtWidgets.QApplication.processEvents()
+
+
+_page = QtWidgets.QWidget()
+_lay = QtWidgets.QVBoxLayout(_page)
+_table = ContainedTable(30, 1)
+_table.setFixedHeight(120)
+_lay.addWidget(_table)
+_filler = QtWidgets.QLabel("x")
+_filler.setMinimumHeight(900)                      # the page is taller than its view
+_lay.addWidget(_filler)
+_area = QtWidgets.QScrollArea()
+_area.setWidgetResizable(True)
+_area.setWidget(_page)
+_area.resize(300, 300)
+_area.show()
+QtWidgets.QApplication.processEvents()
+for _ in range(60):                                # far past the end of the list
+    _wheel(_table.viewport(), -120)
+_bar = _table.verticalScrollBar()
+check("the wheel scrolls the list to its end",
+      _bar.value() == _bar.maximum() > 0, f"{_bar.value()}/{_bar.maximum()}")
+check("...and the page around it does not move, even past the end",
+      _area.verticalScrollBar().value() == 0,
+      str(_area.verticalScrollBar().value()))
+_short = ContainedTable(2, 1)
+_short.setFixedHeight(200)
+_lay.addWidget(_short)
+_wheel(_short.viewport(), -120)
+check("a list that fits entirely lets the page have the wheel",
+      _short.verticalScrollBar().maximum() == 0)
+_area.close()
+
+print("\n=== train without some people ===")
+from emg_app import zoo as ZOO                                       # noqa: E402
+check("variant ids sit beside the base id, never on it",
+      ZOO.variant_id("ml-rf-500", ["Barbora"]) == "ml-rf-500-without-barbora"
+      and ZOO.variant_id("ml-rf-500", []) == "ml-rf-500"
+      and ZOO.variant_id("x", ["B", "A"]) == ZOO.variant_id("x", ["A", "B"]))
+fake = [ZOO.ZooEntry("a", "ml", ".", {"scores": {"window_acc": .5}}),
+        ZOO.ZooEntry("a-without-x", "ml", ".",
+                     {"scores": {"window_acc": .99}, "excluded_persons": ["x"]})]
+check("a trained-without variant is never ranked or starred",
+      "a-without-x" not in ZOO.compute_stars(fake, {})["models"]
+      or not fake[0].exists)
+import tempfile as _tf                                                # noqa: E402
+
+_zdir = _tf.mkdtemp(prefix="bluestar_")
+open(os.path.join(_zdir, "model.joblib"), "wb").close()      # "the file exists"
+
+
+def _entry(id_, per_person, excluded=None, of=None, acc=0.8):
+    meta = {"scores": {"window_acc": acc, "per_person": per_person}}
+    if excluded:
+        meta.update(excluded_persons=excluded, variant_of=of)
+    return ZOO.ZooEntry(id_, "ml", _zdir, meta)
+
+
+_base = _entry("a", {"p": .80, "q": .80, "x": .40})         # the yellow star
+_other = _entry("z", {"p": .60, "q": .60, "x": .30}, acc=.5)
+_vs = {k: _entry(f"a-without-x-{k}", {"p": .80 + g, "q": .80 + g},
+                 ["x"], "a", acc=.99)
+       for k, g in (("up", .03), ("tiny", .004), ("same", 0.0),
+                    ("down", -.02))}
+_all = [_base, _other] + list(_vs.values())
+_bs = ZOO.compute_stars(_all, {})
+check("a blue star goes to EVERY variant that scores higher than its yellow "
+      "star on the same people -- however small the gain",
+      set(_bs["variants"]) == {"a-without-x-up", "a-without-x-tiny"},
+      str(sorted(_bs["variants"])))
+check("equal or lower gets none", "a-without-x-same" not in _bs["variants"]
+      and "a-without-x-down" not in _bs["variants"])
+check("its reason names the yellow star, both numbers and the people",
+      "higher than its yellow star" in _bs["variants"]["a-without-x-tiny"]
+      and "+0.4 points" in _bs["variants"]["a-without-x-tiny"]
+      and "2 people" in _bs["variants"]["a-without-x-tiny"],
+      _bs["variants"].get("a-without-x-tiny"))
+check("a variant is never given a yellow star, whatever its headline",
+      not (set(_bs["variants"]) & set(_bs["models"])))
+_better = dict(_base.meta["scores"]["per_person"], p=.95, q=.95)
+_all2 = [_entry("a", _better, acc=.9), _other] + list(_vs.values())
+check("the stars are dynamic: when the yellow star improves, a variant that "
+      "used to be higher loses its blue star",
+      not ZOO.compute_stars(_all2, {})["variants"], str(
+          ZOO.compute_stars(_all2, {})["variants"]))
+_nostar = [_vs["up"]]
+check("no yellow star in the family -> nothing to beat -> no blue star",
+      ZOO.compute_stars(_nostar, {})["variants"] == {})
+
+_mt = type(mt)(None, _all, {})
+_blue = {"a-without-x-up", "a-without-x-tiny"}
+check("the Models tab lists the blue stars of the family, live",
+      set(_mt._blue_ids("ml")) == _blue and _mt._blue_ids("nn") == [])
+check("the master switch is off before any quick selector",
+      not _mt.enable_box.isChecked())
+_mt._select_blue("ml")
+check("BLUE selects exactly the blue-starred models, and switches 'use the "
+      "selected models' on (APPLY would ignore the ticks otherwise)",
+      set(_mt.chosen("ml")) == _blue and _mt.enable_box.isChecked(),
+      str(_mt.chosen("ml")))
+_mt._select_stars("ml")
+_yellow = set(ZOO.compute_stars(_all, {})["models"])     # top 3: here a and z
+check("YELLOW selects exactly the yellow stars (and drops the blue ones)",
+      set(_mt.chosen("ml")) == _yellow == {"a", "z"}, str(_mt.chosen("ml")))
+_mt._select_both("ml")
+check("YELLOW + BLUE selects both sets",
+      set(_mt.chosen("ml")) == _yellow | _blue, str(_mt.chosen("ml")))
+_texts = {b.text() for b in _mt.findChildren(QtWidgets.QPushButton)}
+check("the buttons are there, named by colour",
+      {"Yellow ★", "Blue ★", "Yellow + blue ★"} <= _texts, str(_texts))
+_plain = type(mt)(None, [_base, _other], {})
+_bb = [b for b in _plain.findChildren(QtWidgets.QPushButton)
+       if b.text().startswith("Blue")]
+check("with no blue star anywhere, the BLUE button is disabled and says why",
+      _bb and not any(b.isEnabled() for b in _bb)
+      and "No model" in _bb[0].toolTip(), _bb[0].toolTip() if _bb else "")
+check("an ordinary model has no variant gain",
+      ZOO.variant_gain(ZOO.ZooEntry("o", "ml", ".", {})) is None)
+check("the exclusion list is a saved setting, empty by default",
+      "TRAIN_EXCLUDE_PERSONS" in SS.SETTINGS
+      and SS.DEFAULTS["TRAIN_EXCLUDE_PERSONS"] == [])
+_real_people = SS.people_on_disk
+SS.people_on_disk = lambda root=None: ["Aa", "Bb", "Cc"]
+tr2 = type(tr)(None)
+check("the Training tab has one box per person on disk",
+      set(tr2.exclude_boxes) == {"Aa", "Bb", "Cc"})
+tr2.exclude_boxes["Bb"].setChecked(True)
+check("ticking a person puts them in the values",
+      tr2.values()["TRAIN_EXCLUDE_PERSONS"] == ["Bb"] and not tr2.problems())
+tr2.exclude_boxes["Aa"].setChecked(True)
+check("excluding all but one person is refused with a reason",
+      tr2.problems() and "two people" in tr2.problems()[0], tr2.problems())
+saved_excl = list(T.TRAIN_EXCLUDE_PERSONS)
+T.TRAIN_EXCLUDE_PERSONS = []
+check("nothing excluded -> the trainers get no --person list",
+      SS.person_args() == [])
+T.TRAIN_EXCLUDE_PERSONS = ["Bb"]
+check("one excluded -> every OTHER person is passed as --person",
+      SS.person_args() == ["--person", "Aa", "--person", "Cc"],
+      str(SS.person_args()))
+T.TRAIN_EXCLUDE_PERSONS = ["Aa", "Bb"]
+check("too few left -> the exclusion is ignored, not a one-person set",
+      SS.person_args() == [])
+T.TRAIN_EXCLUDE_PERSONS = saved_excl
+SS.people_on_disk = _real_people
+import train_model as TMOD                                          # noqa: E402
+REAL = os.path.join(T.PROJECT_DIR, "datasets")
+_all, _ = TMOD.load_recordings(REAL)
+_first = sorted({r.person_id for r in _all})[0]
+_cut, _ = TMOD.load_recordings(REAL, exclude_persons=[_first])
+check("load_recordings(exclude_persons=...) leaves that person out, "
+      "and only them",
+      len(_cut) < len(_all) and _first not in {r.person_id for r in _cut}
+      and {r.person_id for r in _all} - {_first}
+      == {r.person_id for r in _cut})
+
 gen = dialog.general_tab
 check("the General tab has both questions and the icon switch, all on",
       gen.values() == {"ASK_CALIBRATION_BEFORE_PREDICT": True,
