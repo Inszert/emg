@@ -491,6 +491,22 @@ A gesture no model was trained on cannot be switched (`n/a`) — **ADD**, record
 **RETRAIN**. Full account: `CLAUDE.md` §7a; 121 checks in
 `tests/test_class_mask.py`.
 
+### 6.8 SETTINGS -> Models, Training, General
+
+`Ctrl+,` opens SETTINGS; besides Gestures (6.7) it has three more tabs. Full
+description with screenshots: [UI_GUIDE.md](UI_GUIDE.md) sections 10b - 10d; what
+each feature does and how to turn it off: [FEATURES.md](FEATURES.md).
+
+* **Models** -- the model zoo with stars, sizes and soft voting. Off by default
+  (the original deployed models are used). `python training/train_zoo.py all`
+  builds the zoo.
+* **Training** -- augmentation and adaptation to the person, per family. They
+  affect training only; defaults come from the ablation study.
+* **General** -- the calibration question before PREDICT / START NN and the
+  retrain question at startup.
+
+Everything is saved in `datasets/app_settings.json` and restored at startup.
+
 ---
 
 ## 7. Recording workflows

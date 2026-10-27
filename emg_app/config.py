@@ -144,7 +144,7 @@ SELECTED_NN = []                    # zoo ids, e.g. ["nn-gru"]
 TRAIN_AUGMENT_NN = []
 TRAIN_AUGMENT_ML = []
 TRAIN_ADAPT_NN = False
-TRAIN_ADAPT_ML = False
+TRAIN_ADAPT_ML = True       # measured; tests/test_defaults.py checks it against results/experiments.json
 
 # ADAPTATION AT RUN TIME. Only has an effect on a model that was trained with
 # adaptation; with it off such a model uses its stored global statistics.

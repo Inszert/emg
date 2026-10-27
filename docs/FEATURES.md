@@ -42,7 +42,7 @@ CLASSIFIER for a gesture.
 behaviour bit for bit; the model files and the NN worker are never touched
 (checked by `tests/test_class_mask.py`).
 
-**Default and why.** All gestures on. TODO(main): from the ablation.
+**Default.** All gestures on (a switch, not a measurement).
 
 **Where it is in the code.** `emg_app/class_mask.py` (the mask),
 `emg_app/gestures.py`, `emg_app/gui/dialogs/gesture_setup.py` (`GestureEditor`),

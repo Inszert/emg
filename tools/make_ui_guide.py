@@ -545,6 +545,97 @@ annotate(gest, gest, [
     "10. SETTINGS (gear icon)  --  gestures: add, record, switch on/off")
 gest.reject()
 
+# ====================================================== SETTINGS: the other tabs
+#  Nothing is applied (the dialogs are never accepted).
+def settings_tab(index, filename, title, shots, prepare=None):
+    dlg = T.SettingsDialog(win, model_labels=win._model_label_sets(),
+                           selected=list(T.GESTURES), classifier_off=[],
+                           defaults_note=win._defaults_note())
+    dlg.setAttribute(QtCore.Qt.WA_DontShowOnScreen, True)
+    dlg.resize(1100, 1000)
+    dlg.show()
+    dlg.tabs.setCurrentIndex(index)
+    if prepare:
+        prepare(dlg)
+    for _ in range(8):
+        app.processEvents()
+    annotate(dlg, dlg, shots, os.path.join(OUT, filename), title)
+    dlg.reject()
+
+
+def _demo_models(dlg):
+    mt = dlg.models_tab
+    mt.enable_box.setChecked(True)
+    mt._select_stars("ml")
+
+
+settings_tab(1, "ui_settings_models.png",
+             "10b. SETTINGS -> Models  --  pick models, stars, sizes, soft voting", [
+    ("models_tab.enable_box", "USE THE SELECTED MODELS -- off (default) = the "
+     "original deployed classifier and net, exactly as before. On = the "
+     "models ticked below."),
+    ("models_tab.tables.ml", "THE ML ZOO, best first. \u2605 = top 3 of the "
+     "family by accuracy per window with a person held out (ties by "
+     "macro-F1); hover a star for the rank, score and size. Columns: score, "
+     "size on disk, parameters, latency, what it was trained with."),
+    ("models_tab.summaries.ml", "THE SELECTION -- how many, the total size on "
+     "disk and parameters."),
+    ("models_tab.vote_notes.ml", "SEVERAL MODELS = A SOFT VOTE (the mean of "
+     "their probabilities). A selection that cannot be averaged -- different "
+     "window, features, calibration or adaptation -- is flagged here and "
+     "blocks APPLY, with the reason."),
+    ("models_tab.tables.nn", "THE NEURAL NETS, the same columns. Nets are "
+     "voted with nets only; ML and nets are never blended."),
+], _demo_models)
+
+settings_tab(2, "ui_settings_training.png",
+             "10c. SETTINGS -> Training  --  augmentation and adaptation, per family", [
+    ("training_tab.aug_boxes.NN.rotate", "AUGMENTATION, per family: gain, "
+     "noise, time warp, band rotation, dead electrode. Applied to training "
+     "windows only; a model already trained keeps what it learned."),
+    ("training_tab.adapt_boxes.NN", "ADAPTATION TO THE PERSON: each person's "
+     "input standardised with statistics from ~9 s of their own unlabelled "
+     "signal (the calibration sweep)."),
+    ("training_tab.adapt_live", "USE ADAPTATION LIVE -- off = adapted models "
+     "use their stored global statistics (measured: no loss)."),
+])
+
+settings_tab(3, "ui_settings_general.png",
+             "10d. SETTINGS -> General  --  the two questions", [
+    ("general_tab.ask_calibration", "Ask whether to calibrate the hand before "
+     "PREDICT / START NN."),
+    ("general_tab.ask_retrain", "Ask whether to retrain (all / only the "
+     "selected) when new gestures or recordings make models out of date."),
+])
+
+# ====================================================================== the questions
+import time as _time
+_offer = {"available": True, "age_h": 2.3, "created": "2026-10-27 08:10",
+          "reason": "reuse it only if the band has stayed on your arm since "
+                    "then; if you took it off or moved it, calibrate again",
+          "rest_check": {"ok": True, "worst_channel": 0}}
+_box, *_ = win._calibration_box("PREDICT", win.person_id, {"x": 1}, _offer)
+_box.setAttribute(QtCore.Qt.WA_DontShowOnScreen, True)
+_box.show()
+for _ in range(6):
+    app.processEvents()
+_box.grab().save(os.path.join(OUT, "ui_question_calibrate.png"))
+_box.close()
+print("  wrote ui_question_calibrate.png")
+_box, *_ = win._retrain_box(["The ML classifier: 12 recordings were added "
+                             "since it was trained",
+                             "The neural net does not know WRIST_FLEX yet "
+                             "(40 recordings of it exist)",
+                             "5 model(s) in the model zoo were measured on an "
+                             "older dataset"])
+_box.setAttribute(QtCore.Qt.WA_DontShowOnScreen, True)
+_box.show()
+for _ in range(6):
+    app.processEvents()
+_box.grab().save(os.path.join(OUT, "ui_question_retrain.png"))
+_box.close()
+print("  wrote ui_question_retrain.png")
+
 print("done")
 sys.stdout.flush()
 os._exit(0)          # skip Qt teardown: the compute probe outlives its label

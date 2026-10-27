@@ -410,6 +410,60 @@ warns about exactly this.
 Unticking RECORD only stops a gesture being cued. Its recordings stay on disk,
 and the models keep using them.
 
+## 10b. Settings -> Models: the model zoo, stars, soft voting
+
+![Settings, Models tab](images/ui_settings_models.png)
+
+Every trained model of the **model zoo** (`models/zoo/`, built by
+`python training/train_zoo.py all`) is listed, the ML classifiers and the neural
+nets separately, best first. **★** marks the top 3 of each family by
+accuracy per window with a person held out (ties by macro-F1; never a
+training-set number) and the best soft-voting subset when it beats every single
+model; hover a star for the rank, the score and the size. The columns give the
+scores, the size on disk, the parameters, the latency and what the model was
+trained with. Under each table: how many are selected, their total size and
+parameters, and -- when two or more are ticked -- whether they can be voted. A
+selection that cannot be averaged (different window, features, calibration or
+adaptation) is flagged there and **blocks APPLY, with the reason**.
+
+*Use the selected models* off (the default) means the original deployed
+classifier and net, exactly as before. Several ML models = their soft vote (the
+mean of their probabilities); several nets likewise; the two families are never
+blended. *Select starred models* and *Select best combination* tick the right
+rows for you.
+
+## 10c. Settings -> Training: augmentation and adaptation
+
+![Settings, Training tab](images/ui_settings_training.png)
+
+Per family (neural nets, ML classifiers): which of the five augmentations to
+train with, and whether to train with **adaptation to the person**. *Use
+adaptation live* decides whether an adapted model uses the wearer's own
+statistics (from the signal stored with their calibration) or its stored global
+ones. These switches change how models are TRAINED: a model already trained
+keeps what it learned. The defaults are the measured ones
+([REPORT.md](REPORT.md)).
+
+## 10d. Settings -> General, and the two questions
+
+![Settings, General tab](images/ui_settings_general.png)
+
+Two questions the application can ask, each switchable here:
+
+![Calibrate your hand?](images/ui_question_calibrate.png)
+
+**Before PREDICT / START NN** -- calibrate the hand now, or use the last
+calibration. The last one is offered only if it was made before this run of the
+application started and is under 8 hours old, and the question always says the
+band must have stayed on your arm since; it is asked once per run per person.
+
+![Retrain?](images/ui_question_retrain.png)
+
+**At startup, when models are out of date** (new recordings, or a recorded
+gesture a model does not know) -- retrain all models, or only the selected ones
+(with selection off, the deployed classifier and net). Nothing retrains
+automatically.
+
 ## Keyboard shortcuts
 
 | Key | Action |

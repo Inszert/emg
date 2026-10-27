@@ -216,10 +216,10 @@ check("with the combination starred, its button is enabled",
       any(b.isEnabled() for b in dialog.findChildren(QtWidgets.QPushButton)
           if "best combination" in b.text()))
 tr = dialog.training_tab
-check("the Training tab starts at the defaults (nothing on)",
-      tr.values() == {"TRAIN_AUGMENT_NN": [], "TRAIN_AUGMENT_ML": [],
-                      "TRAIN_ADAPT_NN": False, "TRAIN_ADAPT_ML": False,
-                      "ADAPT_LIVE": True}, tr.values())
+check("the Training tab starts at the shipped defaults",
+      tr.values() == {k: SS.DEFAULTS[k] for k in (
+          "TRAIN_AUGMENT_NN", "TRAIN_AUGMENT_ML", "TRAIN_ADAPT_NN",
+          "TRAIN_ADAPT_ML", "ADAPT_LIVE")}, tr.values())
 check("one switch per augmentation, for each family",
       set(tr.aug_boxes["NN"]) == set(tr.aug_boxes["ML"]) ==
       {"gain", "noise", "timewarp", "rotate", "chandrop"}
@@ -312,7 +312,7 @@ check("...and each family's own augmentation and adaptation",
       and zargs[zargs.index("--adapt-ml") + 1] == "on"
       and zargs[zargs.index("--adapt-nn") + 1] == "off", zargs)
 T.TRAIN_AUGMENT_ML = []
-T.TRAIN_ADAPT_ML = False
+T.TRAIN_ADAPT_ML = SS.DEFAULTS["TRAIN_ADAPT_ML"]
 
 # ==========================================================================
 section("5. 'calibrate your hand first?'")

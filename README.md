@@ -9,7 +9,6 @@ the training and validation pipeline that goes with it.
 honestly-labelled dataset with subject-independent validation — because on
 this problem the dataset is the bottleneck and the classifier is not.
 
-<!-- TODO(main): replace with a fresh screenshot of the final main window -->
 ![The main window](docs/images/ui_main.png)
 
 ---
@@ -22,9 +21,16 @@ Full list, with how to turn each on and off: [`docs/FEATURES.md`](docs/FEATURES.
 - Two live models: ML soft vote (the answer) and a neural net (second opinion)
 - Per-wearer calibration; background training; TEST MODEL
 - Settings (gear, `Ctrl+,`) with per-gesture RECORD / USE IN CLASSIFIER switches
-- Planned (see FEATURES.md): star markers for the best models, mixed soft
-  voting, size display, data augmentation, adaptation to the person,
-  calibration prompt, retrain question, app icon
+- A **model zoo** (16 ML classifiers, 9 neural nets): every model trained and
+  scored with a person held out, listed with its size, the best marked with a
+  star, any of them selectable in the settings, several voted (soft vote) -- off
+  by default, the original models stay the default
+- Augmentation and adaptation to the person (per family), switched on only
+  where the ablation study measured a gain ([`docs/REPORT.md`](docs/REPORT.md))
+- Two questions the application asks: calibrate the hand before PREDICT /
+  START NN (reuse the last calibration only after a restart), and retrain all /
+  only the selected models when something is out of date
+- App icon; `docs/sdk_myo.md` for a new band; install guides for Windows and Linux
 
 ## Quick start
 
