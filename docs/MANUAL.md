@@ -125,7 +125,7 @@ python -m pip install torch==2.9.1+cu128 --index-url https://download.pytorch.or
 ```powershell
 python emg_dataset_tool.py --summary     # dataset stats, no GUI, no armband
 python tests\test_datalayer.py           # 150 checks
-python tests\test_gui.py                 # 91 checks, builds the real window
+python tests\test_gui.py                 # 109 checks, builds the real window
 ```
 
 ### Verify with hardware

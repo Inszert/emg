@@ -182,6 +182,9 @@ def decide(rows, family):
                               f"{adapt['people_better']}/{adapt['n_people']} "
                               "people",
                     "delta_acc": adapt["delta_acc"]})
+    elif adapt is None:
+        out.append({"family": family, "setting": "adaptation", "value": False,
+                    "reason": "not measured yet -- stays off", "delta_acc": 0.0})
     else:
         out.append({"family": family, "setting": "adaptation", "value": False,
                     "reason": "did not pass the rule"
@@ -213,7 +216,8 @@ def new_models_block():
         entry[r["protocol"] + "_acc"] = float(np.mean(accs))
         entry[r["protocol"] + "_std"] = float(np.std(accs))
         if r["protocol"] == "loso":
-            entry["per_person"] = {f["person"]: f["acc"] for f in r["folds"]}
+            entry["per_person"] = {f.get("person") or f.get("held_out"): f["acc"]
+                                   for f in r["folds"]}
             entry["latency_ms"] = r.get("latency_ms")
             entry["seconds_per_fold"] = float(np.mean(
                 [f["seconds"] for f in r["folds"]]))

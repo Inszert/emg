@@ -23,7 +23,7 @@ scipy>=1.10
 # --- optional: later ML stages ---------------------------------------------
 # scikit-learn / joblib -> training and the live classifier
 # pyarrow               -> only needed if SAVE_PARQUET = True
-scikit-learn>=1.3
+scikit-learn>=1.3,<1.8     # the saved models were pickled with 1.7.2
 joblib>=1.3
 pyarrow>=14.0
 

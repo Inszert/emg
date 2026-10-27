@@ -36,7 +36,7 @@ python emg_dataset_tool.py --summary     # print dataset stats, no GUI
 python legacy/test_myo.py                       # the old reference monitor
 
 python tests\test_datalayer.py           # 150 checks, no armband needed
-python tests\test_gui.py                 # 91 checks, no armband needed
+python tests\test_gui.py                 # 109 checks, no armband needed
 python tests\test_review.py              # 50 checks, no armband needed
 python tests\test_label_on_graph.py         # 48 checks, no armband needed
 python tests\test_predict.py             # 109 checks, no armband needed

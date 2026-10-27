@@ -2296,7 +2296,7 @@ python training/train_nn.py --calibration off    # reproduce the uncalibrated nu
 python training/nn_serve.py --model models\gesture_nn.pt --device auto   # the worker, by hand
 
 python tests\test_datalayer.py                # 150 checks, no hardware
-python tests\test_gui.py                      # 91 checks, no hardware
+python tests\test_gui.py                      # 109 checks, no hardware
 python tests\test_review.py                   # 50 checks, no hardware
 python tests\test_label_on_graph.py              # 48 checks, no armband needed
 python tests\test_markers.py                  # 88 checks, no hardware

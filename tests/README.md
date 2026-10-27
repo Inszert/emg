@@ -5,7 +5,7 @@ non-zero if anything failed. Run them from the **project root**:
 
 ```powershell
 python tests\test_datalayer.py      # 150 checks -- no hardware, no GUI
-python tests\test_gui.py            # 91 checks  -- no hardware (simulated armband)
+python tests\test_gui.py            # 109 checks  -- no hardware (simulated armband)
 python tests\test_review.py         # 50 checks  -- no hardware (simulated armband)
 python tests\test_label_on_graph.py         # 48 checks, no armband needed
 python tests\test_markers.py        # 88 checks  -- no hardware (markers, notes, cutting at a marker)
