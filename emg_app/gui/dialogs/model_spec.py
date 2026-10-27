@@ -138,6 +138,9 @@ class ModelSpecDialog(QtWidgets.QDialog):
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         scroll.setWidget(form_box)
+        #  Tall enough for a few rows at the default size: without a floor the
+        #  VOTING ENSEMBLE group below squeezed it to a sliver (UI_REVIEW 3).
+        scroll.setMinimumHeight(260)
         right.addWidget(scroll, 1)
 
         body.addLayout(right, 2)

@@ -57,3 +57,18 @@ rounded tile; no third-party marks): `assets/icons/icon_{16,32,48,64,128,256}.pn
 `app.ico` (six PNG-compressed sizes, verified by loading it back). `emg_app/gui/icon.py`
 loads it (never raises, empty icon if files are missing), sets the Windows
 AppUserModelID, and `emg_app/app.py` calls `apply_app_icon(app)` once after the theme.
+
+## Resolved by main (2026-10-27)
+
+1. Nested borders on stat tiles -- fixed: `_stat_tile` frame has `objectName "card"`
+   and its stylesheet is `QFrame#card { ... }`.
+2. Header / button-bar cards and the MODEL STATS frames -- same fix (6 sites:
+   `widgets.py`, `main_window/window.py`, `dialogs/model_stats.py`).
+3. MODEL SPEC hyper-parameter scroll area -- given a 260 px floor.
+4. CALIBRATE "dead space" -- intentional, not a bug: the gap is where the 22 pt
+   countdown and the live-signal line appear during a capture; collapsing it would
+   make the dialog jump at every capture. The table at the bottom scrolls with the
+   body (the button row stays pinned).
+5. Small hint text -- left as is (9 - 10 px literals at ~35 call sites); a global
+   bump needs a pass over every dialog's layout and was not worth the risk of
+   clipping elsewhere.
