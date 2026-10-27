@@ -1,0 +1,56 @@
+{
+ "id": "nn-tcn",
+ "family": "nn",
+ "name": "NN-tcn",
+ "kind": "tcn",
+ "description": "dilated depthwise-separable temporal convnet (1/2/4) + attention pooling -- the default: smallest, spans the whole window, fully parallel over time",
+ "file": "model.pt",
+ "sidecar": "model.json",
+ "params": 3943,
+ "size_bytes": 30906,
+ "scores": {
+  "window_acc": 0.6275225146697804,
+  "window_acc_std": 0.18974398613929339,
+  "macro_f1": 0.5857540377264757,
+  "vote_acc": 0.6623389821560554,
+  "per_person": {
+   "Barbora": 0.25816326530612244,
+   "Betka": 0.7403100775193798,
+   "Bruno": 0.7840531561461794,
+   "Dano": 0.703626220362622,
+   "Miso": 0.6514598540145986
+  },
+  "seeds": 2,
+  "seed_std": 0.002115263277793494,
+  "protocol": "leave-one-person-out: every window scored by a model that never saw that person (5 people)",
+  "n_people": 5
+ },
+ "latency_ms": 2.078999881632626,
+ "latency_note": "one live window, measured on an idle machine by tools/bench_zoo.py",
+ "setup": {
+  "window_s": 0.7,
+  "overlap": 0.75
+ },
+ "trained_with": {
+  "augment": [],
+  "adapt": false,
+  "calibration": "affine"
+ },
+ "compat": {
+  "labels": [
+   "FIST",
+   "OPEN",
+   "REST",
+   "THUMB_UP",
+   "WAVE_LEFT",
+   "WAVE_RIGHT"
+  ],
+  "window_s": 0.7,
+  "win_samples": 42,
+  "n_channels": 8,
+  "calibration_mode": "affine"
+ },
+ "n_windows": 2873,
+ "created_iso": "2026-10-27T05:13:57.770",
+ "data_digest": "237a717be2327de9"
+}

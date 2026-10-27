@@ -1,0 +1,225 @@
+{
+ "finished": "2026-10-27 05:30:32",
+ "results": [
+  {
+   "suite": "datalayer",
+   "script": "test_datalayer.py",
+   "exit": 0,
+   "passed": 150,
+   "total": 150,
+   "seconds": 6.3,
+   "ok": true,
+   "failures": []
+  },
+  {
+   "suite": "gui",
+   "script": "test_gui.py",
+   "exit": 0,
+   "passed": 109,
+   "total": 109,
+   "seconds": 45.5,
+   "ok": true,
+   "failures": []
+  },
+  {
+   "suite": "review",
+   "script": "test_review.py",
+   "exit": 0,
+   "passed": 50,
+   "total": 50,
+   "seconds": 18.5,
+   "ok": true,
+   "failures": []
+  },
+  {
+   "suite": "label_on_graph",
+   "script": "test_label_on_graph.py",
+   "exit": 0,
+   "passed": 48,
+   "total": 48,
+   "seconds": 19.7,
+   "ok": true,
+   "failures": []
+  },
+  {
+   "suite": "markers",
+   "script": "test_markers.py",
+   "exit": 0,
+   "passed": 88,
+   "total": 88,
+   "seconds": 2.6,
+   "ok": true,
+   "failures": []
+  },
+  {
+   "suite": "free_take",
+   "script": "test_free_take.py",
+   "exit": 0,
+   "passed": 268,
+   "total": 268,
+   "seconds": 11.9,
+   "ok": true,
+   "failures": []
+  },
+  {
+   "suite": "model_spec",
+   "script": "test_model_spec.py",
+   "exit": 0,
+   "passed": 346,
+   "total": 346,
+   "seconds": 10.2,
+   "ok": true,
+   "failures": []
+  },
+  {
+   "suite": "predict",
+   "script": "test_predict.py",
+   "exit": 0,
+   "passed": 109,
+   "total": 109,
+   "seconds": 54.4,
+   "ok": true,
+   "failures": []
+  },
+  {
+   "suite": "trail",
+   "script": "test_trail.py",
+   "exit": 0,
+   "passed": 103,
+   "total": 103,
+   "seconds": 7.3,
+   "ok": true,
+   "failures": []
+  },
+  {
+   "suite": "calibration",
+   "script": "test_calibration.py",
+   "exit": 0,
+   "passed": 161,
+   "total": 161,
+   "seconds": 6.1,
+   "ok": true,
+   "failures": []
+  },
+  {
+   "suite": "jobs",
+   "script": "test_jobs.py",
+   "exit": 0,
+   "passed": 48,
+   "total": 48,
+   "seconds": 42.0,
+   "ok": true,
+   "failures": []
+  },
+  {
+   "suite": "class_mask",
+   "script": "test_class_mask.py",
+   "exit": 0,
+   "passed": 121,
+   "total": 121,
+   "seconds": 20.7,
+   "ok": true,
+   "failures": []
+  },
+  {
+   "suite": "device",
+   "script": "test_device.py",
+   "exit": 0,
+   "passed": 104,
+   "total": 104,
+   "seconds": 1.3,
+   "ok": true,
+   "failures": []
+  },
+  {
+   "suite": "sweep_cost",
+   "script": "test_sweep_cost.py",
+   "exit": 0,
+   "passed": 48,
+   "total": 48,
+   "seconds": 5.3,
+   "ok": true,
+   "failures": []
+  },
+  {
+   "suite": "filters",
+   "script": "test_filters.py",
+   "exit": 0,
+   "passed": 52,
+   "total": 52,
+   "seconds": 5.1,
+   "ok": true,
+   "failures": []
+  },
+  {
+   "suite": "no_torch",
+   "script": "test_no_torch.py",
+   "exit": 0,
+   "passed": 11,
+   "total": 11,
+   "seconds": 3.7,
+   "ok": true,
+   "failures": []
+  },
+  {
+   "suite": "icon",
+   "script": "test_icon.py",
+   "exit": 0,
+   "passed": 15,
+   "total": 15,
+   "seconds": 1.9,
+   "ok": true,
+   "failures": []
+  },
+  {
+   "suite": "zoo",
+   "script": "test_zoo.py",
+   "exit": 0,
+   "passed": 108,
+   "total": 108,
+   "seconds": 42.3,
+   "ok": true,
+   "failures": []
+  },
+  {
+   "suite": "app_settings",
+   "script": "test_app_settings.py",
+   "exit": 0,
+   "passed": 66,
+   "total": 66,
+   "seconds": 5.7,
+   "ok": true,
+   "failures": []
+  },
+  {
+   "suite": "defaults",
+   "script": "test_defaults.py",
+   "exit": 0,
+   "passed": 18,
+   "total": 18,
+   "seconds": 1.1,
+   "ok": true,
+   "failures": []
+  },
+  {
+   "suite": "nn",
+   "script": "test_nn.py",
+   "exit": 0,
+   "passed": 162,
+   "total": 162,
+   "seconds": 9.4,
+   "ok": true,
+   "failures": []
+  },
+  {
+   "suite": "custom_gesture",
+   "script": "test_custom_gesture.py",
+   "exit": 0,
+   "passed": 48,
+   "total": 48,
+   "seconds": 183.0,
+   "ok": true,
+   "failures": []
+  }
+ ]
+}

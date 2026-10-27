@@ -1,0 +1,61 @@
+{
+ "id": "ml-et-500",
+ "family": "ml",
+ "name": "ET-500",
+ "kind": "extra_trees",
+ "description": "extra trees (n_estimators=500)",
+ "file": "model.joblib",
+ "params": null,
+ "size_bytes": 13634389,
+ "scores": {
+  "window_acc": 0.7938476434252492,
+  "window_acc_std": 0.11385444368916851,
+  "macro_f1": 0.7774880531190366,
+  "vote_acc": 0.8506660683489952,
+  "per_person": {
+   "Barbora": 0.6009070294784581,
+   "Betka": 0.8312499999999999,
+   "Bruno": 0.7467018469656992,
+   "Dano": 0.9365781710914455,
+   "Miso": 0.8538011695906432
+  },
+  "seeds": 3,
+  "seed_std": 0.03499481386063553,
+  "protocol": "leave-one-person-out: every window scored by a model that never saw that person (5 people)",
+  "n_people": 5
+ },
+ "latency_ms": 26.580900070257485,
+ "latency_note": "one live window, measured on an idle machine by tools/bench_zoo.py",
+ "setup": {
+  "window_s": 1.0,
+  "overlap": 0.75,
+  "representation": "bandpass",
+  "freq_features": false,
+  "feature_set": "level"
+ },
+ "trained_with": {
+  "augment": [],
+  "adapt": true,
+  "calibration": "affine"
+ },
+ "compat": {
+  "labels": [
+   "FIST",
+   "OPEN",
+   "REST",
+   "THUMB_UP",
+   "WAVE_LEFT",
+   "WAVE_RIGHT"
+  ],
+  "fs": 60.0,
+  "window_s": 1.0,
+  "window_samples": 60,
+  "representation": "bandpass",
+  "feature_set": "level",
+  "freq_features": false,
+  "calibration_mode": "affine"
+ },
+ "n_windows": 1787,
+ "created_iso": "2026-10-27T00:17:35.603",
+ "data_digest": "237a717be2327de9"
+}

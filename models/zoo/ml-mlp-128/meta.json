@@ -1,0 +1,61 @@
+{
+ "id": "ml-mlp-128",
+ "family": "ml",
+ "name": "MLP-128",
+ "kind": "mlp",
+ "description": "mlp (hidden_layer_sizes=[128], alpha=0.001)",
+ "file": "model.joblib",
+ "params": null,
+ "size_bytes": 104470,
+ "scores": {
+  "window_acc": 0.7494419891438006,
+  "window_acc_std": 0.1104434974820775,
+  "macro_f1": 0.7202145360037524,
+  "vote_acc": 0.798280364621828,
+  "per_person": {
+   "Barbora": 0.5396825396825397,
+   "Betka": 0.7833333333333332,
+   "Bruno": 0.8135444151275286,
+   "Dano": 0.7529498525073747,
+   "Miso": 0.8576998050682262
+  },
+  "seeds": 3,
+  "seed_std": 0.055035104536779594,
+  "protocol": "leave-one-person-out: every window scored by a model that never saw that person (5 people)",
+  "n_people": 5
+ },
+ "latency_ms": 2.3373999865725636,
+ "latency_note": "one live window, measured on an idle machine by tools/bench_zoo.py",
+ "setup": {
+  "window_s": 1.0,
+  "overlap": 0.75,
+  "representation": "bandpass",
+  "freq_features": false,
+  "feature_set": "level"
+ },
+ "trained_with": {
+  "augment": [],
+  "adapt": true,
+  "calibration": "affine"
+ },
+ "compat": {
+  "labels": [
+   "FIST",
+   "OPEN",
+   "REST",
+   "THUMB_UP",
+   "WAVE_LEFT",
+   "WAVE_RIGHT"
+  ],
+  "fs": 60.0,
+  "window_s": 1.0,
+  "window_samples": 60,
+  "representation": "bandpass",
+  "feature_set": "level",
+  "freq_features": false,
+  "calibration_mode": "affine"
+ },
+ "n_windows": 1787,
+ "created_iso": "2026-10-27T00:17:46.214",
+ "data_digest": "237a717be2327de9"
+}

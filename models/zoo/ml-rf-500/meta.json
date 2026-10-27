@@ -1,0 +1,61 @@
+{
+ "id": "ml-rf-500",
+ "family": "ml",
+ "name": "RF-500",
+ "kind": "random_forest",
+ "description": "random forest (n_estimators=500)",
+ "file": "model.joblib",
+ "params": null,
+ "size_bytes": 6011221,
+ "scores": {
+  "window_acc": 0.8049202797197754,
+  "window_acc_std": 0.1419029455271087,
+  "macro_f1": 0.779733470729897,
+  "vote_acc": 0.8548986379474184,
+  "per_person": {
+   "Barbora": 0.5804988662131519,
+   "Betka": 0.8354166666666666,
+   "Bruno": 0.7132805628847846,
+   "Dano": 0.937315634218289,
+   "Miso": 0.9580896686159844
+  },
+  "seeds": 3,
+  "seed_std": 0.026875846678187404,
+  "protocol": "leave-one-person-out: every window scored by a model that never saw that person (5 people)",
+  "n_people": 5
+ },
+ "latency_ms": 26.484500034712255,
+ "latency_note": "one live window, measured on an idle machine by tools/bench_zoo.py",
+ "setup": {
+  "window_s": 1.0,
+  "overlap": 0.75,
+  "representation": "bandpass",
+  "freq_features": false,
+  "feature_set": "level"
+ },
+ "trained_with": {
+  "augment": [],
+  "adapt": true,
+  "calibration": "affine"
+ },
+ "compat": {
+  "labels": [
+   "FIST",
+   "OPEN",
+   "REST",
+   "THUMB_UP",
+   "WAVE_LEFT",
+   "WAVE_RIGHT"
+  ],
+  "fs": 60.0,
+  "window_s": 1.0,
+  "window_samples": 60,
+  "representation": "bandpass",
+  "feature_set": "level",
+  "freq_features": false,
+  "calibration_mode": "affine"
+ },
+ "n_windows": 1787,
+ "created_iso": "2026-10-27T00:17:29.897",
+ "data_digest": "237a717be2327de9"
+}

@@ -1,0 +1,61 @@
+{
+ "id": "ml-knn-15",
+ "family": "ml",
+ "name": "kNN-15",
+ "kind": "knn",
+ "description": "knn (n_neighbors=15)",
+ "file": "model.joblib",
+ "params": null,
+ "size_bytes": 380089,
+ "scores": {
+  "window_acc": 0.727753489609399,
+  "window_acc_std": 0.10556943253741488,
+  "macro_f1": 0.7039691267894819,
+  "vote_acc": 0.793496286910921,
+  "per_person": {
+   "Barbora": 0.5328798185941043,
+   "Betka": 0.8072916666666666,
+   "Bruno": 0.7467018469656992,
+   "Dano": 0.8325958702064896,
+   "Miso": 0.7192982456140351
+  },
+  "seeds": 3,
+  "seed_std": 0.04269280745372188,
+  "protocol": "leave-one-person-out: every window scored by a model that never saw that person (5 people)",
+  "n_people": 5
+ },
+ "latency_ms": 3.5525000421330333,
+ "latency_note": "one live window, measured on an idle machine by tools/bench_zoo.py",
+ "setup": {
+  "window_s": 1.0,
+  "overlap": 0.75,
+  "representation": "bandpass",
+  "freq_features": false,
+  "feature_set": "level"
+ },
+ "trained_with": {
+  "augment": [],
+  "adapt": true,
+  "calibration": "affine"
+ },
+ "compat": {
+  "labels": [
+   "FIST",
+   "OPEN",
+   "REST",
+   "THUMB_UP",
+   "WAVE_LEFT",
+   "WAVE_RIGHT"
+  ],
+  "fs": 60.0,
+  "window_s": 1.0,
+  "window_samples": 60,
+  "representation": "bandpass",
+  "feature_set": "level",
+  "freq_features": false,
+  "calibration_mode": "affine"
+ },
+ "n_windows": 1787,
+ "created_iso": "2026-10-27T00:17:45.337",
+ "data_digest": "237a717be2327de9"
+}

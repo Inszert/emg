@@ -130,6 +130,13 @@ w(f"{len(ml_models)} ML classifiers and {len(nn_models)} neural nets are in the 
   "zoo, all trained on the whole dataset and scored leave-one-person-out. "
   "★ = starred (top 3 per family by accuracy per window, ties by macro-F1).")
 w("")
+if any((m.get("trained_with") or {}).get("adapt") for m in ml_models):
+    w("**The ML models in the zoo were trained with adaptation to the person** "
+      "(the measured default, section 6), so their scores are not comparable "
+      "with the ablation baseline further down (no adaptation) -- compare "
+      "within a table. The neural nets were trained plain, which is why the "
+      "GRU's score here equals its ablation baseline.")
+    w("")
 w("<!-- TABLE: models_ml -->")
 w("")
 def trained_with(m):
@@ -160,8 +167,9 @@ w("")
 total_ml = sum(m["size_bytes"] or 0 for m in ml_models)
 total_nn = sum(m["size_bytes"] or 0 for m in nn_models)
 w(f"The whole ML zoo is {size(total_ml)}; the whole neural zoo {size(total_nn)}. "
-  "Latency was measured while other jobs shared the machine; treat the "
-  "ranking, not the absolute numbers, as the finding.")
+  "Latency is one live window on an idle machine (`tools/bench_zoo.py`): for "
+  "the ML models the whole path (resample, features, probabilities, one "
+  "thread), for the nets one forward pass of batch 1 on CUDA.")
 w("")
 ens = {e["family"]: e for e in DOC.get("ensembles", [])}
 for fam, name in (("ml", "ML"), ("nn", "NN")):
@@ -171,7 +179,8 @@ for fam, name in (("ml", "ML"), ("nn", "NN")):
           f"{pct(e['window_acc'])} on the folds it was searched on, "
           f"**{pct(e.get('nested_acc'))} nested** (chosen without the held-out "
           f"person), against {pct(e.get('best_single_acc'))} for the best single "
-          f"model. " + ("It is starred." if e["starred"] else
+          f"model measured the same way (seed-0 out-of-fold probabilities, so "
+          f"not the seed-averaged scores in the table above). " + ("It is starred." if e["starred"] else
                         "It does not beat the best single model, so it is not "
                         "starred."))
         w("")
@@ -242,10 +251,9 @@ w("")
 w("<!-- TABLE: ablation_voting -->")
 w("")
 if voting:
-    w(table(["model", "per window", "± seeds", "macro-F1", "size", "ms / window"],
+    w(table(["model", "per window", "± seeds", "macro-F1"],
             [(v["model"], pct(v["acc_mean"]), pct(v["acc_std"]),
-              pct(v["f1_mean"]), size(v.get("size_bytes")),
-              ms(v.get("latency_ms"))) for v in voting]))
+              pct(v["f1_mean"])) for v in voting]))
     w("")
     by = {v["model"]: v for v in voting}
     pair, four = by.get("vote(ET+RF)"), by.get("vote(all 4)")
@@ -291,10 +299,25 @@ w(table(["family", "setting", "noise", "band shifted one pod", "25 % weaker"],
 w("")
 w("![Robustness](figures/ablation_robustness.png)")
 w("")
-w("A band slid one pod is the probe every model fails: accuracy drops by "
-  "roughly 25 - 35 points whatever the switch. That is the open problem the "
-  "weakest person's score reflects, and `rotate` augmentation is the one switch "
-  "aimed at it (see the table for what it cost and gained).")
+def _row(fam, cfg):
+    return next((r for r in abl if r["family"] == fam and r["config"] == cfg),
+                None)
+
+
+for fam, name in (("nn", "neural net"), ("ml", "ML pair")):
+    b0, r0 = _row(fam, "baseline"), _row(fam, "aug:rotate")
+    if b0 and r0 and b0.get("robust_shift") is not None:
+        w(f"- **{name}:** a band slid one pod costs "
+          f"{(b0['acc_mean'] - b0['robust_shift']) * 100:.0f} points "
+          f"({pct(b0['acc_mean'])} -> {pct(b0['robust_shift'])}); training with "
+          f"`rotate` augmentation brings the shifted score to "
+          f"{pct(r0['robust_shift'])} but costs "
+          f"{(b0['acc_mean'] - r0['acc_mean']) * 100:.1f} points on clean data, "
+          "so it does not pass the rule for a default. It is the right switch "
+          "if the band is likely to be refitted between calibration and use.")
+w("")
+w("A shifted band is the probe every model fails and the open problem the "
+  "weakest person's score reflects; only `rotate` addresses it.")
 w("")
 w("## 8. Adaptation to the person")
 w("")
@@ -370,8 +393,9 @@ w("- Seed spread is large for the nets (the GRU baseline moved by about 10 "
   "points between seeds), so one-seed rankings (the newer-architectures test, "
   "the zoo's nets) are indicative, not final.")
 w("- Adaptation is not zero-shot, and its gain is not uniform across people.")
-w("- Latencies were measured on a busy machine; a quiet-machine benchmark is "
-  "`tools/bench_models.py`.")
+w("- Latencies are from one idle machine (i5-9300H, GTX 1650); a robot's SBC "
+  "will differ. The nets were timed without the pipe to the worker process "
+  "(about 1 ms more in the app).")
 w("- Acquisition is Myo-only; nothing here was run against a real second band.")
 w("- The nested subset estimate is honest about subset choice, not about the "
   "5-person sample.")

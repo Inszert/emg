@@ -1,0 +1,163 @@
+2026-10-27 00:13:10  [eval 1/48] ml-lda-shrinkage  seed 0  (0 min 00 s elapsed)
+2026-10-27 00:13:15        ml-lda-shrinkage: 69.0 % per window, F1 68.0 %, vote 74.6 %
+2026-10-27 00:13:15  [eval 2/48] ml-lda-shrinkage  seed 1  (0 min 05 s elapsed)
+2026-10-27 00:13:15        ml-lda-shrinkage: 74.5 % per window, F1 70.9 %, vote 78.0 %
+2026-10-27 00:13:15  [eval 3/48] ml-lda-shrinkage  seed 2  (0 min 05 s elapsed)
+2026-10-27 00:13:15        ml-lda-shrinkage: 76.8 % per window, F1 74.2 %, vote 80.4 %
+2026-10-27 00:13:15  [eval 4/48] ml-logreg-c0.1  seed 0  (0 min 05 s elapsed)
+2026-10-27 00:13:31        ml-logreg-c0.1: 71.7 % per window, F1 69.8 %, vote 77.6 %
+2026-10-27 00:13:31  [eval 5/48] ml-logreg-c0.1  seed 1  (0 min 21 s elapsed)
+2026-10-27 00:13:39        ml-logreg-c0.1: 73.4 % per window, F1 69.2 %, vote 74.8 %
+2026-10-27 00:13:39  [eval 6/48] ml-logreg-c0.1  seed 2  (0 min 29 s elapsed)
+2026-10-27 00:13:40        ml-logreg-c0.1: 78.1 % per window, F1 75.2 %, vote 80.0 %
+2026-10-27 00:13:40  [eval 7/48] ml-logreg-c1  seed 0  (0 min 30 s elapsed)
+2026-10-27 00:13:40        ml-logreg-c1: 64.5 % per window, F1 62.1 %, vote 69.4 %
+2026-10-27 00:13:40  [eval 8/48] ml-logreg-c1  seed 1  (0 min 30 s elapsed)
+2026-10-27 00:13:40        ml-logreg-c1: 69.9 % per window, F1 65.6 %, vote 72.0 %
+2026-10-27 00:13:40  [eval 9/48] ml-logreg-c1  seed 2  (0 min 30 s elapsed)
+2026-10-27 00:13:41        ml-logreg-c1: 74.7 % per window, F1 71.0 %, vote 79.0 %
+2026-10-27 00:13:41  [eval 10/48] ml-svm-rbf-c1  seed 0  (0 min 30 s elapsed)
+2026-10-27 00:13:42        ml-svm-rbf-c1: 74.9 % per window, F1 73.3 %, vote 81.8 %
+2026-10-27 00:13:42  [eval 11/48] ml-svm-rbf-c1  seed 1  (0 min 32 s elapsed)
+2026-10-27 00:13:43        ml-svm-rbf-c1: 74.9 % per window, F1 72.3 %, vote 78.2 %
+2026-10-27 00:13:43  [eval 12/48] ml-svm-rbf-c1  seed 2  (0 min 32 s elapsed)
+2026-10-27 00:13:44        ml-svm-rbf-c1: 81.7 % per window, F1 80.6 %, vote 85.1 %
+2026-10-27 00:13:44  [eval 13/48] ml-svm-rbf-c3  seed 0  (0 min 33 s elapsed)
+2026-10-27 00:13:44        ml-svm-rbf-c3: 74.4 % per window, F1 72.6 %, vote 81.9 %
+2026-10-27 00:13:44  [eval 14/48] ml-svm-rbf-c3  seed 1  (0 min 34 s elapsed)
+2026-10-27 00:13:45        ml-svm-rbf-c3: 73.1 % per window, F1 70.3 %, vote 77.8 %
+2026-10-27 00:13:45  [eval 15/48] ml-svm-rbf-c3  seed 2  (0 min 35 s elapsed)
+2026-10-27 00:13:46        ml-svm-rbf-c3: 81.6 % per window, F1 79.4 %, vote 85.1 %
+2026-10-27 00:13:46  [eval 16/48] ml-svm-rbf-c10  seed 0  (0 min 36 s elapsed)
+2026-10-27 00:13:47        ml-svm-rbf-c10: 70.3 % per window, F1 68.1 %, vote 77.5 %
+2026-10-27 00:13:47  [eval 17/48] ml-svm-rbf-c10  seed 1  (0 min 37 s elapsed)
+2026-10-27 00:13:48        ml-svm-rbf-c10: 73.0 % per window, F1 69.5 %, vote 76.8 %
+2026-10-27 00:13:48  [eval 18/48] ml-svm-rbf-c10  seed 2  (0 min 38 s elapsed)
+2026-10-27 00:13:49        ml-svm-rbf-c10: 79.8 % per window, F1 77.3 %, vote 83.7 %
+2026-10-27 00:13:49  [eval 19/48] ml-svm-rbf-c30  seed 0  (0 min 39 s elapsed)
+2026-10-27 00:13:50        ml-svm-rbf-c30: 70.3 % per window, F1 68.1 %, vote 77.5 %
+2026-10-27 00:13:50  [eval 20/48] ml-svm-rbf-c30  seed 1  (0 min 40 s elapsed)
+2026-10-27 00:13:51        ml-svm-rbf-c30: 72.2 % per window, F1 68.9 %, vote 75.3 %
+2026-10-27 00:13:51  [eval 21/48] ml-svm-rbf-c30  seed 2  (0 min 41 s elapsed)
+2026-10-27 00:13:52        ml-svm-rbf-c30: 78.7 % per window, F1 76.4 %, vote 82.3 %
+2026-10-27 00:13:52  [eval 22/48] ml-rf-500  seed 0  (0 min 42 s elapsed)
+2026-10-27 00:14:00        ml-rf-500: 77.6 % per window, F1 76.1 %, vote 83.2 %
+2026-10-27 00:14:00  [eval 23/48] ml-rf-500  seed 1  (0 min 50 s elapsed)
+2026-10-27 00:14:09        ml-rf-500: 83.0 % per window, F1 80.4 %, vote 88.6 %
+2026-10-27 00:14:09  [eval 24/48] ml-rf-500  seed 2  (0 min 59 s elapsed)
+2026-10-27 00:14:17        ml-rf-500: 80.9 % per window, F1 77.5 %, vote 84.6 %
+2026-10-27 00:14:17  [eval 25/48] ml-rf-500-leaf3  seed 0  (1 min 07 s elapsed)
+2026-10-27 00:14:26        ml-rf-500-leaf3: 77.5 % per window, F1 76.1 %, vote 83.7 %
+2026-10-27 00:14:26  [eval 26/48] ml-rf-500-leaf3  seed 1  (1 min 16 s elapsed)
+2026-10-27 00:14:35        ml-rf-500-leaf3: 82.9 % per window, F1 80.7 %, vote 88.1 %
+2026-10-27 00:14:35  [eval 27/48] ml-rf-500-leaf3  seed 2  (1 min 25 s elapsed)
+2026-10-27 00:14:44        ml-rf-500-leaf3: 81.9 % per window, F1 79.0 %, vote 87.0 %
+2026-10-27 00:14:44  [eval 28/48] ml-et-500  seed 0  (1 min 34 s elapsed)
+2026-10-27 00:14:49        ml-et-500: 75.3 % per window, F1 74.9 %, vote 82.6 %
+2026-10-27 00:14:49  [eval 29/48] ml-et-500  seed 1  (1 min 39 s elapsed)
+2026-10-27 00:14:54        ml-et-500: 81.5 % per window, F1 79.7 %, vote 88.1 %
+2026-10-27 00:14:54  [eval 30/48] ml-et-500  seed 2  (1 min 44 s elapsed)
+2026-10-27 00:15:00        ml-et-500: 81.3 % per window, F1 78.7 %, vote 84.5 %
+2026-10-27 00:15:00  [eval 31/48] ml-et-500-leaf3  seed 0  (1 min 50 s elapsed)
+2026-10-27 00:15:06        ml-et-500-leaf3: 75.5 % per window, F1 74.9 %, vote 82.1 %
+2026-10-27 00:15:06  [eval 32/48] ml-et-500-leaf3  seed 1  (1 min 55 s elapsed)
+2026-10-27 00:15:11        ml-et-500-leaf3: 81.8 % per window, F1 80.1 %, vote 87.1 %
+2026-10-27 00:15:11  [eval 33/48] ml-et-500-leaf3  seed 2  (2 min 01 s elapsed)
+2026-10-27 00:15:16        ml-et-500-leaf3: 81.0 % per window, F1 78.6 %, vote 85.0 %
+2026-10-27 00:15:16  [eval 34/48] ml-hgb-lr0.05  seed 0  (2 min 06 s elapsed)
+2026-10-27 00:15:43        ml-hgb-lr0.05: 70.1 % per window, F1 67.3 %, vote 77.1 %
+2026-10-27 00:15:43  [eval 35/48] ml-hgb-lr0.05  seed 1  (2 min 33 s elapsed)
+2026-10-27 00:16:08        ml-hgb-lr0.05: 78.1 % per window, F1 74.0 %, vote 81.4 %
+2026-10-27 00:16:08  [eval 36/48] ml-hgb-lr0.05  seed 2  (2 min 58 s elapsed)
+2026-10-27 00:16:34        ml-hgb-lr0.05: 75.7 % per window, F1 71.5 %, vote 80.0 %
+2026-10-27 00:16:34  [eval 37/48] ml-knn-15  seed 0  (3 min 24 s elapsed)
+2026-10-27 00:16:34        ml-knn-15: 70.1 % per window, F1 68.1 %, vote 76.4 %
+2026-10-27 00:16:34  [eval 38/48] ml-knn-15  seed 1  (3 min 24 s elapsed)
+2026-10-27 00:16:35        ml-knn-15: 70.5 % per window, F1 67.5 %, vote 74.6 %
+2026-10-27 00:16:35  [eval 39/48] ml-knn-15  seed 2  (3 min 24 s elapsed)
+2026-10-27 00:16:35        ml-knn-15: 77.7 % per window, F1 75.6 %, vote 87.1 %
+2026-10-27 00:16:35  [eval 40/48] ml-knn-31  seed 0  (3 min 24 s elapsed)
+2026-10-27 00:16:35        ml-knn-31: 70.2 % per window, F1 67.7 %, vote 75.4 %
+2026-10-27 00:16:35  [eval 41/48] ml-knn-31  seed 1  (3 min 24 s elapsed)
+2026-10-27 00:16:35        ml-knn-31: 70.7 % per window, F1 66.9 %, vote 74.7 %
+2026-10-27 00:16:35  [eval 42/48] ml-knn-31  seed 2  (3 min 25 s elapsed)
+2026-10-27 00:16:35        ml-knn-31: 77.9 % per window, F1 76.4 %, vote 86.1 %
+2026-10-27 00:16:35  [eval 43/48] ml-mlp-128  seed 0  (3 min 25 s elapsed)
+2026-10-27 00:16:36        ml-mlp-128: 71.1 % per window, F1 69.4 %, vote 78.5 %
+2026-10-27 00:16:36  [eval 44/48] ml-mlp-128  seed 1  (3 min 26 s elapsed)
+2026-10-27 00:16:38        ml-mlp-128: 72.5 % per window, F1 67.7 %, vote 74.7 %
+2026-10-27 00:16:38  [eval 45/48] ml-mlp-128  seed 2  (3 min 28 s elapsed)
+2026-10-27 00:16:40        ml-mlp-128: 81.2 % per window, F1 79.0 %, vote 86.3 %
+2026-10-27 00:16:40  [eval 46/48] ml-mlp-256-128  seed 0  (3 min 29 s elapsed)
+2026-10-27 00:16:43        ml-mlp-256-128: 73.3 % per window, F1 71.6 %, vote 80.0 %
+2026-10-27 00:16:43  [eval 47/48] ml-mlp-256-128  seed 1  (3 min 33 s elapsed)
+2026-10-27 00:16:47        ml-mlp-256-128: 72.2 % per window, F1 68.8 %, vote 75.7 %
+2026-10-27 00:16:47  [eval 48/48] ml-mlp-256-128  seed 2  (3 min 36 s elapsed)
+2026-10-27 00:16:50        ml-mlp-256-128: 81.6 % per window, F1 78.9 %, vote 84.8 %
+2026-10-27 00:16:50  done in 3 min 40 s
+2026-10-27 00:17:18  [fit 1] ml-lda-shrinkage: saved 31.4 KB (0 min 04 s), 73.4 % per window
+2026-10-27 00:17:22  [fit 2] ml-logreg-c0.1: saved 10.7 KB (0 min 04 s), 74.4 % per window
+2026-10-27 00:17:25  [fit 3] ml-logreg-c1: saved 10.7 KB (0 min 02 s), 69.7 % per window
+2026-10-27 00:17:25  [fit 4] ml-svm-rbf-c1: saved 218.9 KB (0 min 00 s), 77.2 % per window
+2026-10-27 00:17:25  [fit 5] ml-svm-rbf-c3: saved 167.4 KB (0 min 00 s), 76.4 % per window
+2026-10-27 00:17:26  [fit 6] ml-svm-rbf-c10: saved 157.0 KB (0 min 00 s), 74.4 % per window
+2026-10-27 00:17:26  [fit 7] ml-svm-rbf-c30: saved 149.9 KB (0 min 00 s), 73.8 % per window
+2026-10-27 00:17:29  [fit 8] ml-rf-500: saved 5.7 MB (0 min 03 s), 80.5 % per window
+2026-10-27 00:17:33  [fit 9] ml-rf-500-leaf3: saved 4.8 MB (0 min 03 s), 80.8 % per window
+2026-10-27 00:17:35  [fit 10] ml-et-500: saved 13.0 MB (0 min 02 s), 79.4 % per window
+2026-10-27 00:17:37  [fit 11] ml-et-500-leaf3: saved 11.5 MB (0 min 02 s), 79.4 % per window
+2026-10-27 00:17:44  [fit 12] ml-hgb-lr0.05: saved 2.9 MB (0 min 07 s), 74.6 % per window
+2026-10-27 00:17:45  [fit 13] ml-knn-15: saved 371.2 KB (0 min 00 s), 72.8 % per window
+2026-10-27 00:17:45  [fit 14] ml-knn-31: saved 371.2 KB (0 min 00 s), 72.9 % per window
+2026-10-27 00:17:46  [fit 15] ml-mlp-128: saved 102.0 KB (0 min 01 s), 74.9 % per window
+2026-10-27 00:17:47  [fit 16] ml-mlp-256-128: saved 564.3 KB (0 min 01 s), 75.7 % per window
+2026-10-27 00:17:48  [ensembles] ml: best subset ml-rf-500, ml-rf-500-leaf3, ml-et-500, ml-logreg-c0.1  79.3 % (nested 77.0 %, best single 77.6 %)
+2026-10-27 00:17:48  done in 0 min 33 s
+2026-10-27 04:11:36  [eval 1/18] nn-tcn  seed 0  (0 min 00 s elapsed)
+2026-10-27 04:15:06        nn-tcn: 62.9 % per window, F1 59.7 %, vote 65.0 %
+2026-10-27 04:15:06  [eval 2/18] nn-tcn  seed 1  (3 min 29 s elapsed)
+2026-10-27 04:18:23        nn-tcn: 62.6 % per window, F1 57.4 %, vote 67.4 %
+2026-10-27 04:18:23  [eval 3/18] nn-gru  seed 0  (6 min 46 s elapsed)
+2026-10-27 04:21:17        nn-gru: 72.4 % per window, F1 68.2 %, vote 77.1 %
+2026-10-27 04:21:17  [eval 4/18] nn-gru  seed 1  (9 min 41 s elapsed)
+2026-10-27 04:24:09        nn-gru: 63.0 % per window, F1 59.6 %, vote 67.4 %
+2026-10-27 04:24:09  [eval 5/18] nn-cnn-gru  seed 0  (12 min 33 s elapsed)
+2026-10-27 04:27:17        nn-cnn-gru: 60.5 % per window, F1 56.5 %, vote 65.4 %
+2026-10-27 04:27:17  [eval 6/18] nn-cnn-gru  seed 1  (15 min 41 s elapsed)
+2026-10-27 04:30:27        nn-cnn-gru: 64.1 % per window, F1 58.2 %, vote 67.0 %
+2026-10-27 04:30:27  [eval 7/18] nn-lstm  seed 0  (18 min 51 s elapsed)
+2026-10-27 04:33:13        nn-lstm: 62.8 % per window, F1 57.9 %, vote 65.6 %
+2026-10-27 04:33:13  [eval 8/18] nn-lstm  seed 1  (21 min 36 s elapsed)
+2026-10-27 04:35:58        nn-lstm: 65.1 % per window, F1 61.9 %, vote 69.2 %
+2026-10-27 04:35:58  [eval 9/18] nn-cnn  seed 0  (24 min 22 s elapsed)
+2026-10-27 04:39:02        nn-cnn: 63.2 % per window, F1 59.4 %, vote 66.9 %
+2026-10-27 04:39:02  [eval 10/18] nn-cnn  seed 1  (27 min 26 s elapsed)
+2026-10-27 04:42:06        nn-cnn: 61.9 % per window, F1 57.7 %, vote 67.4 %
+2026-10-27 04:42:06  [eval 11/18] nn-circ-gru  seed 0  (30 min 30 s elapsed)
+2026-10-27 04:45:17        nn-circ-gru: 64.2 % per window, F1 61.7 %, vote 67.2 %
+2026-10-27 04:45:17  [eval 12/18] nn-circ-gru  seed 1  (33 min 40 s elapsed)
+2026-10-27 04:48:24        nn-circ-gru: 62.6 % per window, F1 58.9 %, vote 67.3 %
+2026-10-27 04:48:24  [eval 13/18] nn-chan-transformer  seed 0  (36 min 48 s elapsed)
+2026-10-27 04:52:59        nn-chan-transformer: 67.7 % per window, F1 64.6 %, vote 69.7 %
+2026-10-27 04:52:59  [eval 14/18] nn-chan-transformer  seed 1  (41 min 23 s elapsed)
+2026-10-27 04:57:21        nn-chan-transformer: 64.4 % per window, F1 62.2 %, vote 67.7 %
+2026-10-27 04:57:21  [eval 15/18] nn-inception  seed 0  (45 min 45 s elapsed)
+2026-10-27 05:01:27        nn-inception: 60.3 % per window, F1 56.8 %, vote 65.0 %
+2026-10-27 05:01:27  [eval 16/18] nn-inception  seed 1  (49 min 51 s elapsed)
+2026-10-27 05:05:33        nn-inception: 62.0 % per window, F1 56.8 %, vote 66.0 %
+2026-10-27 05:05:33  [eval 17/18] nn-tsmixer  seed 0  (53 min 56 s elapsed)
+2026-10-27 05:09:19        nn-tsmixer: 65.2 % per window, F1 61.0 %, vote 66.5 %
+2026-10-27 05:09:19  [eval 18/18] nn-tsmixer  seed 1  (57 min 43 s elapsed)
+2026-10-27 05:13:07        nn-tsmixer: 67.5 % per window, F1 62.8 %, vote 68.4 %
+2026-10-27 05:13:57  [fit 1] nn-tcn: saved 30.2 KB (0 min 50 s), 62.8 % per window
+2026-10-27 05:14:40  [fit 2] nn-gru: saved 23.5 KB (0 min 43 s), 67.7 % per window
+2026-10-27 05:15:27  [fit 3] nn-cnn-gru: saved 34.9 KB (0 min 47 s), 62.3 % per window
+2026-10-27 05:16:09  [fit 4] nn-lstm: saved 61.3 KB (0 min 41 s), 63.9 % per window
+2026-10-27 05:16:54  [fit 5] nn-cnn: saved 82.6 KB (0 min 45 s), 62.6 % per window
+2026-10-27 05:17:41  [fit 6] nn-circ-gru: saved 47.1 KB (0 min 46 s), 63.4 % per window
+2026-10-27 05:18:47  [fit 7] nn-chan-transformer: saved 92.2 KB (1 min 06 s), 66.0 % per window
+2026-10-27 05:19:50  [fit 8] nn-inception: saved 42.3 KB (1 min 04 s), 61.1 % per window
+2026-10-27 05:20:44  [fit 9] nn-tsmixer: saved 45.9 KB (0 min 54 s), 66.3 % per window
+2026-10-27 05:20:45  [ensembles] ml: best subset ml-rf-500, ml-rf-500-leaf3, ml-et-500, ml-logreg-c0.1  79.3 % (nested 77.0 %, best single 77.6 %)
+2026-10-27 05:20:45  [ensembles] nn: best subset nn-gru, nn-chan-transformer  72.6 % (nested 69.1 %, best single 72.4 %)
+2026-10-27 05:20:45  done in 1 h 09 min

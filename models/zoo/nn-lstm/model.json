@@ -1,0 +1,191 @@
+{
+  "format": "emg_nn_v1",
+  "kind": "lstm",
+  "architecture": "two stacked LSTMs, last time step -- the retired experiment's baseline, kept for comparison",
+  "labels": [
+    "FIST",
+    "OPEN",
+    "REST",
+    "THUMB_UP",
+    "WAVE_LEFT",
+    "WAVE_RIGHT"
+  ],
+  "n_channels": 8,
+  "win_samples": 42,
+  "window_s": 0.7,
+  "overlap": 0.75,
+  "model_fs": 60.0,
+  "hidden": 32,
+  "dropout": 0.25,
+  "emg_mode": "filtered",
+  "calibration": {
+    "mode": "affine",
+    "requested": "affine",
+    "subjects": [
+      "Barbora",
+      "Betka",
+      "Bruno",
+      "Dano",
+      "Miso"
+    ],
+    "target": 600.0
+  },
+  "adaptation": {
+    "mode": "off"
+  },
+  "augmentation": [],
+  "data": {
+    "root": "C:\\Users\\danie\\OneDrive\\Po\u010d\u00edta\u010d\\EMG\\datasets",
+    "n_recordings": 211,
+    "labels": {
+      "FIST": 29,
+      "OPEN": 35,
+      "REST": 44,
+      "THUMB_UP": 32,
+      "WAVE_LEFT": 36,
+      "WAVE_RIGHT": 35
+    },
+    "subjects": [
+      "Barbora",
+      "Betka",
+      "Bruno",
+      "Dano",
+      "Miso"
+    ],
+    "sessions": [
+      "Barbora/session_01",
+      "Betka/session_01",
+      "Bruno/session_01",
+      "Dano/session_01",
+      "Miso/session_01"
+    ],
+    "newest_stamp": "20261021-221112-488",
+    "newest_unix": 1792613472.488,
+    "uid_digest": "237a717be2327de9"
+  },
+  "stats": {
+    "model_name": "NN-lstm",
+    "trainer": "train_zoo.py",
+    "kind": "lstm",
+    "validation_protocol": "leave-one-person-out: every window scored by a model that never saw that person (5 people)",
+    "grouping": "subject",
+    "grouping_note": "leave-one-person-out",
+    "grouping_contrast": null,
+    "dc_only_control": null,
+    "majority_class_baseline": 0.18552036199095023,
+    "train_fit_accuracy": 1.0,
+    "subjects": [
+      "Barbora",
+      "Betka",
+      "Bruno",
+      "Dano",
+      "Miso"
+    ],
+    "labels": [
+      "FIST",
+      "OPEN",
+      "REST",
+      "THUMB_UP",
+      "WAVE_LEFT",
+      "WAVE_RIGHT"
+    ],
+    "epochs": 150,
+    "batch_size": 64,
+    "learning_rate": 0.003,
+    "weight_decay": 0.001,
+    "label_smoothing": 0.05,
+    "early_stopping": false,
+    "deduped": true,
+    "augmentation": [],
+    "adaptation": false,
+    "subject_independent": {
+      "per_subject": {
+        "Barbora": 0.33979591836734696,
+        "Betka": 0.8168604651162791,
+        "Bruno": 0.7101328903654485,
+        "Dano": 0.7377963737796374,
+        "Miso": 0.5921532846715329
+      },
+      "mean": 0.639347786460049,
+      "std": 0.16623600635285044
+    },
+    "window_accuracy": 0.639347786460049,
+    "window_accuracy_std": 0.16623600635285044,
+    "window_macro_f1": 0.5990960756367731,
+    "recording_vote_accuracy": 0.6740932847640164,
+    "n_recordings_voted": 209,
+    "n_splits": 5,
+    "fold_accuracies": [
+      0.33979591836734696,
+      0.8168604651162791,
+      0.7101328903654485,
+      0.7377963737796374,
+      0.5921532846715329
+    ],
+    "confusion_matrix": [
+      [
+        285,
+        166,
+        0,
+        37,
+        3,
+        26
+      ],
+      [
+        150,
+        161,
+        0,
+        59,
+        7,
+        135
+      ],
+      [
+        0,
+        0,
+        382,
+        98,
+        53,
+        0
+      ],
+      [
+        37,
+        107,
+        32,
+        134,
+        55,
+        2
+      ],
+      [
+        0,
+        0,
+        0,
+        7,
+        452,
+        45
+      ],
+      [
+        1,
+        15,
+        2,
+        0,
+        5,
+        417
+      ]
+    ],
+    "n_windows": 2873,
+    "n_parameters": 14022,
+    "window_s": 0.7,
+    "overlap": 0.75,
+    "win_samples": 42,
+    "architecture_note": "two stacked LSTMs, last time step -- the retired experiment's baseline, kept for comparison",
+    "separation_note": "This net is NOT part of the deployed answer unless it is selected in the settings; it is never blended with the ML models.",
+    "created_iso": "2026-10-27T05:16:08.932"
+  },
+  "device_trained_on": {
+    "device": "cuda",
+    "gpu": "NVIDIA GeForce GTX 1650",
+    "torch": "2.9.1+cu128"
+  },
+  "created": "2026-10-27T05:16:08",
+  "created_iso": "2026-10-27T05:16:08.973"
+}

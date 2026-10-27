@@ -1,0 +1,56 @@
+{
+ "id": "nn-inception",
+ "family": "nn",
+ "name": "NN-inception",
+ "kind": "inception",
+ "description": "small InceptionTime: 3 inception modules (kernels 3/7/15) with a residual, mean ++ max pooling",
+ "file": "model.pt",
+ "sidecar": "model.json",
+ "params": 6854,
+ "size_bytes": 43313,
+ "scores": {
+  "window_acc": 0.6114053992553641,
+  "window_acc_std": 0.15500183257702663,
+  "macro_f1": 0.5678405427945545,
+  "vote_acc": 0.6548862316545243,
+  "per_person": {
+   "Barbora": 0.3142857142857143,
+   "Betka": 0.7344961240310077,
+   "Bruno": 0.717607973421927,
+   "Dano": 0.6847977684797768,
+   "Miso": 0.6058394160583942
+  },
+  "seeds": 2,
+  "seed_std": 0.011962729708964878,
+  "protocol": "leave-one-person-out: every window scored by a model that never saw that person (5 people)",
+  "n_people": 5
+ },
+ "latency_ms": 2.622150001116097,
+ "latency_note": "one live window, measured on an idle machine by tools/bench_zoo.py",
+ "setup": {
+  "window_s": 0.7,
+  "overlap": 0.75
+ },
+ "trained_with": {
+  "augment": [],
+  "adapt": false,
+  "calibration": "affine"
+ },
+ "compat": {
+  "labels": [
+   "FIST",
+   "OPEN",
+   "REST",
+   "THUMB_UP",
+   "WAVE_LEFT",
+   "WAVE_RIGHT"
+  ],
+  "window_s": 0.7,
+  "win_samples": 42,
+  "n_channels": 8,
+  "calibration_mode": "affine"
+ },
+ "n_windows": 2873,
+ "created_iso": "2026-10-27T05:19:50.726",
+ "data_digest": "237a717be2327de9"
+}

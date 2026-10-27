@@ -1,0 +1,61 @@
+{
+ "id": "ml-svm-rbf-c3",
+ "family": "ml",
+ "name": "SVM-rbf-C3",
+ "kind": "svm_rbf",
+ "description": "svm rbf (C=3.0)",
+ "file": "model.joblib",
+ "params": null,
+ "size_bytes": 171404,
+ "scores": {
+  "window_acc": 0.7637495420668788,
+  "window_acc_std": 0.09699237357268325,
+  "macro_f1": 0.7410651562556471,
+  "vote_acc": 0.8158909654031605,
+  "per_person": {
+   "Barbora": 0.5884353741496599,
+   "Betka": 0.803125,
+   "Bruno": 0.743183817062445,
+   "Dano": 0.8097345132743362,
+   "Miso": 0.8742690058479532
+  },
+  "seeds": 3,
+  "seed_std": 0.04571414211577673,
+  "protocol": "leave-one-person-out: every window scored by a model that never saw that person (5 people)",
+  "n_people": 5
+ },
+ "latency_ms": 2.267249976284802,
+ "latency_note": "one live window, measured on an idle machine by tools/bench_zoo.py",
+ "setup": {
+  "window_s": 1.0,
+  "overlap": 0.75,
+  "representation": "bandpass",
+  "freq_features": false,
+  "feature_set": "level"
+ },
+ "trained_with": {
+  "augment": [],
+  "adapt": true,
+  "calibration": "affine"
+ },
+ "compat": {
+  "labels": [
+   "FIST",
+   "OPEN",
+   "REST",
+   "THUMB_UP",
+   "WAVE_LEFT",
+   "WAVE_RIGHT"
+  ],
+  "fs": 60.0,
+  "window_s": 1.0,
+  "window_samples": 60,
+  "representation": "bandpass",
+  "feature_set": "level",
+  "freq_features": false,
+  "calibration_mode": "affine"
+ },
+ "n_windows": 1787,
+ "created_iso": "2026-10-27T00:17:25.941",
+ "data_digest": "237a717be2327de9"
+}

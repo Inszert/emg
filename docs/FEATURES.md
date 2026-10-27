@@ -15,7 +15,7 @@ Defaults overview:
 | model selection | off | the original deployed models stay the default; select from the zoo in SETTINGS -> Models |
 | soft voting | off | only with two or more selected models; see the voting table in the report |
 | augmentation (NN) | off | no augmentation passed the rule (>= 1 point and 2x the seed noise, better for >= 4 of 5 people, or the same on robustness) -- stays off, selectable in the settings |
-| adaptation (NN) | off | did not pass the rule -- stays off, selectable in the settings |
+| adaptation (NN) | off | did not pass the rule (+4.5 points, better for 4/5 people, no evidence) -- stays off, selectable in the settings |
 | augmentation (ML) | off | no augmentation passed the rule (>= 1 point and 2x the seed noise, better for >= 4 of 5 people, or the same on robustness) -- stays off, selectable in the settings |
 | adaptation (ML) | on | helps robustness: +4.3 points per window, better for 3/5 people |
 | calibration question | on | asked for; turn off in General |

@@ -1,0 +1,31 @@
+{
+ "protocol": "leave-one-person-out, vote(ET-500 + RF-500-leaf3), seed 0",
+ "per_person": {
+  "baseline": {
+   "Barbora": 0.45918367346938777,
+   "Betka": 0.828125,
+   "Bruno": 0.7994722955145118,
+   "Dano": 0.8915929203539823,
+   "Miso": 0.9005847953216374
+  },
+  "adapted": {
+   "Barbora": 0.41836734693877553,
+   "Betka": 0.8125,
+   "Bruno": 0.7678100263852242,
+   "Dano": 0.9646017699115044,
+   "Miso": 0.9619883040935673
+  },
+  "adapted model, global stats at test": {
+   "Barbora": 0.4421768707482993,
+   "Betka": 0.784375,
+   "Bruno": 0.8126649076517151,
+   "Dano": 0.9446902654867256,
+   "Miso": 0.9269005847953217
+  }
+ },
+ "mean": {
+  "baseline": 0.7757917369319038,
+  "adapted": 0.7850534894658143,
+  "adapted model, global stats at test": 0.7821615257364123
+ }
+}

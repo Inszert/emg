@@ -59,7 +59,7 @@ Newest at the bottom of each section.
 - Sub-agent C found things only main may change (widgets.py `_stat_tile` nested
   frames, header cards, MODEL SPEC / CALIBRATE layout); see `docs/UI_REVIEW.md`.
 - `n_jobs=-1` forests and the NN worker share the machine with the recorder; the
-  latency numbers in the report were measured on a BUSY machine (see Open).
+  latency numbers in the report come from `tools/bench_zoo.py` on an idle machine.
 - A second sitting of the weakest person (Barbora) is still the most valuable data
   to collect (see docs/MODELS_COMPARED.md); no model change substitutes for it.
 - A new band: acquisition is Myo-only (CLAUDE.md 2b). `docs/sdk_myo.md` lists what a
@@ -112,9 +112,6 @@ Newest at the bottom of each section.
 
 ## Open
 
-- Quiet-machine latency benchmark for the zoo (`tools/bench_models.py` covers the
-  deployed pair only); the latencies in the tables were measured while other jobs
-  ran.
 - ML augmentation / adaptation are applied by the zoo trainer only; the classic
   RETRAIN sweep (train_model.py) trains plain models. Folding them into the
   sweep means threading the switches through `build_dataset` for every setup of

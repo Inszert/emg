@@ -1,0 +1,56 @@
+{
+ "id": "nn-circ-gru",
+ "family": "nn",
+ "name": "NN-circ_gru",
+ "kind": "circ_gru",
+ "description": "conv over (time x pod) with CIRCULAR padding on the pod axis (the band is a ring) + GRU + attention pooling; pod identity is kept",
+ "file": "model.pt",
+ "sidecar": "model.json",
+ "params": 9927,
+ "size_bytes": 48182,
+ "scores": {
+  "window_acc": 0.6342192634257977,
+  "window_acc_std": 0.18556631351047448,
+  "macro_f1": 0.6026771612987641,
+  "vote_acc": 0.6725131981839299,
+  "per_person": {
+   "Barbora": 0.3010204081632653,
+   "Betka": 0.7771317829457365,
+   "Bruno": 0.7250830564784053,
+   "Dano": 0.801255230125523,
+   "Miso": 0.5666058394160585
+  },
+  "seeds": 2,
+  "seed_std": 0.011119415257155998,
+  "protocol": "leave-one-person-out: every window scored by a model that never saw that person (5 people)",
+  "n_people": 5
+ },
+ "latency_ms": 1.2820499250665307,
+ "latency_note": "one live window, measured on an idle machine by tools/bench_zoo.py",
+ "setup": {
+  "window_s": 0.7,
+  "overlap": 0.75
+ },
+ "trained_with": {
+  "augment": [],
+  "adapt": false,
+  "calibration": "affine"
+ },
+ "compat": {
+  "labels": [
+   "FIST",
+   "OPEN",
+   "REST",
+   "THUMB_UP",
+   "WAVE_LEFT",
+   "WAVE_RIGHT"
+  ],
+  "window_s": 0.7,
+  "win_samples": 42,
+  "n_channels": 8,
+  "calibration_mode": "affine"
+ },
+ "n_windows": 2873,
+ "created_iso": "2026-10-27T05:17:40.975",
+ "data_digest": "237a717be2327de9"
+}

@@ -92,7 +92,10 @@ def main(argv):
               f"{r['total']:<5}{r['seconds']:>8.1f} s"
               + ("" if r["ok"] else f"   exit {r['exit']}  "
                  + "; ".join(r["failures"][:2])), flush=True)
-    with open(os.path.join(TESTS, "last_run.json"), "w", encoding="utf-8") as fh:
+    #  Only a run of the WHOLE set is "the last run"; a filtered run must not
+    #  overwrite it (results/experiments.json and the report read this file).
+    name = "last_run_partial.json" if words or fast else "last_run.json"
+    with open(os.path.join(TESTS, name), "w", encoding="utf-8") as fh:
         json.dump({"finished": time.strftime("%Y-%m-%d %H:%M:%S"),
                    "results": results}, fh, indent=1)
     bad = [r for r in results if not r["ok"]]

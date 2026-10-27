@@ -1,0 +1,44 @@
+{
+ "ml": {
+  "members": [
+   "ml-rf-500",
+   "ml-rf-500-leaf3",
+   "ml-et-500",
+   "ml-logreg-c0.1"
+  ],
+  "window_acc": 0.7931695761897091,
+  "macro_f1": 0.7778722941991681,
+  "vote_acc": 0.8512137049941927,
+  "nested_acc": 0.7703088001450884,
+  "nested_per_person": {
+   "Barbora": 0.40476190476190477,
+   "Betka": 0.821875,
+   "Bruno": 0.7783641160949868,
+   "Dano": 0.922566371681416,
+   "Miso": 0.9239766081871345
+  },
+  "best_single_acc": 0.7763988980746729,
+  "searched": "every subset of size 2-4 of the 8 best single models (154 subsets)",
+  "note": "window_acc is the best of the searched subsets on the same folds, so it is optimistic; nested_acc picks the subset without the held-out person and is the number the star is decided on."
+ },
+ "nn": {
+  "members": [
+   "nn-gru",
+   "nn-chan-transformer"
+  ],
+  "window_acc": 0.7259357482041603,
+  "macro_f1": 0.6943407697975056,
+  "vote_acc": 0.7708024495829375,
+  "nested_acc": 0.6908992518537953,
+  "nested_per_person": {
+   "Barbora": 0.48367346938775513,
+   "Betka": 0.8585271317829457,
+   "Bruno": 0.7275747508305648,
+   "Dano": 0.7880055788005579,
+   "Miso": 0.5967153284671532
+  },
+  "best_single_acc": 0.7242255576927085,
+  "searched": "every subset of size 2-4 of the 8 best single models (154 subsets)",
+  "note": "window_acc is the best of the searched subsets on the same folds, so it is optimistic; nested_acc picks the subset without the held-out person and is the number the star is decided on."
+ }
+}

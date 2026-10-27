@@ -1,0 +1,56 @@
+{
+ "id": "nn-cnn-gru",
+ "family": "nn",
+ "name": "NN-cnn_gru",
+ "kind": "cnn_gru",
+ "description": "separable conv front end, then a GRU, + attention pooling",
+ "file": "model.pt",
+ "sidecar": "model.json",
+ "params": 6503,
+ "size_bytes": 35754,
+ "scores": {
+  "window_acc": 0.6229549291372127,
+  "window_acc_std": 0.1830887882293193,
+  "macro_f1": 0.5734957103406597,
+  "vote_acc": 0.6622494984690106,
+  "per_person": {
+   "Barbora": 0.27142857142857146,
+   "Betka": 0.7877906976744187,
+   "Bruno": 0.665282392026578,
+   "Dano": 0.7433751743375174,
+   "Miso": 0.6468978102189782
+  },
+  "seeds": 2,
+  "seed_std": 0.025064841248061017,
+  "protocol": "leave-one-person-out: every window scored by a model that never saw that person (5 people)",
+  "n_people": 5
+ },
+ "latency_ms": 1.489749876782298,
+ "latency_note": "one live window, measured on an idle machine by tools/bench_zoo.py",
+ "setup": {
+  "window_s": 0.7,
+  "overlap": 0.75
+ },
+ "trained_with": {
+  "augment": [],
+  "adapt": false,
+  "calibration": "affine"
+ },
+ "compat": {
+  "labels": [
+   "FIST",
+   "OPEN",
+   "REST",
+   "THUMB_UP",
+   "WAVE_LEFT",
+   "WAVE_RIGHT"
+  ],
+  "window_s": 0.7,
+  "win_samples": 42,
+  "n_channels": 8,
+  "calibration_mode": "affine"
+ },
+ "n_windows": 2873,
+ "created_iso": "2026-10-27T05:15:27.696",
+ "data_digest": "237a717be2327de9"
+}

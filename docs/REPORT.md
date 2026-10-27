@@ -1,6 +1,6 @@
 # Report: models, ablation, defaults and verification
 
-*Generated 2026-10-27 03:38 by `tools/make_report.py` from `results/experiments.json`. Re-run it after any new measurement; nothing below is typed by hand.*
+*Generated 2026-10-27 05:31 by `tools/make_report.py` from `results/experiments.json`. Re-run it after any new measurement; nothing below is typed by hand.*
 
 ## 1. Goal and context
 
@@ -21,39 +21,52 @@ The project records 8-channel EMG from a Thalmic Myo and trains gesture classifi
 
 ## 4. Models and sizes
 
-16 ML classifiers and 0 neural nets are in the zoo, all trained on the whole dataset and scored leave-one-person-out. ★ = starred (top 3 per family by accuracy per window, ties by macro-F1).
+16 ML classifiers and 9 neural nets are in the zoo, all trained on the whole dataset and scored leave-one-person-out. ★ = starred (top 3 per family by accuracy per window, ties by macro-F1).
+
+**The ML models in the zoo were trained with adaptation to the person** (the measured default, section 6), so their scores are not comparable with the ablation baseline further down (no adaptation) -- compare within a table. The neural nets were trained plain, which is why the GRU's score here equals its ablation baseline.
 
 <!-- TABLE: models_ml -->
 
 |  | model | per window | macro-F1 | per recording | size on disk | ms / live window | trained with |
 |---|---|---|---|---|---|---|---|
-| ★ | RF-500-leaf3 | 80.8 % | 78.6 % | 86.3 % | 4.8 MB | 26.3 | adaptation |
-| ★ | RF-500 | 80.5 % | 78.0 % | 85.5 % | 5.7 MB | 24.9 | adaptation |
-| ★ | ET-500-leaf3 | 79.4 % | 77.9 % | 84.7 % | 11.5 MB | 25.4 | adaptation |
-|  | ET-500 | 79.4 % | 77.7 % | 85.1 % | 13.0 MB | 26.3 | adaptation |
-|  | SVM-rbf-C1 | 77.2 % | 75.4 % | 81.7 % | 218.9 KB | 0.28 | adaptation |
-|  | SVM-rbf-C3 | 76.4 % | 74.1 % | 81.6 % | 167.4 KB | 0.27 | adaptation |
-|  | MLP-256-128 | 75.7 % | 73.1 % | 80.2 % | 564.3 KB | 0.23 | adaptation |
-|  | MLP-128 | 74.9 % | 72.0 % | 79.8 % | 102.0 KB | 0.41 | adaptation |
-|  | HGB-lr0.05 | 74.6 % | 70.9 % | 79.5 % | 2.9 MB | 33.7 | adaptation |
-|  | LogReg-C0.1 | 74.4 % | 71.4 % | 77.4 % | 10.7 KB | 0.27 | adaptation |
-|  | SVM-rbf-C10 | 74.4 % | 71.7 % | 79.3 % | 157.0 KB | 0.47 | adaptation |
-|  | SVM-rbf-C30 | 73.8 % | 71.1 % | 78.4 % | 149.9 KB | 0.26 | adaptation |
-|  | LDA-shrinkage | 73.4 % | 71.0 % | 77.6 % | 31.4 KB | 0.42 | adaptation |
-|  | kNN-31 | 72.9 % | 70.3 % | 78.7 % | 371.2 KB | 1.41 | adaptation |
-|  | kNN-15 | 72.8 % | 70.4 % | 79.3 % | 371.2 KB | 1.20 | adaptation |
-|  | LogReg-C1 | 69.7 % | 66.2 % | 73.5 % | 10.7 KB | 0.40 | adaptation |
+| ★ | RF-500-leaf3 | 80.8 % | 78.6 % | 86.3 % | 4.8 MB | 26.4 | adaptation |
+| ★ | RF-500 | 80.5 % | 78.0 % | 85.5 % | 5.7 MB | 26.5 | adaptation |
+| ★ | ET-500-leaf3 | 79.4 % | 77.9 % | 84.7 % | 11.5 MB | 26.9 | adaptation |
+|  | ET-500 | 79.4 % | 77.7 % | 85.1 % | 13.0 MB | 26.6 | adaptation |
+|  | SVM-rbf-C1 | 77.2 % | 75.4 % | 81.7 % | 218.9 KB | 2.47 | adaptation |
+|  | SVM-rbf-C3 | 76.4 % | 74.1 % | 81.6 % | 167.4 KB | 2.27 | adaptation |
+|  | MLP-256-128 | 75.7 % | 73.1 % | 80.2 % | 564.3 KB | 3.53 | adaptation |
+|  | MLP-128 | 74.9 % | 72.0 % | 79.8 % | 102.0 KB | 2.34 | adaptation |
+|  | HGB-lr0.05 | 74.6 % | 70.9 % | 79.5 % | 2.9 MB | 28.6 | adaptation |
+|  | LogReg-C0.1 | 74.4 % | 71.4 % | 77.4 % | 10.7 KB | 2.25 | adaptation |
+|  | SVM-rbf-C10 | 74.4 % | 71.7 % | 79.3 % | 157.0 KB | 2.33 | adaptation |
+|  | SVM-rbf-C30 | 73.8 % | 71.1 % | 78.4 % | 149.9 KB | 4.67 | adaptation |
+|  | LDA-shrinkage | 73.4 % | 71.0 % | 77.6 % | 31.4 KB | 2.60 | adaptation |
+|  | kNN-31 | 72.9 % | 70.3 % | 78.7 % | 371.2 KB | 5.76 | adaptation |
+|  | kNN-15 | 72.8 % | 70.4 % | 79.3 % | 371.2 KB | 3.55 | adaptation |
+|  | LogReg-C1 | 69.7 % | 66.2 % | 73.5 % | 10.7 KB | 2.17 | adaptation |
 
 <!-- TABLE: models_nn -->
 
 |  | model | per window | macro-F1 | per recording | parameters | size on disk | ms / live window |
 |---|---|---|---|---|---|---|---|
+| ★ | NN-gru | 67.7 % | 63.9 % | 72.3 % | 4 455 | 23.5 KB | 0.81 |
+| ★ | NN-tsmixer | 66.3 % | 61.9 % | 67.4 % | 9 066 | 45.9 KB | 1.81 |
+| ★ | NN-chan_transformer | 66.0 % | 63.4 % | 68.7 % | 20 326 | 92.2 KB | 1.25 |
+|  | NN-lstm | 63.9 % | 59.9 % | 67.4 % | 14 022 | 61.3 KB | 0.52 |
+|  | NN-circ_gru | 63.4 % | 60.3 % | 67.3 % | 9 927 | 47.1 KB | 1.28 |
+|  | NN-tcn | 62.8 % | 58.6 % | 66.2 % | 3 943 | 30.2 KB | 2.08 |
+|  | NN-cnn | 62.6 % | 58.6 % | 67.2 % | 18 246 | 82.6 KB | 1.09 |
+|  | NN-cnn_gru | 62.3 % | 57.3 % | 66.2 % | 6 503 | 34.9 KB | 1.49 |
+|  | NN-inception | 61.1 % | 56.8 % | 65.5 % | 6 854 | 42.3 KB | 2.62 |
 
 <!-- TABLE: model_sizes -->
 
-The whole ML zoo is 40.0 MB; the whole neural zoo 0 B. Latency was measured while other jobs shared the machine; treat the ranking, not the absolute numbers, as the finding.
+The whole ML zoo is 40.0 MB; the whole neural zoo 460.0 KB. Latency is one live window on an idle machine (`tools/bench_zoo.py`): for the ML models the whole path (resample, features, probabilities, one thread), for the nets one forward pass of batch 1 on CUDA.
 
-**Best ML soft-voting subset:** ml-rf-500, ml-rf-500-leaf3, ml-et-500, ml-logreg-c0.1 -- 79.3 % on the folds it was searched on, **77.0 % nested** (chosen without the held-out person), against 77.6 % for the best single model. It does not beat the best single model, so it is not starred.
+**Best ML soft-voting subset:** ml-rf-500, ml-rf-500-leaf3, ml-et-500, ml-logreg-c0.1 -- 79.3 % on the folds it was searched on, **77.0 % nested** (chosen without the held-out person), against 77.6 % for the best single model measured the same way (seed-0 out-of-fold probabilities, so not the seed-averaged scores in the table above). It does not beat the best single model, so it is not starred.
+
+**Best NN soft-voting subset:** nn-gru, nn-chan-transformer -- 72.6 % on the folds it was searched on, **69.1 % nested** (chosen without the held-out person), against 72.4 % for the best single model measured the same way (seed-0 out-of-fold probabilities, so not the seed-averaged scores in the table above). It does not beat the best single model, so it is not starred.
 
 ![The zoo](figures/zoo_overview.png)
 
@@ -89,7 +102,10 @@ One switch at a time against the baseline, then only combinations of what helped
 | baseline | 3 | 67.7 % | 4.7 % | 63.9 % | -- | -- | -- | reference |
 | aug:gain | 3 | 65.9 % | 3.6 % | 62.2 % | -1.8 | 2/5 | -1.4 | hurts |
 | aug:noise | 3 | 68.2 % | 2.4 % | 63.8 % | +0.4 | 3/5 | +0.8 | no evidence |
-| aug:timewarp | 1 | 68.9 % | 0.0 % | 66.1 % | +1.2 | 3/5 | +0.4 | no evidence |
+| aug:timewarp | 3 | 67.3 % | 1.5 % | 63.9 % | -0.4 | 2/5 | -0.2 | no evidence |
+| aug:rotate | 3 | 63.6 % | 2.4 % | 58.5 % | -4.2 | 2/5 | +3.6 | hurts |
+| aug:chandrop | 3 | 66.7 % | 1.0 % | 64.5 % | -1.1 | 3/5 | +1.7 | hurts |
+| adapt | 3 | 72.3 % | 1.5 % | 67.8 % | +4.5 | 4/5 | +3.5 | no evidence |
 
 ### ML (soft vote ET-500 + RF-500-leaf3)
 
@@ -114,14 +130,14 @@ One switch at a time against the baseline, then only combinations of what helped
 
 <!-- TABLE: ablation_voting -->
 
-| model | per window | ± seeds | macro-F1 | size | ms / window |
-|---|---|---|---|---|---|
-| ET-500 | 76.9 % | 0.4 % | 74.2 % | 8.9 MB | 31.7 |
-| RF-500-leaf3 | 76.3 % | 0.3 % | 73.9 % | 3.3 MB | 27.5 |
-| lda | 63.1 % | 0.0 % | 61.0 % | 25.7 KB | 0.28 |
-| svm_rbf | 64.3 % | 0.2 % | 60.5 % | 106.9 KB | 0.26 |
-| vote(ET+RF) | 77.0 % | 0.5 % | 74.3 % | 12.2 MB | 59.2 |
-| vote(all 4) | 69.4 % | 0.1 % | 67.5 % | 12.3 MB | 59.7 |
+| model | per window | ± seeds | macro-F1 |
+|---|---|---|---|
+| ET-500 | 76.9 % | 0.4 % | 74.2 % |
+| RF-500-leaf3 | 76.3 % | 0.3 % | 73.9 % |
+| lda | 63.1 % | 0.0 % | 61.0 % |
+| svm_rbf | 64.3 % | 0.2 % | 60.5 % |
+| vote(ET+RF) | 77.0 % | 0.5 % | 74.3 % |
+| vote(all 4) | 69.4 % | 0.1 % | 67.5 % |
 
 The deployed pair's vote is 77.0 % against 76.9 % for the best single member (ET-500): a gain of +0.1 points, inside the seed spread -- voting does not demonstrably help here. Voting all four spec models falls to 69.4 %: an unweighted vote gives the 13-point weaker SVM and LDA an equal say.
 
@@ -134,7 +150,7 @@ The deployed pair's vote is 77.0 % against 76.9 % for the best single member (ET
 | family | setting | shipped value | why |
 |---|---|---|---|
 | NN | augmentation | off | no augmentation passed the rule (>= 1 point and 2x the seed noise, better for >= 4 of 5 people, or the same on robustness) -- stays off, selectable in the settings |
-| NN | adaptation | off | did not pass the rule -- stays off, selectable in the settings |
+| NN | adaptation | off | did not pass the rule (+4.5 points, better for 4/5 people, no evidence) -- stays off, selectable in the settings |
 | ML | augmentation | off | no augmentation passed the rule (>= 1 point and 2x the seed noise, better for >= 4 of 5 people, or the same on robustness) -- stays off, selectable in the settings |
 | ML | adaptation | on | helps robustness: +4.3 points per window, better for 3/5 people |
 
@@ -149,7 +165,10 @@ The calibration mode was also measured for the ML pair: the shipped `affine` is 
 | NN | baseline | 66.9 % | 45.6 % | 67.7 % |
 | NN | aug:gain | 65.3 % | 45.3 % | 65.4 % |
 | NN | aug:noise | 67.9 % | 46.4 % | 68.3 % |
-| NN | aug:timewarp | 66.9 % | 44.0 % | 70.5 % |
+| NN | aug:timewarp | 66.6 % | 45.9 % | 67.0 % |
+| NN | aug:rotate | 64.0 % | 62.2 % | 64.7 % |
+| NN | aug:chandrop | 66.6 % | 49.9 % | 68.9 % |
+| NN | adapt | 71.0 % | 48.8 % | 71.0 % |
 | ML | baseline | 72.6 % | 43.8 % | 72.7 % |
 | ML | aug:gain | 70.7 % | 41.4 % | 73.7 % |
 | ML | aug:noise | 72.7 % | 42.7 % | 72.8 % |
@@ -163,7 +182,10 @@ The calibration mode was also measured for the ML pair: the shipped `affine` is 
 
 ![Robustness](figures/ablation_robustness.png)
 
-A band slid one pod is the probe every model fails: accuracy drops by roughly 25 - 35 points whatever the switch. That is the open problem the weakest person's score reflects, and `rotate` augmentation is the one switch aimed at it (see the table for what it cost and gained).
+- **neural net:** a band slid one pod costs 22 points (67.7 % -> 45.6 %); training with `rotate` augmentation brings the shifted score to 62.2 % but costs 4.2 points on clean data, so it does not pass the rule for a default. It is the right switch if the band is likely to be refitted between calibration and use.
+- **ML pair:** a band slid one pod costs 33 points (77.0 % -> 43.8 %); training with `rotate` augmentation brings the shifted score to 61.1 % but costs 6.6 points on clean data, so it does not pass the rule for a default. It is the right switch if the band is likely to be refitted between calibration and use.
+
+A shifted band is the probe every model fails and the open problem the weakest person's score reflects; only `rotate` addresses it.
 
 ## 8. Adaptation to the person
 
@@ -171,6 +193,7 @@ A band slid one pod is the probe every model fails: accuracy drops by roughly 25
 
 | family | per window | ± seeds | macro-F1 | change | people better | verdict |
 |---|---|---|---|---|---|---|
+| NN | 72.3 % | 1.5 % | 67.8 % | +4.5 | 4/5 | no evidence |
 | ML | 81.3 % | 2.5 % | 79.1 % | +4.3 | 3/5 | helps robustness |
 
 **What if the person's statistics are missing?** An ML model trained with adaptation, scored without them (the stored global statistics, which is what `ADAPT_LIVE` off or a missing calibration signal does), reads 78.2 % against 78.5 % with them and 77.6 % for a plain model (seed 0): the fallback costs nothing measurable, so an adapted model is safe to deploy before a calibration signal exists.
@@ -183,22 +206,31 @@ A band slid one pod is the probe every model fails: accuracy drops by roughly 25
 
 | family | model | ms per live window | device |
 |---|---|---|---|
-| ML | RF-500-leaf3 | 26.3 | CPU, 1 thread |
-| ML | RF-500 | 24.9 | CPU, 1 thread |
-| ML | ET-500-leaf3 | 25.4 | CPU, 1 thread |
-| ML | ET-500 | 26.3 | CPU, 1 thread |
-| ML | SVM-rbf-C1 | 0.28 | CPU, 1 thread |
-| ML | SVM-rbf-C3 | 0.27 | CPU, 1 thread |
-| ML | MLP-256-128 | 0.23 | CPU, 1 thread |
-| ML | MLP-128 | 0.41 | CPU, 1 thread |
-| ML | HGB-lr0.05 | 33.7 | CPU, 1 thread |
-| ML | LogReg-C0.1 | 0.27 | CPU, 1 thread |
-| ML | SVM-rbf-C10 | 0.47 | CPU, 1 thread |
-| ML | SVM-rbf-C30 | 0.26 | CPU, 1 thread |
-| ML | LDA-shrinkage | 0.42 | CPU, 1 thread |
-| ML | kNN-31 | 1.41 | CPU, 1 thread |
-| ML | kNN-15 | 1.20 | CPU, 1 thread |
-| ML | LogReg-C1 | 0.40 | CPU, 1 thread |
+| ML | RF-500-leaf3 | 26.4 | CPU, 1 thread |
+| ML | RF-500 | 26.5 | CPU, 1 thread |
+| ML | ET-500-leaf3 | 26.9 | CPU, 1 thread |
+| ML | ET-500 | 26.6 | CPU, 1 thread |
+| ML | SVM-rbf-C1 | 2.47 | CPU, 1 thread |
+| ML | SVM-rbf-C3 | 2.27 | CPU, 1 thread |
+| ML | MLP-256-128 | 3.53 | CPU, 1 thread |
+| ML | MLP-128 | 2.34 | CPU, 1 thread |
+| ML | HGB-lr0.05 | 28.6 | CPU, 1 thread |
+| ML | LogReg-C0.1 | 2.25 | CPU, 1 thread |
+| ML | SVM-rbf-C10 | 2.33 | CPU, 1 thread |
+| ML | SVM-rbf-C30 | 4.67 | CPU, 1 thread |
+| ML | LDA-shrinkage | 2.60 | CPU, 1 thread |
+| ML | kNN-31 | 5.76 | CPU, 1 thread |
+| ML | kNN-15 | 3.55 | CPU, 1 thread |
+| ML | LogReg-C1 | 2.17 | CPU, 1 thread |
+| NN | NN-gru | 0.81 | CUDA (GTX 1650) |
+| NN | NN-tsmixer | 1.81 | CUDA (GTX 1650) |
+| NN | NN-chan_transformer | 1.25 | CUDA (GTX 1650) |
+| NN | NN-lstm | 0.52 | CUDA (GTX 1650) |
+| NN | NN-circ_gru | 1.28 | CUDA (GTX 1650) |
+| NN | NN-tcn | 2.08 | CUDA (GTX 1650) |
+| NN | NN-cnn | 1.09 | CUDA (GTX 1650) |
+| NN | NN-cnn_gru | 1.49 | CUDA (GTX 1650) |
+| NN | NN-inception | 2.62 | CUDA (GTX 1650) |
 
 The live window interval is 150 ms. The ML forests cost most (a vote of several forests is the sum of its members); the nets are a few milliseconds. Voting adds the members' costs, and the NN worker runs all its nets in one process so a vote of nets costs the sum of their forward passes, not a second process.
 
@@ -212,9 +244,30 @@ Settings (gear icon, Ctrl+,): Gestures, Models, Training, General. Details, how 
 
 | suite | checks passed | seconds |
 |---|---|---|
-| app_settings | 66/66 | 10.1 |
+| datalayer | 150/150 | 6.3 |
+| gui | 109/109 | 45.5 |
+| review | 50/50 | 18.5 |
+| label_on_graph | 48/48 | 19.7 |
+| markers | 88/88 | 2.6 |
+| free_take | 268/268 | 11.9 |
+| model_spec | 346/346 | 10.2 |
+| predict | 109/109 | 54.4 |
+| trail | 103/103 | 7.3 |
+| calibration | 161/161 | 6.1 |
+| jobs | 48/48 | 42.0 |
+| class_mask | 121/121 | 20.7 |
+| device | 104/104 | 1.3 |
+| sweep_cost | 48/48 | 5.3 |
+| filters | 52/52 | 5.1 |
+| no_torch | 11/11 | 3.7 |
+| icon | 15/15 | 1.9 |
+| zoo | 108/108 | 42.3 |
+| app_settings | 66/66 | 5.7 |
+| defaults | 18/18 | 1.1 |
+| nn | 162/162 | 9.4 |
+| custom_gesture | 48/48 | 183.0 |
 
-66/66 checks in 1 suites (`python tools/run_tests.py`; the slow `nn` and `custom_gesture` suites are run separately).
+2233/2233 checks in 22 suites (`python tools/run_tests.py`; the slow `nn` and `custom_gesture` suites are run separately).
 
 ![Tests](figures/tests_overview.png)
 
@@ -225,7 +278,7 @@ An independent check of the finished application is recorded in [VERIFICATION.md
 - Five people; one band position each. Every number carries that.
 - Seed spread is large for the nets (the GRU baseline moved by about 10 points between seeds), so one-seed rankings (the newer-architectures test, the zoo's nets) are indicative, not final.
 - Adaptation is not zero-shot, and its gain is not uniform across people.
-- Latencies were measured on a busy machine; a quiet-machine benchmark is `tools/bench_models.py`.
+- Latencies are from one idle machine (i5-9300H, GTX 1650); a robot's SBC will differ. The nets were timed without the pipe to the worker process (about 1 ms more in the app).
 - Acquisition is Myo-only; nothing here was run against a real second band.
 - The nested subset estimate is honest about subset choice, not about the 5-person sample.
 

@@ -1,0 +1,191 @@
+{
+  "format": "emg_nn_v1",
+  "kind": "tcn",
+  "architecture": "dilated depthwise-separable temporal convnet (1/2/4) + attention pooling -- the default: smallest, spans the whole window, fully parallel over time",
+  "labels": [
+    "FIST",
+    "OPEN",
+    "REST",
+    "THUMB_UP",
+    "WAVE_LEFT",
+    "WAVE_RIGHT"
+  ],
+  "n_channels": 8,
+  "win_samples": 42,
+  "window_s": 0.7,
+  "overlap": 0.75,
+  "model_fs": 60.0,
+  "hidden": 32,
+  "dropout": 0.25,
+  "emg_mode": "filtered",
+  "calibration": {
+    "mode": "affine",
+    "requested": "affine",
+    "subjects": [
+      "Barbora",
+      "Betka",
+      "Bruno",
+      "Dano",
+      "Miso"
+    ],
+    "target": 600.0
+  },
+  "adaptation": {
+    "mode": "off"
+  },
+  "augmentation": [],
+  "data": {
+    "root": "C:\\Users\\danie\\OneDrive\\Po\u010d\u00edta\u010d\\EMG\\datasets",
+    "n_recordings": 211,
+    "labels": {
+      "FIST": 29,
+      "OPEN": 35,
+      "REST": 44,
+      "THUMB_UP": 32,
+      "WAVE_LEFT": 36,
+      "WAVE_RIGHT": 35
+    },
+    "subjects": [
+      "Barbora",
+      "Betka",
+      "Bruno",
+      "Dano",
+      "Miso"
+    ],
+    "sessions": [
+      "Barbora/session_01",
+      "Betka/session_01",
+      "Bruno/session_01",
+      "Dano/session_01",
+      "Miso/session_01"
+    ],
+    "newest_stamp": "20261021-221112-488",
+    "newest_unix": 1792613472.488,
+    "uid_digest": "237a717be2327de9"
+  },
+  "stats": {
+    "model_name": "NN-tcn",
+    "trainer": "train_zoo.py",
+    "kind": "tcn",
+    "validation_protocol": "leave-one-person-out: every window scored by a model that never saw that person (5 people)",
+    "grouping": "subject",
+    "grouping_note": "leave-one-person-out",
+    "grouping_contrast": null,
+    "dc_only_control": null,
+    "majority_class_baseline": 0.18552036199095023,
+    "train_fit_accuracy": 1.0,
+    "subjects": [
+      "Barbora",
+      "Betka",
+      "Bruno",
+      "Dano",
+      "Miso"
+    ],
+    "labels": [
+      "FIST",
+      "OPEN",
+      "REST",
+      "THUMB_UP",
+      "WAVE_LEFT",
+      "WAVE_RIGHT"
+    ],
+    "epochs": 150,
+    "batch_size": 64,
+    "learning_rate": 0.003,
+    "weight_decay": 0.001,
+    "label_smoothing": 0.05,
+    "early_stopping": false,
+    "deduped": true,
+    "augmentation": [],
+    "adaptation": false,
+    "subject_independent": {
+      "per_subject": {
+        "Barbora": 0.25816326530612244,
+        "Betka": 0.7403100775193798,
+        "Bruno": 0.7840531561461794,
+        "Dano": 0.703626220362622,
+        "Miso": 0.6514598540145986
+      },
+      "mean": 0.6275225146697804,
+      "std": 0.18974398613929339
+    },
+    "window_accuracy": 0.6275225146697804,
+    "window_accuracy_std": 0.18974398613929339,
+    "window_macro_f1": 0.5857540377264757,
+    "recording_vote_accuracy": 0.6623389821560554,
+    "n_recordings_voted": 209,
+    "n_splits": 5,
+    "fold_accuracies": [
+      0.25816326530612244,
+      0.7403100775193798,
+      0.7840531561461794,
+      0.703626220362622,
+      0.6514598540145986
+    ],
+    "confusion_matrix": [
+      [
+        341,
+        165,
+        6,
+        5,
+        0,
+        0
+      ],
+      [
+        165,
+        101,
+        0,
+        97,
+        0,
+        149
+      ],
+      [
+        1,
+        0,
+        410,
+        70,
+        52,
+        0
+      ],
+      [
+        48,
+        93,
+        67,
+        139,
+        20,
+        0
+      ],
+      [
+        5,
+        0,
+        1,
+        22,
+        459,
+        17
+      ],
+      [
+        9,
+        17,
+        0,
+        0,
+        17,
+        397
+      ]
+    ],
+    "n_windows": 2873,
+    "n_parameters": 3943,
+    "window_s": 0.7,
+    "overlap": 0.75,
+    "win_samples": 42,
+    "architecture_note": "dilated depthwise-separable temporal convnet (1/2/4) + attention pooling -- the default: smallest, spans the whole window, fully parallel over time",
+    "separation_note": "This net is NOT part of the deployed answer unless it is selected in the settings; it is never blended with the ML models.",
+    "created_iso": "2026-10-27T05:13:57.020"
+  },
+  "device_trained_on": {
+    "device": "cuda",
+    "gpu": "NVIDIA GeForce GTX 1650",
+    "torch": "2.9.1+cu128"
+  },
+  "created": "2026-10-27T05:13:57",
+  "created_iso": "2026-10-27T05:13:57.052"
+}

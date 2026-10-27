@@ -1,0 +1,56 @@
+{
+ "id": "nn-cnn",
+ "family": "nn",
+ "name": "NN-cnn",
+ "kind": "cnn",
+ "description": "plain 1D convnet with global average pooling -- the retired experiment's baseline, kept for comparison",
+ "file": "model.pt",
+ "sidecar": "model.json",
+ "params": 18246,
+ "size_bytes": 84574,
+ "scores": {
+  "window_acc": 0.6256451988010949,
+  "window_acc_std": 0.14645733848072595,
+  "macro_f1": 0.5857228123906983,
+  "vote_acc": 0.6716740576496674,
+  "per_person": {
+   "Barbora": 0.386734693877551,
+   "Betka": 0.7839147286821706,
+   "Bruno": 0.7333887043189369,
+   "Dano": 0.693165969316597,
+   "Miso": 0.531021897810219
+  },
+  "seeds": 2,
+  "seed_std": 0.00956784434979883,
+  "protocol": "leave-one-person-out: every window scored by a model that never saw that person (5 people)",
+  "n_people": 5
+ },
+ "latency_ms": 1.0938000632449985,
+ "latency_note": "one live window, measured on an idle machine by tools/bench_zoo.py",
+ "setup": {
+  "window_s": 0.7,
+  "overlap": 0.75
+ },
+ "trained_with": {
+  "augment": [],
+  "adapt": false,
+  "calibration": "affine"
+ },
+ "compat": {
+  "labels": [
+   "FIST",
+   "OPEN",
+   "REST",
+   "THUMB_UP",
+   "WAVE_LEFT",
+   "WAVE_RIGHT"
+  ],
+  "window_s": 0.7,
+  "win_samples": 42,
+  "n_channels": 8,
+  "calibration_mode": "affine"
+ },
+ "n_windows": 2873,
+ "created_iso": "2026-10-27T05:16:54.580",
+ "data_digest": "237a717be2327de9"
+}

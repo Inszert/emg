@@ -1,0 +1,61 @@
+{
+ "id": "ml-logreg-c0.1",
+ "family": "ml",
+ "name": "LogReg-C0.1",
+ "kind": "logreg",
+ "description": "logreg (C=0.1)",
+ "file": "model.joblib",
+ "params": null,
+ "size_bytes": 10942,
+ "scores": {
+  "window_acc": 0.7436852905111673,
+  "window_acc_std": 0.11757118119426792,
+  "macro_f1": 0.713889359896756,
+  "vote_acc": 0.7742897617287862,
+  "per_person": {
+   "Barbora": 0.528344671201814,
+   "Betka": 0.790625,
+   "Bruno": 0.7299912049252418,
+   "Dano": 0.7912979351032449,
+   "Miso": 0.878167641325536
+  },
+  "seeds": 3,
+  "seed_std": 0.03316898114974687,
+  "protocol": "leave-one-person-out: every window scored by a model that never saw that person (5 people)",
+  "n_people": 5
+ },
+ "latency_ms": 2.2476500598713756,
+ "latency_note": "one live window, measured on an idle machine by tools/bench_zoo.py",
+ "setup": {
+  "window_s": 1.0,
+  "overlap": 0.75,
+  "representation": "bandpass",
+  "freq_features": false,
+  "feature_set": "level"
+ },
+ "trained_with": {
+  "augment": [],
+  "adapt": true,
+  "calibration": "affine"
+ },
+ "compat": {
+  "labels": [
+   "FIST",
+   "OPEN",
+   "REST",
+   "THUMB_UP",
+   "WAVE_LEFT",
+   "WAVE_RIGHT"
+  ],
+  "fs": 60.0,
+  "window_s": 1.0,
+  "window_samples": 60,
+  "representation": "bandpass",
+  "feature_set": "level",
+  "freq_features": false,
+  "calibration_mode": "affine"
+ },
+ "n_windows": 1787,
+ "created_iso": "2026-10-27T00:17:22.459",
+ "data_digest": "237a717be2327de9"
+}

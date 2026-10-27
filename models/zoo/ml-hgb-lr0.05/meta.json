@@ -1,0 +1,61 @@
+{
+ "id": "ml-hgb-lr0.05",
+ "family": "ml",
+ "name": "HGB-lr0.05",
+ "kind": "hist_gradient_boost",
+ "description": "hist gradient boost (learning_rate=0.05, max_iter=300)",
+ "file": "model.joblib",
+ "params": null,
+ "size_bytes": 3014057,
+ "scores": {
+  "window_acc": 0.7464512634328919,
+  "window_acc_std": 0.1449794879721287,
+  "macro_f1": 0.7091012538390723,
+  "vote_acc": 0.7950316756414318,
+  "per_person": {
+   "Barbora": 0.546485260770975,
+   "Betka": 0.7791666666666668,
+   "Bruno": 0.613896218117854,
+   "Dano": 0.8687315634218288,
+   "Miso": 0.9239766081871345
+  },
+  "seeds": 3,
+  "seed_std": 0.0411790429553825,
+  "protocol": "leave-one-person-out: every window scored by a model that never saw that person (5 people)",
+  "n_people": 5
+ },
+ "latency_ms": 28.59905012883246,
+ "latency_note": "one live window, measured on an idle machine by tools/bench_zoo.py",
+ "setup": {
+  "window_s": 1.0,
+  "overlap": 0.75,
+  "representation": "bandpass",
+  "freq_features": false,
+  "feature_set": "level"
+ },
+ "trained_with": {
+  "augment": [],
+  "adapt": true,
+  "calibration": "affine"
+ },
+ "compat": {
+  "labels": [
+   "FIST",
+   "OPEN",
+   "REST",
+   "THUMB_UP",
+   "WAVE_LEFT",
+   "WAVE_RIGHT"
+  ],
+  "fs": 60.0,
+  "window_s": 1.0,
+  "window_samples": 60,
+  "representation": "bandpass",
+  "feature_set": "level",
+  "freq_features": false,
+  "calibration_mode": "affine"
+ },
+ "n_windows": 1787,
+ "created_iso": "2026-10-27T00:17:44.918",
+ "data_digest": "237a717be2327de9"
+}

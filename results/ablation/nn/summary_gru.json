@@ -1,0 +1,183 @@
+{
+ "kind": "gru",
+ "seeds": 3,
+ "epochs": 150,
+ "configs": {
+  "baseline": {
+   "seeds": 3,
+   "acc_mean": 0.6774763538939705,
+   "acc_std": 0.04692218520725506,
+   "f1_mean": 0.6385547945336976,
+   "f1_std": 0.04311878927800529,
+   "robust_noise": 0.669472137410203,
+   "robust_shift": 0.45585673567441326,
+   "robust_gain": 0.6765535788473733,
+   "n_parameters": 4455.0,
+   "size_bytes": 20813.0,
+   "latency_ms": 0.67689991556108,
+   "vs_baseline": null,
+   "augment": [],
+   "adapt": false
+  },
+  "aug:gain": {
+   "seeds": 3,
+   "acc_mean": 0.6592387870889386,
+   "acc_std": 0.03590842021409875,
+   "f1_mean": 0.6217184206923295,
+   "f1_std": 0.03598732924022093,
+   "robust_noise": 0.6529801374495455,
+   "robust_shift": 0.4527303215472034,
+   "robust_gain": 0.6542733242362003,
+   "vs_baseline": {
+    "n_people": 5,
+    "delta_acc": -0.018237566805032145,
+    "people_better": 2,
+    "se": 0.015575323319305218,
+    "seed_noise": 0.04692218520725506,
+    "helps_acc": false,
+    "delta_robust": -0.01396622289968017,
+    "people_better_robust": 2,
+    "helps_robust": false,
+    "default_worthy": false,
+    "verdict": "hurts"
+   },
+   "augment": [
+    "gain"
+   ],
+   "adapt": false
+  },
+  "aug:noise": {
+   "seeds": 3,
+   "acc_mean": 0.6816580906032838,
+   "acc_std": 0.024262514489071307,
+   "f1_mean": 0.6378572869408387,
+   "f1_std": 0.026393104553868795,
+   "robust_noise": 0.678995816350536,
+   "robust_shift": 0.4644172411023011,
+   "robust_gain": 0.682818559095761,
+   "vs_baseline": {
+    "n_people": 5,
+    "delta_acc": 0.004181736709313067,
+    "people_better": 3,
+    "se": 0.010491580725243572,
+    "seed_noise": 0.04692218520725506,
+    "helps_acc": false,
+    "delta_robust": 0.008116388205536073,
+    "people_better_robust": 3,
+    "helps_robust": false,
+    "default_worthy": false,
+    "verdict": "no evidence"
+   },
+   "augment": [
+    "noise"
+   ],
+   "adapt": false
+  },
+  "aug:timewarp": {
+   "seeds": 3,
+   "acc_mean": 0.6732722589678294,
+   "acc_std": 0.015412725277049382,
+   "f1_mean": 0.6393752888546934,
+   "f1_std": 0.020968665034730542,
+   "robust_noise": 0.6659245015170255,
+   "robust_shift": 0.4592543514137189,
+   "robust_gain": 0.6700864455689667,
+   "vs_baseline": {
+    "n_people": 5,
+    "delta_acc": -0.0042040949261411,
+    "people_better": 2,
+    "se": 0.019945715585889933,
+    "seed_noise": 0.04692218520725506,
+    "helps_acc": false,
+    "delta_robust": -0.0022057178107595444,
+    "people_better_robust": 2,
+    "helps_robust": false,
+    "default_worthy": false,
+    "verdict": "no evidence"
+   },
+   "augment": [
+    "timewarp"
+   ],
+   "adapt": false
+  },
+  "aug:rotate": {
+   "seeds": 3,
+   "acc_mean": 0.6357409961392371,
+   "acc_std": 0.02442988581909097,
+   "f1_mean": 0.5851166558192179,
+   "f1_std": 0.017887767326196756,
+   "robust_noise": 0.6398467039692508,
+   "robust_shift": 0.6221943645051472,
+   "robust_gain": 0.6473176222696392,
+   "vs_baseline": {
+    "n_people": 5,
+    "delta_acc": -0.0417353577547336,
+    "people_better": 2,
+    "se": 0.07456922158765752,
+    "seed_noise": 0.04692218520725506,
+    "helps_acc": false,
+    "delta_robust": 0.035825412937349185,
+    "people_better_robust": 2,
+    "helps_robust": false,
+    "default_worthy": false,
+    "verdict": "hurts"
+   },
+   "augment": [
+    "rotate"
+   ],
+   "adapt": false
+  },
+  "aug:chandrop": {
+   "seeds": 3,
+   "acc_mean": 0.6669741990000607,
+   "acc_std": 0.00982266467645017,
+   "f1_mean": 0.6450321259167103,
+   "f1_std": 0.007090161477011111,
+   "robust_noise": 0.66597463652074,
+   "robust_shift": 0.49889642977060467,
+   "robust_gain": 0.6890670319209553,
+   "vs_baseline": {
+    "n_people": 5,
+    "delta_acc": -0.010502154893909954,
+    "people_better": 3,
+    "se": 0.021833299133001284,
+    "seed_noise": 0.04692218520725506,
+    "helps_acc": false,
+    "delta_robust": 0.017351882093436678,
+    "people_better_robust": 3,
+    "helps_robust": false,
+    "default_worthy": false,
+    "verdict": "hurts"
+   },
+   "augment": [
+    "chandrop"
+   ],
+   "adapt": false
+  },
+  "adapt": {
+   "seeds": 3,
+   "acc_mean": 0.7225637577488461,
+   "acc_std": 0.014805727593215863,
+   "f1_mean": 0.6776240961536729,
+   "f1_std": 0.021402258948825255,
+   "robust_noise": 0.7099881416255883,
+   "robust_shift": 0.4879666060266829,
+   "robust_gain": 0.710240413086752,
+   "vs_baseline": {
+    "n_people": 5,
+    "delta_acc": 0.04508740385487545,
+    "people_better": 4,
+    "se": 0.057671270585596845,
+    "seed_noise": 0.04692218520725506,
+    "helps_acc": false,
+    "delta_robust": 0.03543756960234451,
+    "people_better_robust": 3,
+    "helps_robust": false,
+    "default_worthy": false,
+    "verdict": "no evidence"
+   },
+   "augment": [],
+   "adapt": true
+  }
+ }
+}

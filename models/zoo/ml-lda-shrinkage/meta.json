@@ -1,0 +1,61 @@
+{
+ "id": "ml-lda-shrinkage",
+ "family": "ml",
+ "name": "LDA-shrinkage",
+ "kind": "lda",
+ "description": "lda (solver=lsqr, shrinkage=auto)",
+ "file": "model.joblib",
+ "params": null,
+ "size_bytes": 32159,
+ "scores": {
+  "window_acc": 0.7343645982454564,
+  "window_acc_std": 0.2004166167666534,
+  "macro_f1": 0.7102103651963839,
+  "vote_acc": 0.7763965438355683,
+  "per_person": {
+   "Barbora": 0.3458049886621315,
+   "Betka": 0.7739583333333333,
+   "Bruno": 0.7862796833773086,
+   "Dano": 0.9100294985250738,
+   "Miso": 0.8557504873294347
+  },
+  "seeds": 3,
+  "seed_std": 0.040018152320746764,
+  "protocol": "leave-one-person-out: every window scored by a model that never saw that person (5 people)",
+  "n_people": 5
+ },
+ "latency_ms": 2.5972998701035976,
+ "latency_note": "one live window, measured on an idle machine by tools/bench_zoo.py",
+ "setup": {
+  "window_s": 1.0,
+  "overlap": 0.75,
+  "representation": "bandpass",
+  "freq_features": false,
+  "feature_set": "level"
+ },
+ "trained_with": {
+  "augment": [],
+  "adapt": true,
+  "calibration": "affine"
+ },
+ "compat": {
+  "labels": [
+   "FIST",
+   "OPEN",
+   "REST",
+   "THUMB_UP",
+   "WAVE_LEFT",
+   "WAVE_RIGHT"
+  ],
+  "fs": 60.0,
+  "window_s": 1.0,
+  "window_samples": 60,
+  "representation": "bandpass",
+  "feature_set": "level",
+  "freq_features": false,
+  "calibration_mode": "affine"
+ },
+ "n_windows": 1787,
+ "created_iso": "2026-10-27T00:17:18.805",
+ "data_digest": "237a717be2327de9"
+}
