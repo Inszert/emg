@@ -38,6 +38,10 @@ so `import emg_dataset_tool as T` keeps working everywhere.
 | `jobs.py` | background training jobs (CLAUDE.md 8m) |
 | `sequence.py` | `build_plan`, `SequenceController` |
 | `model_test.py` | TEST MODEL scoring and its log |
+| `zoo.py` | the model zoo: listing, ranking, stars (top 3 per family + a voting subset that beats every single model), sizes, voting compatibility, the live selection (CLAUDE.md 7c) |
+| `adaptation.py` | adaptation to the person: statistics from a share of the person's own unlabelled signal; the calibration signal stored beside the calibration |
+| `settings_store.py` | `app_settings.json`: model selection, training switches, the two questions; defaults = config.py |
+| `prompts.py` | the decisions behind the two questions (is the last calibration offered? what does each retrain answer train?) |
 | `class_mask.py` | switching a gesture off in the live classifiers without retraining: the mask, `kept`, validation (CLAUDE.md 7a) |
 | `decision_panel.py` | the DECISION TRAIL panel model |
 | `prediction.py` | `LivePredictor` |

@@ -589,6 +589,75 @@ the fitted pipeline's real stages and, for an ensemble, how the member outputs
 are combined. If a payload's spec ever disagreed with its estimator, this
 shows the estimator — which is what actually predicts.
 
+## 7c. The model zoo, soft voting, adaptation, augmentation and the two questions (2026-10-27)
+
+Everything here is **off or equal to the old behaviour by default**
+(`emg_app/config.py`, "MODEL SELECTION, TRAINING OPTIONS AND PROMPTS"), saved in
+`<DATA_FOLDER>/app_settings.json` (`emg_app/settings_store.py`) and restored by
+`app.main()` -- not by `MainWindow`, so a test's own values are never overridden.
+The measurements behind every default are in `docs/REPORT.md` and
+`results/experiments.json` (built by `tools/collect_results.py` from the raw runs
+-- nothing in it is typed by hand).
+
+**The zoo** (`emg_app/zoo.py`, `training/train_zoo.py`, `training/zoo_roster.py`).
+`models/zoo/<id>/` holds `model.joblib` (an ML payload exactly like
+`gesture_model.joblib`) or `model.pt` + `model.json` (a checkpoint exactly like
+`gesture_nn.pt`) and a `meta.json`: what it is, its leave-one-person-out scores,
+its size, what it was trained with, what two models must share to be voted. The
+roster is the 16 classifiers of the combination test (all at the winning
+bandpass / `level` / 1.0 s setup) and every architecture in `nn_arch.KINDS`
+(0.7 s). `train_zoo.py eval|fit|ensembles|all|status`; a model is **never saved
+without scores measured on the dataset now on disk** (`digest`), and the
+deployed `gesture_model.joblib` / `gesture_nn.pt` are never touched.
+
+**Stars** are computed, never stored: per family the top 3 by window accuracy
+(ties by macro-F1) -- never a training-set number -- plus the best soft-voting
+subset only if its NESTED estimate beats the best single model measured on the
+same out-of-fold probabilities. They are recomputed whenever the zoo is listed,
+which includes after every training because training rewrites `meta.json`.
+
+**Selection and voting.** `cfg.MODEL_SELECTION_ENABLED` False (default) = the
+configured `MODEL_PATH` / `NN_MODEL_PATH`, bit for bit as before. True = the
+zoo ids in `SELECTED_ML` / `SELECTED_NN`: one id is that model, several are a
+**soft vote** -- `LivePredictor` wraps the fitted members in `MeanProba`; the NN
+worker (`nn_serve.py --model A --model B`) holds all the nets in one process
+and answers with the mean of their softmax plus `members`. A vote is **refused,
+with the reason**, if the members disagree on labels, window, features,
+calibration mode or adaptation (`zoo.check_vote`, `_vote_problem`, the worker
+itself) -- never averaged anyway. **ML and nets are never voted together**
+(rule 13 stands).
+
+**Adaptation to the person** (`emg_app/adaptation.py`): standardise each
+person's input with statistics from ~10 % of their own UNLABELLED windows (about
+9 s -- the length of a calibration sweep). A model trained with it records
+`adaptation` in its payload and carries global statistics as the fallback; the
+person's statistics come from `adaptation_signal.npz`, saved beside
+`calibration.json` whenever a calibration is saved, so "use the last calibration"
+keeps adapting after a restart. `ADAPT_LIVE` off = every model uses its stored
+global statistics. It is a different thing from the per-wearer CALIBRATION
+(8k), which is unchanged, and a model trained WITHOUT adaptation ignores the
+statistics entirely.
+
+**Augmentation** (`training/nn_augment.py`: gain, noise, timewarp, rotate,
+chandrop) acts on raw calibrated windows at training time only. `train_nn.py
+--augment/--adapt` and `train_zoo.py --augment-nn/-ml --adapt-nn/-ml` take
+them; with them off the code path is the original one (`tests/test_zoo.py`
+compares weights, fold accuracies and confusion matrices with the previous
+commit's trainer). The switches are **per family** (`TRAIN_AUGMENT_NN/ML`,
+`TRAIN_ADAPT_NN/ML`) because the two were measured separately and disagree.
+
+**The questions** (`emg_app/prompts.py` decides, `gui/main_window/prompts.py`
+asks). *Calibrate the hand first?* before PREDICT / START NN, once per run per
+person; "use the last calibration" is offered only if it was made before this
+run started, is under 8 h old, and it always says the band must have stayed on
+the arm (a live rest check is reported, never used to refuse). *Retrain all or
+only the selected?* at startup (`app.main`, 1.5 s after the window is up) when a
+model is stale or a recorded gesture is unknown to it; never while a training
+or a session runs; "do not ask when the application opens" is a setting.
+"Selected" with selection off = the deployed classifier and net.
+RETRAIN ML + NN can chain a third step, `zoo`, that re-measures and re-fits the
+chosen zoo models (`retrain_zoo`).
+
 ## 8. ML workflow
 
 ```python
@@ -2195,6 +2264,15 @@ These are invariants. Breaking one is a bug, not a trade-off.
     wherever it shows an answer. A mask that leaves nothing to answer with is
     reported as "no answer", never as a guess. §7a.
 
+15. **Choosing models never alters a model, and a vote is never forced.**
+    Selecting zoo models, turning voting or adaptation on or off, and the two
+    questions change what the application LOADS and how it standardises input;
+    they never rewrite a model file, never touch `gesture_model.joblib` /
+    `gesture_nn.pt`, and never start a training by themselves. Models that cannot
+    be averaged are refused with the reason, the two families are never voted
+    together, and a model is saved to the zoo only with scores measured on the
+    dataset now on disk. Stars are computed from those scores, not stored. §7c.
+
 ## 10. How to run
 
 ```powershell
@@ -2231,6 +2309,9 @@ python tests\test_jobs.py                     # 48 checks, background training +
 python tests\test_custom_gesture.py           # adding a gesture reaches everything, never auto-retrains (§7a; ~5 min, trains on a temp copy)
 python tests\test_nn.py                       # 158 checks, the neural net and the SEPARATION rule (§8L)
 python tests\test_class_mask.py               # 121 checks, switching a gesture off in the classifiers, no retrain (§7a)
+python tests\test_zoo.py                     # 108 checks, the zoo, voting, adaptation, augmentation, the settings store, the questions' logic (§7c)
+python tests\test_app_settings.py            # 66 checks, the settings tabs, applying/restoring, the two questions on the real window (§7c)
+python tools\run_tests.py [--fast]            # every offline suite, one line each; writes tests/last_run.json
 python tests\test_device.py                # 104 checks, device profile / channel count (§2b), gestures (§7a)
 python tests\test_sweep_cost.py               # 48 checks, the sweep cost controls (§8g)
 python tests\test_filters.py                  # 52 checks, the band-pass (§8i) + FEATURE SPACE (§8j)
