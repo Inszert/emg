@@ -130,7 +130,8 @@ def payload(name, est, repr_="raw", adaptation=None):
 
 COMPAT = {"labels": LABELS, "fs": FS, "window_s": 0.2, "window_samples": WIN,
           "representation": "raw", "feature_set": "level",
-          "freq_features": True, "calibration_mode": "off"}
+          "freq_features": True, "calibration_mode": "off",
+          "adaptation_mode": "off"}
 
 
 def add(eid, name, acc, pl, compat=COMPAT, digest="old", trained_with=None):
@@ -151,10 +152,11 @@ add("ml-rf2", "RF-2", 0.77, payload("RF-2", rf2))
 add("ml-lda", "LDA", 0.60, payload("LDA", lda))
 add("ml-env", "RF-env", 0.50, payload("RF-env", rf, "envelope"),
     dict(COMPAT, representation="envelope"))
-add("ml-ad", "RF-adapt", 0.65, payload(
+add("ml-ad", "RF-adapt", 0.55, payload(
     "RF-adapt", rf_ad, adaptation={"mode": "person_features",
                                    "global_mean": gm, "global_std": gs}),
-    dict(COMPAT), trained_with={"augment": [], "adapt": True})
+    dict(COMPAT, adaptation_mode="person_features"),
+    trained_with={"augment": [], "adapt": True})
 zoo.write_ensembles({"ml": {"members": ["ml-rf", "ml-rf2"], "window_acc": 0.82,
                             "nested_acc": 0.81}})
 
@@ -210,6 +212,11 @@ dialog._apply()
 check("...APPLY refuses (a warning, the dialog stays open)",
       len(BOXES) == n_boxes + 1 and dialog.result() == 0
       and "cannot be applied" in str(BOXES[-1]))
+mt._set_checked("ml", ["ml-rf", "ml-ad"])
+check("an adapted and a plain model cannot be voted -- the dialog says so "
+      "BEFORE the loader would refuse", "adaptation" in mt.vote_notes["ml"].text()
+      and mt.problems() and "adaptation_mode" in mt.problems()[0],
+      mt.vote_notes["ml"].text())
 mt._set_checked("ml", [])
 check("Clear unticks everything", mt.chosen("ml") == [])
 check("with the combination starred, its button is enabled",
@@ -225,8 +232,10 @@ check("one switch per augmentation, for each family",
       {"gain", "noise", "timewarp", "rotate", "chandrop"}
       and set(tr.adapt_boxes) == {"NN", "ML"})
 gen = dialog.general_tab
-check("the General tab has both questions, on", gen.values() ==
-      {"ASK_CALIBRATION_BEFORE_PREDICT": True, "ASK_RETRAIN_ON_NEW_DATA": True})
+check("the General tab has both questions and the icon switch, all on",
+      gen.values() == {"ASK_CALIBRATION_BEFORE_PREDICT": True,
+                       "ASK_RETRAIN_ON_NEW_DATA": True,
+                       "APP_ICON_ENABLED": True}, gen.values())
 dialog.deleteLater()
 
 # ==========================================================================

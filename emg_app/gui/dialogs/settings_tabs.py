@@ -366,9 +366,20 @@ class GeneralTab(QtWidgets.QWidget):
             "asked. RETRAIN stays available in the TRAINING panel.")
         v.addWidget(self.ask_retrain)
         layout.addWidget(box)
+        look = QtWidgets.QGroupBox("Appearance")
+        lv = QtWidgets.QVBoxLayout(look)
+        self.icon_box = QtWidgets.QCheckBox(
+            "Show the application icon (window corner, dialogs, taskbar)")
+        self.icon_box.setChecked(bool(cfg.APP_ICON_ENABLED))
+        self.icon_box.setToolTip(
+            "Off: the toolkit's default icon. Takes effect the next time the "
+            "application starts.")
+        lv.addWidget(self.icon_box)
+        layout.addWidget(look)
         layout.addStretch(1)
 
     def values(self) -> dict:
         return {"ASK_CALIBRATION_BEFORE_PREDICT":
                 self.ask_calibration.isChecked(),
-                "ASK_RETRAIN_ON_NEW_DATA": self.ask_retrain.isChecked()}
+                "ASK_RETRAIN_ON_NEW_DATA": self.ask_retrain.isChecked(),
+                "APP_ICON_ENABLED": self.icon_box.isChecked()}

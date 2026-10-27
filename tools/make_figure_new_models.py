@@ -67,7 +67,7 @@ plt.rcParams.update({
 # ---- load ---------------------------------------------------------------------
 meta = json.load(open(os.path.join(RUN, "run.json"), encoding="utf-8"))
 TITLES = dict(meta["titles"])
-TITLES[REF] = "ML vote ET+RF (deployed)"
+TITLES[REF] = "ML vote ET+RF (combination-test winner)"
 LABELS = meta["labels"]
 SHORT = {"WAVE_LEFT": "WAVE_L", "WAVE_RIGHT": "WAVE_R", "THUMB_UP": "THUMB"}
 data = np.load(os.path.join(RUN, "data.npz"), allow_pickle=True)
@@ -217,7 +217,8 @@ if gru is not None and best_new and best_new != "gru":
                 f"({(b['acc'] - gru) * 100:+.1f} points against the current GRU, "
                 f"{gru * 100:.1f} %).")
 if REF in S:
-    head.append(f"Deployed ML vote, same people held out: "
+    head.append(f"ML vote ET+RF (the combination test's winner, stored result, "
+                f"1.0 s windows -- not the file in models/), same people held out: "
                 f"{S[REF]['loso']['acc'] * 100:.1f} %.")
 head.append(f"{len(PEOPLE)} people, {len(Y)} windows of 0.7 s, every window "
             f"scored by a model that never saw that person (leave-one-person-"

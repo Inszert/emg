@@ -59,6 +59,22 @@ check("apply sets the window icon", not w.windowIcon().isNull())
 check("AppUserModelID call never raises",
       ic.set_app_user_model_id() in (True, False))
 
+#  The switch (settings -> General -> Appearance): off = the toolkit's default.
+from emg_app import config as _cfg                                 # noqa: E402
+app.setWindowIcon(QtGui.QIcon())
+w_off = QtWidgets.QWidget()
+_cfg.APP_ICON_ENABLED = False
+try:
+    off = ic.apply_app_icon(app, w_off)
+    check("icon switched OFF: nothing is set (default toolkit icon)",
+          off.isNull() and app.windowIcon().isNull()
+          and w_off.windowIcon().isNull())
+finally:
+    _cfg.APP_ICON_ENABLED = True
+ic.apply_app_icon(app, w_off)
+check("...and ON again sets it", not app.windowIcon().isNull()
+      and not w_off.windowIcon().isNull())
+
 import emg_app.app as appmod                                      # noqa: E402,F401
 check("emg_app.app still imports", hasattr(appmod, "main"))
 

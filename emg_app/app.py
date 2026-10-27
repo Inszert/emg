@@ -85,6 +85,7 @@ def main(argv=None) -> int:
     app.setApplicationName(cfg.APP_NAME)
     app.setApplicationVersion(cfg.APP_VERSION)
     apply_theme(app)
+    restore_settings()                # before the icon: APP_ICON_ENABLED
     apply_app_icon(app)              # every window and dialog inherits it
 
     #  The gesture set edited in GESTURES... (and any gestures added there),

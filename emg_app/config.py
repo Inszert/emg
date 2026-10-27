@@ -160,6 +160,10 @@ ASK_CALIBRATION_BEFORE_PREDICT = True
 ASK_RETRAIN_ON_NEW_DATA = True
 APP_SETTINGS_FILE = "app_settings.json"
 
+# The application icon (window, dialogs, taskbar). Off = the toolkit's default
+# icon. Read at startup, so a change applies at the next start.
+APP_ICON_ENABLED = True
+
 
 def known_gestures():
     """

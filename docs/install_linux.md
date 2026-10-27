@@ -60,13 +60,13 @@ python -m pip install -r requirements.txt
 **Verified (WSL):** succeeded. Resolved:
 
 ```
-numpy 2.5.4  pandas 3.1.0  scipy 1.18.1  scikit-learn 1.9.1  joblib 1.6.0
+numpy 2.5.4  pandas 3.1.0  scipy 1.18.1  scikit-learn 1.7.2  joblib 1.6.0
 pyarrow 26.0.0  pyserial 3.5  PySide6 6.12.0  pyqtgraph 0.14.0  shiboken6 6.12.0
 ```
 
 (PySide6 pulls the large Addons/WebEngine wheels; allow time and about 2-3 GB.)
-The saved model was pickled with scikit-learn 1.7.2, so a clean install prints
-`InconsistentVersionWarning`; see `install_windows.md` "Known issues".
+The saved model was pickled with scikit-learn 1.7.2 and `requirements.txt` pins
+`scikit-learn<1.8`, so a clean install loads it without a version warning.
 
 ## 3. Running the app and the tests
 

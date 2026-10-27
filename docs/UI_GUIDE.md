@@ -448,9 +448,13 @@ keeps what it learned. The defaults are the measured ones
 
 ![Settings, General tab](images/ui_settings_general.png)
 
-Two questions the application can ask, each switchable here:
+Two questions the application can ask, each switchable here (the same tab has
+an Appearance switch for the application icon):
 
 ![Calibrate your hand?](images/ui_question_calibrate.png)
+
+*(Example values: the time and age in this picture are illustrative -- the real
+box shows the stored calibration's own.)*
 
 **Before PREDICT / START NN** -- calibrate the hand now, or use the last
 calibration. The last one is offered only if it was made before this run of the
@@ -458,6 +462,8 @@ application started and is under 8 hours old, and the question always says the
 band must have stayed on your arm since; it is asked once per run per person.
 
 ![Retrain?](images/ui_question_retrain.png)
+
+*(Example reasons: the real box lists what is actually out of date.)*
 
 **At startup, when models are out of date** (new recordings, or a recorded
 gesture a model does not know) -- retrain all models, or only the selected ones

@@ -144,7 +144,8 @@ def scores(acc, f1=None):
 
 ML_COMPAT = {"labels": LABELS, "fs": FS, "window_s": 0.2, "window_samples": WIN,
              "representation": "raw", "feature_set": "level",
-             "freq_features": True, "calibration_mode": "off"}
+             "freq_features": True, "calibration_mode": "off",
+             "adaptation_mode": "off"}
 
 lda = Pipeline([("scale", StandardScaler()),
                 ("clf", LinearDiscriminantAnalysis(solver="lsqr",
@@ -245,6 +246,11 @@ check("...mismatching windows/representation cannot, and it says which",
       not ok and "representation" in why, why)
 ok, why = zoo.check_vote([e_rf, e_env][:1] + [zoo.get_entry("ml-lda")])
 check("one model is always fine", zoo.check_vote([e_rf]) == (True, ""))
+make_entry("ml-ad", "ml", "RF-adapt", scores(0.6), ml_payload("RF-adapt", rf),
+           dict(ML_COMPAT, adaptation_mode="person_features"))
+ok, why = zoo.check_vote([e_rf, zoo.get_entry("ml-ad")])
+check("an adapted and a plain model cannot be voted, and the reason names "
+      "adaptation", not ok and "adaptation_mode" in why, why)
 check("nothing selected is refused", not zoo.check_vote([])[0])
 
 # ==========================================================================
@@ -328,183 +334,193 @@ check("an explicit path ignores the selection (tools and tests rely on it)",
                 T.LivePredictor(os.path.join(ZOO, "ml-lda", "model.joblib")).load())[1])())
 T.MODEL_SELECTION_ENABLED = False
 
-# ==========================================================================
-section("4. the neural worker: several nets, one process")
-import torch                                                        # noqa: E402
-import nn_arch                                                      # noqa: E402
-import nn_checkpoint                                                # noqa: E402
 
-NN_LABELS = ["FIST", "OPEN", "REST", "THUMB_UP"]
-NN_WIN = 18
+try:
+    import torch                                                    # noqa: E402,F401
+    HAVE_TORCH = True
+except ImportError:                       # the offline suites must run without it
+    HAVE_TORCH = False
+    check("torch is not installed: sections 4, 7 and 10 (the neural worker, "
+          "augmentation, the trainers) are skipped", True)
 
+if HAVE_TORCH:
+    # ==========================================================================
+    section("4. the neural worker: several nets, one process")
+    import torch                                                        # noqa: E402
+    import nn_arch                                                      # noqa: E402
+    import nn_checkpoint                                                # noqa: E402
 
-def nn_checkpoint_file(path, kind, seed, labels=NN_LABELS, win=NN_WIN,
-                       adaptation=None, mode="off"):
-    model = nn_arch.build(kind, 8, len(labels), win, seed=seed)
-    stats = {"model_name": f"NN-{kind}", "window_accuracy": 0.7,
-             "labels": labels}
-    payload = nn_checkpoint.build_payload(
-        model, kind=kind, labels=labels, n_channels=8, win=win, window_s=0.3,
-        overlap=0.75, model_fs=60.0, hidden=nn_arch.HIDDEN,
-        dropout=nn_arch.DROPOUT, mean=np.zeros(8, np.float32),
-        std=np.ones(8, np.float32), applied_mode=mode, requested_mode=mode,
-        calibration_subjects=[], root=DATA, stats=stats,
-        device_info={"device": "cpu"}, adaptation=adaptation)
-    nn_checkpoint.save_payload(payload, path, archive=False)
-    return model
+    NN_LABELS = ["FIST", "OPEN", "REST", "THUMB_UP"]
+    NN_WIN = 18
 
 
-nn_compat = {"labels": NN_LABELS, "window_s": 0.3, "win_samples": NN_WIN,
-             "n_channels": 8, "calibration_mode": "off"}
-folders = {}
-for eid, kind, seed in (("nn-a", "gru", 1), ("nn-b", "tcn", 2),
-                        ("nn-c", "gru", 3)):
-    folder = os.path.join(ZOO, eid)
-    os.makedirs(folder, exist_ok=True)
-    nn_checkpoint_file(os.path.join(folder, "model.pt"), kind, seed)
-    zoo.write_meta(folder, {"id": eid, "family": "nn", "name": f"NN-{kind}-{eid[-1]}",
-                            "kind": kind, "file": "model.pt", "params": 4000,
-                            "scores": scores(0.7 + seed / 100),
-                            "compat": nn_compat, "data_digest": "d1"})
-adapt_folder = os.path.join(ZOO, "nn-adapt")
-os.makedirs(adapt_folder, exist_ok=True)
-nn_checkpoint_file(os.path.join(adapt_folder, "model.pt"), "gru", 4,
-                   adaptation={"mode": "person", "fraction": 0.1})
-zoo.write_meta(adapt_folder, {"id": "nn-adapt", "family": "nn", "name": "NN-adapt",
-                              "kind": "gru", "file": "model.pt",
-                              "scores": scores(0.6),
-                              "compat": dict(nn_compat),
-                              "data_digest": "d1"})
-odd = os.path.join(ZOO, "nn-odd")
-os.makedirs(odd, exist_ok=True)
-nn_checkpoint_file(os.path.join(odd, "model.pt"), "gru", 5, win=24)
-zoo.write_meta(odd, {"id": "nn-odd", "family": "nn", "name": "NN-odd",
-                     "kind": "gru", "file": "model.pt", "scores": scores(0.5),
-                     "compat": dict(nn_compat, win_samples=24),
-                     "data_digest": "d1"})
-
-check("two nets can be voted", zoo.check_vote(
-    [zoo.get_entry("nn-a"), zoo.get_entry("nn-b")])[0])
-ok, why = zoo.check_vote([zoo.get_entry("nn-a"), zoo.get_entry("nn-odd")])
-check("nets with different windows cannot", not ok and "win_samples" in why, why)
-ok, why = zoo.check_vote([zoo.get_entry("nn-a"), zoo.get_entry("ml-rf")])
-check("a net and an ML model are never voted together",
-      not ok and "not voted together" in why, why)
-
-T.MODEL_SELECTION_ENABLED = False
-default_engine = T.NeuralEngine(device="cpu")
-check("selection OFF: the engine's checkpoint is the configured one",
-      default_engine.model_paths() == [default_engine.full_model_path])
-
-T.MODEL_SELECTION_ENABLED = True
-T.SELECTED_NN = ["nn-a", "nn-b"]
+    def nn_checkpoint_file(path, kind, seed, labels=NN_LABELS, win=NN_WIN,
+                           adaptation=None, mode="off"):
+        model = nn_arch.build(kind, 8, len(labels), win, seed=seed)
+        stats = {"model_name": f"NN-{kind}", "window_accuracy": 0.7,
+                 "labels": labels}
+        payload = nn_checkpoint.build_payload(
+            model, kind=kind, labels=labels, n_channels=8, win=win, window_s=0.3,
+            overlap=0.75, model_fs=60.0, hidden=nn_arch.HIDDEN,
+            dropout=nn_arch.DROPOUT, mean=np.zeros(8, np.float32),
+            std=np.ones(8, np.float32), applied_mode=mode, requested_mode=mode,
+            calibration_subjects=[], root=DATA, stats=stats,
+            device_info={"device": "cpu"}, adaptation=adaptation)
+        nn_checkpoint.save_payload(payload, path, archive=False)
+        return model
 
 
-def wait_ready(engine, seconds=90):
-    t0 = time.time()
-    while time.time() - t0 < seconds:
-        engine.poll()
-        if engine.state in ("ready", "error"):
-            return engine.state
-        time.sleep(0.1)
-    return engine.state
+    nn_compat = {"labels": NN_LABELS, "window_s": 0.3, "win_samples": NN_WIN,
+                 "n_channels": 8, "calibration_mode": "off"}
+    folders = {}
+    for eid, kind, seed in (("nn-a", "gru", 1), ("nn-b", "tcn", 2),
+                            ("nn-c", "gru", 3)):
+        folder = os.path.join(ZOO, eid)
+        os.makedirs(folder, exist_ok=True)
+        nn_checkpoint_file(os.path.join(folder, "model.pt"), kind, seed)
+        zoo.write_meta(folder, {"id": eid, "family": "nn", "name": f"NN-{kind}-{eid[-1]}",
+                                "kind": kind, "file": "model.pt", "params": 4000,
+                                "scores": scores(0.7 + seed / 100),
+                                "compat": nn_compat, "data_digest": "d1"})
+    adapt_folder = os.path.join(ZOO, "nn-adapt")
+    os.makedirs(adapt_folder, exist_ok=True)
+    nn_checkpoint_file(os.path.join(adapt_folder, "model.pt"), "gru", 4,
+                       adaptation={"mode": "person", "fraction": 0.1})
+    zoo.write_meta(adapt_folder, {"id": "nn-adapt", "family": "nn", "name": "NN-adapt",
+                                  "kind": "gru", "file": "model.pt",
+                                  "scores": scores(0.6),
+                                  "compat": dict(nn_compat),
+                                  "data_digest": "d1"})
+    odd = os.path.join(ZOO, "nn-odd")
+    os.makedirs(odd, exist_ok=True)
+    nn_checkpoint_file(os.path.join(odd, "model.pt"), "gru", 5, win=24)
+    zoo.write_meta(odd, {"id": "nn-odd", "family": "nn", "name": "NN-odd",
+                         "kind": "gru", "file": "model.pt", "scores": scores(0.5),
+                         "compat": dict(nn_compat, win_samples=24),
+                         "data_digest": "d1"})
+
+    check("two nets can be voted", zoo.check_vote(
+        [zoo.get_entry("nn-a"), zoo.get_entry("nn-b")])[0])
+    ok, why = zoo.check_vote([zoo.get_entry("nn-a"), zoo.get_entry("nn-odd")])
+    check("nets with different windows cannot", not ok and "win_samples" in why, why)
+    ok, why = zoo.check_vote([zoo.get_entry("nn-a"), zoo.get_entry("ml-rf")])
+    check("a net and an ML model are never voted together",
+          not ok and "not voted together" in why, why)
+
+    T.MODEL_SELECTION_ENABLED = False
+    default_engine = T.NeuralEngine(device="cpu")
+    check("selection OFF: the engine's checkpoint is the configured one",
+          default_engine.model_paths() == [default_engine.full_model_path])
+
+    T.MODEL_SELECTION_ENABLED = True
+    T.SELECTED_NN = ["nn-a", "nn-b"]
 
 
-def ask(engine, emg, ts, seconds=20):
-    t0 = time.time()
-    while time.time() - t0 < seconds:
-        if engine.submit(emg, ts):
+    def wait_ready(engine, seconds=90):
+        t0 = time.time()
+        while time.time() - t0 < seconds:
+            engine.poll()
+            if engine.state in ("ready", "error"):
+                return engine.state
+            time.sleep(0.1)
+        return engine.state
+
+
+    def ask(engine, emg, ts, seconds=20):
+        t0 = time.time()
+        while time.time() - t0 < seconds:
+            if engine.submit(emg, ts):
+                break
+            engine.poll()
+            time.sleep(0.05)
+        while time.time() - t0 < seconds:
+            got = engine.poll()
+            if got:
+                return got[-1]
+            time.sleep(0.05)
+        return None
+
+
+    emg = np.abs(rng.normal(120, 40, (40, 8)))
+    ts = np.arange(40) / 50.0
+
+    engine = T.NeuralEngine(device="cpu")
+    engine._history.clear()
+    check("selection ON: the engine hands BOTH checkpoints to the worker",
+          len(engine.model_paths()) == 2 and engine.trained())
+    check("the engine started", engine.start(), engine.status)
+    state = wait_ready(engine)
+    check("the worker loaded two nets and is ready", state == "ready",
+          engine.status)
+    check("it reports a vote of both",
+          engine.meta.get("kind") == "vote" and len(engine.meta["members"]) == 2
+          and "soft vote" in engine.describe(), engine.describe())
+    check("...with the parameters summed",
+          engine.meta["n_parameters"] == sum(
+              m["n_parameters"] for m in engine.meta["members"]))
+    got = ask(engine, emg, ts)
+    check("it answers", got is not None)
+    block = T.nn_input_block(T.resample_uniform(emg, ts, NN_WIN), None)
+    expected = []
+    for eid, kind, seed in (("nn-a", "gru", 1), ("nn-b", "tcn", 2)):
+        net = nn_arch.build(kind, 8, 4, NN_WIN, seed=seed)
+        ck = torch.load(os.path.join(ZOO, eid, "model.pt"), weights_only=False)
+        net.load_state_dict(ck["state_dict"])
+        net.eval()
+        with torch.no_grad():
+            x = (np.log1p(np.abs(block)) - 0.0) / 1.0
+            expected.append(torch.softmax(net(torch.from_numpy(
+                x[None].astype(np.float32))), dim=1)[0].numpy())
+    check("the answer is the MEAN of the two nets' softmax outputs",
+          got is not None and np.allclose(got.raw_probabilities,
+                                          np.mean(expected, axis=0), atol=1e-5),
+          None if got is None else np.round(got.raw_probabilities, 3).tolist())
+    engine.stop()
+
+    T.SELECTED_NN = ["nn-a", "nn-odd"]
+    refused = T.NeuralEngine(device="cpu")
+    refused.start()
+    check("a vote of mismatching nets is refused by the worker, with the reason",
+          wait_ready(refused) == "error" and "disagree" in refused.status,
+          refused.status)
+    refused.stop()
+
+    T.SELECTED_NN = ["nn-a"]
+    single = T.NeuralEngine(device="cpu")
+    single.start()
+    wait_ready(single)
+    single.set_adaptation(np.zeros(8), np.ones(8))
+    for _ in range(20):
+        single.poll()
+        time.sleep(0.05)
+    check("`adapt` on a net NOT trained with it is acknowledged as 0 nets",
+          single.adapted_members == 0, single.adapted_members)
+    single.stop()
+
+    T.SELECTED_NN = ["nn-adapt", "nn-a"]
+    mixed = T.NeuralEngine(device="cpu")
+    mixed.start()
+    check("a vote mixing an adapted and a plain net is accepted by the worker "
+          "(adaptation is per net)", wait_ready(mixed) == "ready", mixed.status)
+    mixed.set_adaptation(np.zeros(8), np.ones(8))
+    for _ in range(30):
+        mixed.poll()
+        if mixed.adapted_members:
             break
-        engine.poll()
         time.sleep(0.05)
-    while time.time() - t0 < seconds:
-        got = engine.poll()
-        if got:
-            return got[-1]
+    check("...and the statistics reach ONLY the net trained with adaptation",
+          mixed.adapted_members == 1, mixed.adapted_members)
+    mixed.clear_adaptation()
+    for _ in range(30):
+        mixed.poll()
+        if mixed.adapted_members == 0:
+            break
         time.sleep(0.05)
-    return None
-
-
-emg = np.abs(rng.normal(120, 40, (40, 8)))
-ts = np.arange(40) / 50.0
-
-engine = T.NeuralEngine(device="cpu")
-engine._history.clear()
-check("selection ON: the engine hands BOTH checkpoints to the worker",
-      len(engine.model_paths()) == 2 and engine.trained())
-check("the engine started", engine.start(), engine.status)
-state = wait_ready(engine)
-check("the worker loaded two nets and is ready", state == "ready",
-      engine.status)
-check("it reports a vote of both",
-      engine.meta.get("kind") == "vote" and len(engine.meta["members"]) == 2
-      and "soft vote" in engine.describe(), engine.describe())
-check("...with the parameters summed",
-      engine.meta["n_parameters"] == sum(
-          m["n_parameters"] for m in engine.meta["members"]))
-got = ask(engine, emg, ts)
-check("it answers", got is not None)
-block = T.nn_input_block(T.resample_uniform(emg, ts, NN_WIN), None)
-expected = []
-for eid, kind, seed in (("nn-a", "gru", 1), ("nn-b", "tcn", 2)):
-    net = nn_arch.build(kind, 8, 4, NN_WIN, seed=seed)
-    ck = torch.load(os.path.join(ZOO, eid, "model.pt"), weights_only=False)
-    net.load_state_dict(ck["state_dict"])
-    net.eval()
-    with torch.no_grad():
-        x = (np.log1p(np.abs(block)) - 0.0) / 1.0
-        expected.append(torch.softmax(net(torch.from_numpy(
-            x[None].astype(np.float32))), dim=1)[0].numpy())
-check("the answer is the MEAN of the two nets' softmax outputs",
-      got is not None and np.allclose(got.raw_probabilities,
-                                      np.mean(expected, axis=0), atol=1e-5),
-      None if got is None else np.round(got.raw_probabilities, 3).tolist())
-engine.stop()
-
-T.SELECTED_NN = ["nn-a", "nn-odd"]
-refused = T.NeuralEngine(device="cpu")
-refused.start()
-check("a vote of mismatching nets is refused by the worker, with the reason",
-      wait_ready(refused) == "error" and "disagree" in refused.status,
-      refused.status)
-refused.stop()
-
-T.SELECTED_NN = ["nn-a"]
-single = T.NeuralEngine(device="cpu")
-single.start()
-wait_ready(single)
-single.set_adaptation(np.zeros(8), np.ones(8))
-for _ in range(20):
-    single.poll()
-    time.sleep(0.05)
-check("`adapt` on a net NOT trained with it is acknowledged as 0 nets",
-      single.adapted_members == 0, single.adapted_members)
-single.stop()
-
-T.SELECTED_NN = ["nn-adapt", "nn-a"]
-mixed = T.NeuralEngine(device="cpu")
-mixed.start()
-check("a vote mixing an adapted and a plain net is accepted by the worker "
-      "(adaptation is per net)", wait_ready(mixed) == "ready", mixed.status)
-mixed.set_adaptation(np.zeros(8), np.ones(8))
-for _ in range(30):
-    mixed.poll()
-    if mixed.adapted_members:
-        break
-    time.sleep(0.05)
-check("...and the statistics reach ONLY the net trained with adaptation",
-      mixed.adapted_members == 1, mixed.adapted_members)
-mixed.clear_adaptation()
-for _ in range(30):
-    mixed.poll()
-    if mixed.adapted_members == 0:
-        break
-    time.sleep(0.05)
-check("clearing them returns every net to its stored statistics",
-      mixed.adapted_members == 0)
-mixed.stop()
-T.MODEL_SELECTION_ENABLED = False
-T.SELECTED_NN = []
+    check("clearing them returns every net to its stored statistics",
+          mixed.adapted_members == 0)
+    mixed.stop()
+    T.MODEL_SELECTION_ENABLED = False
+    T.SELECTED_NN = []
 
 # ==========================================================================
 section("5. adaptation to the person (the ML predictor)")
@@ -602,32 +618,33 @@ table = AD.person_log_table(np.abs(rng.normal(100, 30, (300, 10, 8))),
 check("a person table has every person, from a share of THEIR windows",
       set(table) == {"a", "b", "c"})
 
-# ==========================================================================
-section("7. augmentation")
-import nn_augment as NA                                              # noqa: E402
+if HAVE_TORCH:
+    # ==========================================================================
+    section("7. augmentation")
+    import nn_augment as NA                                              # noqa: E402
 
-x = torch.rand(64, 42, 8) * 500
-for kind in NA.AUG_TYPES:
-    y = NA.Augmenter([kind], seed=1)(x)
-    check(f"{kind}: shape kept, finite, not negative, and it changes the data",
-          y.shape == x.shape and torch.isfinite(y).all().item()
-          and (y >= 0).all().item() and not torch.equal(y, x))
-check("deterministic for a seed", torch.equal(
-    NA.Augmenter("all", seed=3)(x), NA.Augmenter("all", seed=3)(x)))
-check("different seeds differ", not torch.equal(
-    NA.Augmenter("all", seed=3)(x), NA.Augmenter("all", seed=4)(x)))
-check("off = the SAME tensor, untouched", NA.Augmenter([])(x) is x)
-r = NA.Augmenter(["rotate"], seed=2)(x)
-check("a rotation only permutes channels", torch.allclose(
-    r.sort(2).values, x.sort(2).values))
-try:
-    NA.parse_augment("gian")
-    check("a typo is refused", False)
-except ValueError as exc:
-    check("a typo is refused, naming the known ones", "gain" in str(exc))
-check("parse: none/all/list", NA.parse_augment("none") == []
-      and NA.parse_augment("all") == NA.AUG_TYPES
-      and NA.parse_augment("rotate, gain") == ["gain", "rotate"])
+    x = torch.rand(64, 42, 8) * 500
+    for kind in NA.AUG_TYPES:
+        y = NA.Augmenter([kind], seed=1)(x)
+        check(f"{kind}: shape kept, finite, not negative, and it changes the data",
+              y.shape == x.shape and torch.isfinite(y).all().item()
+              and (y >= 0).all().item() and not torch.equal(y, x))
+    check("deterministic for a seed", torch.equal(
+        NA.Augmenter("all", seed=3)(x), NA.Augmenter("all", seed=3)(x)))
+    check("different seeds differ", not torch.equal(
+        NA.Augmenter("all", seed=3)(x), NA.Augmenter("all", seed=4)(x)))
+    check("off = the SAME tensor, untouched", NA.Augmenter([])(x) is x)
+    r = NA.Augmenter(["rotate"], seed=2)(x)
+    check("a rotation only permutes channels", torch.allclose(
+        r.sort(2).values, x.sort(2).values))
+    try:
+        NA.parse_augment("gian")
+        check("a typo is refused", False)
+    except ValueError as exc:
+        check("a typo is refused, naming the known ones", "gain" in str(exc))
+    check("parse: none/all/list", NA.parse_augment("none") == []
+          and NA.parse_augment("all") == NA.AUG_TYPES
+          and NA.parse_augment("rotate, gain") == ["gain", "rotate"])
 
 # ==========================================================================
 section("8. the settings store")
@@ -704,47 +721,49 @@ check("reasons name stale models and unknown gestures",
 check("current models give no reason",
       PR.retrain_reasons({"ML": {"state": "current"}}, []) == [])
 
-# ==========================================================================
-section("10. the trainers are unchanged with the new switches off")
-import importlib.util                                                # noqa: E402
-import subprocess                                                    # noqa: E402
+if HAVE_TORCH:
+    # ==========================================================================
+    section("10. the trainers are unchanged with the new switches off")
+    import importlib.util                                                # noqa: E402
+    import subprocess                                                    # noqa: E402
 
-old_src = subprocess.run(["git", "show", "4077bc4:training/train_nn.py"],
-                         cwd=ROOT_DIR, capture_output=True, text=True,
-                         encoding="utf-8")
-if old_src.returncode == 0:
-    old_path = os.path.join(TEMP, "train_nn_old.py")
-    open(old_path, "w", encoding="utf-8").write(old_src.stdout)
-    import train_nn as NEW                                           # noqa: E402
-    spec = importlib.util.spec_from_file_location("train_nn_old", old_path)
-    OLD = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(OLD)
-    r2 = np.random.default_rng(1)
-    n = 300
-    Xs = (np.abs(r2.standard_normal((n, 30, 8))) * 300).astype(np.float32)
-    ys = r2.integers(0, 4, n)
-    pp = np.asarray(["A", "B", "C", "D", "E"], dtype=object)[np.arange(n) % 5]
-    uid = np.asarray([f"r{i // 10}" for i in range(n)], dtype=object)
-    dev = torch.device("cpu")
-    a = OLD.evaluate("gru", Xs, ys, uid, list("abcd"), 30, dev, 2,
-                     split_groups=pp, grouping="subject")
-    b = NEW.evaluate("gru", Xs, ys, uid, list("abcd"), 30, dev, 2,
-                     split_groups=pp, grouping="subject", persons=pp)
-    check("train_nn.evaluate: identical folds and confusion matrix with the "
-          "switches off", a["fold_accuracies"] == b["fold_accuracies"]
-          and a["confusion_matrix"] == b["confusion_matrix"])
-    l0 = OLD.leave_one_subject_out("gru", Xs, ys, pp, list("abcd"), 30, dev, 2)
-    l1 = NEW.leave_one_subject_out("gru", Xs, ys, pp, list("abcd"), 30, dev, 2)
-    check("train_nn.leave_one_subject_out: identical",
-          l0["per_subject"] == l1["per_subject"])
-    c = NEW.evaluate("gru", Xs, ys, uid, list("abcd"), 30, dev, 2,
-                     split_groups=pp, grouping="subject", persons=pp,
-                     augment=("gain",), adapt=True)
-    check("with augmentation and adaptation ON the same function runs and "
-          "gives a different, finite answer",
-          np.isfinite(c["window_accuracy"]))
-else:
-    check("(git history not available: trainer regression skipped)", True)
+    old_src = subprocess.run(["git", "show", "4077bc4:training/train_nn.py"],
+                             cwd=ROOT_DIR, capture_output=True, text=True,
+                             encoding="utf-8")
+    if old_src.returncode == 0:
+        old_path = os.path.join(TEMP, "train_nn_old.py")
+        open(old_path, "w", encoding="utf-8").write(old_src.stdout)
+        import train_nn as NEW                                           # noqa: E402
+        spec = importlib.util.spec_from_file_location("train_nn_old", old_path)
+        OLD = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(OLD)
+        r2 = np.random.default_rng(1)
+        n = 300
+        Xs = (np.abs(r2.standard_normal((n, 30, 8))) * 300).astype(np.float32)
+        ys = r2.integers(0, 4, n)
+        pp = np.asarray(["A", "B", "C", "D", "E"], dtype=object)[np.arange(n) % 5]
+        uid = np.asarray([f"r{i // 10}" for i in range(n)], dtype=object)
+        dev = torch.device("cpu")
+        a = OLD.evaluate("gru", Xs, ys, uid, list("abcd"), 30, dev, 2,
+                         split_groups=pp, grouping="subject")
+        b = NEW.evaluate("gru", Xs, ys, uid, list("abcd"), 30, dev, 2,
+                         split_groups=pp, grouping="subject", persons=pp)
+        check("train_nn.evaluate: identical folds and confusion matrix with the "
+              "switches off", a["fold_accuracies"] == b["fold_accuracies"]
+              and a["confusion_matrix"] == b["confusion_matrix"])
+        l0 = OLD.leave_one_subject_out("gru", Xs, ys, pp, list("abcd"), 30, dev, 2)
+        l1 = NEW.leave_one_subject_out("gru", Xs, ys, pp, list("abcd"), 30, dev, 2)
+        check("train_nn.leave_one_subject_out: identical",
+              l0["per_subject"] == l1["per_subject"])
+        c = NEW.evaluate("gru", Xs, ys, uid, list("abcd"), 30, dev, 2,
+                         split_groups=pp, grouping="subject", persons=pp,
+                         augment=("gain",), adapt=True)
+        check("with augmentation and adaptation ON the same function runs and "
+              "gives a different, finite answer",
+              np.isfinite(c["window_accuracy"]))
+    else:
+        check("(git history not available: trainer regression skipped)", True)
+
 
 shutil.rmtree(TEMP, ignore_errors=True)
 print()

@@ -1,6 +1,6 @@
 # Report: models, ablation, defaults and verification
 
-*Generated 2026-10-27 05:31 by `tools/make_report.py` from `results/experiments.json`. Re-run it after any new measurement; nothing below is typed by hand.*
+*Generated 2026-10-27 06:28 by `tools/make_report.py` from `results/experiments.json`. Re-run it after any new measurement; nothing below is typed by hand.*
 
 ## 1. Goal and context
 
@@ -14,7 +14,8 @@ The project records 8-channel EMG from a Thalmic Myo and trains gesture classifi
 
 - **Protocol.** Leave-one-person-out: every window is scored by a model that never saw that person. The score is the mean over the five held-out people (each counts once). Per-recording vote and macro-F1 are reported beside it.
 - **Seeds.** Ablations use 3 seeds and report mean ± seed spread; the zoo uses 2 seeds for the nets and 3 for the ML models.
-- **A switch counts as helping** (`training/ablation_stats.py`) only if its mean gain over the baseline is at least max(1 point, 2 x the seed noise) AND it is better for at least 4 of the 5 people; or the same on the robustness probes without losing more than 1 point of clean accuracy. Anything else is "no evidence", stays off and remains selectable.
+- **A switch counts as helping** (`training/ablation_stats.py`) only if its mean gain over the baseline is at least max(1 point, 2 x the seed noise) AND it is better for at least 4 of the 5 people; or the same on the robustness probes without losing more than 1 point of clean accuracy. The seed noise is the LARGER of the baseline's and the setting's own spread over seeds (`ablation_stats.judge`); that choice is conservative and decides one verdict (neural-net adaptation, section 8). Anything else is "no evidence", stays off and remains selectable.
+- **Macro-F1** is computed per held-out person over the six fixed classes (a class the person never produced or was never predicted scores 0) and averaged over people; it is not scikit-learn's pooled value.
 - **Robustness probes**, applied to the held-out person's raw windows after the fact: multiplicative + additive noise; the band slid one pod either way (a circular channel roll); the whole signal 25 % weaker. Statistics for adaptation are taken before the perturbation (a band that drifts after calibration).
 - **DC-only control** (CLAUDE.md 8f/8k): the same model on each window flattened to its 8 channel means -- how much of a score is amplitude rather than gesture shape.
 - **Adaptation** standardises each person's input with statistics from a random 10 % of their own unlabelled windows (about 9 s, a calibration sweep). It is *not* zero-shot: it answers "a new person who wears the band for a few seconds first".
@@ -139,7 +140,7 @@ One switch at a time against the baseline, then only combinations of what helped
 | vote(ET+RF) | 77.0 % | 0.5 % | 74.3 % |
 | vote(all 4) | 69.4 % | 0.1 % | 67.5 % |
 
-The deployed pair's vote is 77.0 % against 76.9 % for the best single member (ET-500): a gain of +0.1 points, inside the seed spread -- voting does not demonstrably help here. Voting all four spec models falls to 69.4 %: an unweighted vote gives the 13-point weaker SVM and LDA an equal say.
+The combination test's winner, the ET-500 + RF-500-leaf3 vote, reads 77.0 % against 76.9 % for the best single member (ET-500): a gain of +0.1 points, inside the seed spread -- voting does not demonstrably help here. Voting all four models of `models/model_spec.json` -- which is what the deployed `gesture_model.joblib` currently is -- falls to 69.4 %: an unweighted vote gives the 13-point weaker SVM and LDA an equal say. Whether to deploy the pair is the operator's call (CLAUDE.md 8n); the zoo lets you select it without touching the deployed model.
 
 ![Voting](figures/voting_vs_members.png)
 
@@ -198,6 +199,8 @@ A shifted band is the probe every model fails and the open problem the weakest p
 
 **What if the person's statistics are missing?** An ML model trained with adaptation, scored without them (the stored global statistics, which is what `ADAPT_LIVE` off or a missing calibration signal does), reads 78.2 % against 78.5 % with them and 77.6 % for a plain model (seed 0): the fallback costs nothing measurable, so an adapted model is safe to deploy before a calibration signal exists.
 
+**How firm are the two verdicts?** Neural net: the gain is +4.5 points for 4/5 people, but the baseline's seed spread is 4.7 % (the setting's own is 1.5 %), so 2 x the larger spread is 9.4 %: the verdict is *no evidence*. Judged against the setting's own spread alone it would pass, so this one is a borderline call decided by the baseline's instability, not a clear negative. ML: adaptation passes on robustness for the ET+RF vote by a small margin and on accuracy for only 3 of 5 people; a single ET-500 does not pass on its own. The ML default is therefore the weakest of the shipped defaults.
+
 **Caveat.** The gain is not uniform: it comes mostly from the weakest and a couple of other people and is within the seed noise for some, because the statistics depend on which windows were sampled. Five people cannot settle it; the experiment to repeat is the same table with more wearers. Where there is data from one person only, adaptation cannot be tested at all.
 
 ## 9. Real-time and latency
@@ -244,30 +247,30 @@ Settings (gear icon, Ctrl+,): Gestures, Models, Training, General. Details, how 
 
 | suite | checks passed | seconds |
 |---|---|---|
-| datalayer | 150/150 | 6.3 |
-| gui | 109/109 | 45.5 |
-| review | 50/50 | 18.5 |
+| datalayer | 150/150 | 6.1 |
+| gui | 109/109 | 46.2 |
+| review | 50/50 | 18.3 |
 | label_on_graph | 48/48 | 19.7 |
 | markers | 88/88 | 2.6 |
 | free_take | 268/268 | 11.9 |
-| model_spec | 346/346 | 10.2 |
-| predict | 109/109 | 54.4 |
-| trail | 103/103 | 7.3 |
-| calibration | 161/161 | 6.1 |
-| jobs | 48/48 | 42.0 |
-| class_mask | 121/121 | 20.7 |
-| device | 104/104 | 1.3 |
-| sweep_cost | 48/48 | 5.3 |
-| filters | 52/52 | 5.1 |
+| model_spec | 346/346 | 10.5 |
+| predict | 109/109 | 54.2 |
+| trail | 103/103 | 7.1 |
+| calibration | 161/161 | 5.7 |
+| jobs | 48/48 | 43.2 |
+| class_mask | 121/121 | 5.8 |
+| device | 104/104 | 1.2 |
+| sweep_cost | 48/48 | 4.4 |
+| filters | 52/52 | 4.4 |
 | no_torch | 11/11 | 3.7 |
-| icon | 15/15 | 1.9 |
-| zoo | 108/108 | 42.3 |
-| app_settings | 66/66 | 5.7 |
+| icon | 17/17 | 1.1 |
+| zoo | 109/109 | 29.9 |
+| app_settings | 67/67 | 5.3 |
 | defaults | 18/18 | 1.1 |
-| nn | 162/162 | 9.4 |
-| custom_gesture | 48/48 | 183.0 |
+| nn | 162/162 | 9.1 |
+| custom_gesture | 48/48 | 180.5 |
 
-2233/2233 checks in 22 suites (`python tools/run_tests.py`; the slow `nn` and `custom_gesture` suites are run separately).
+2237/2237 checks in 22 suites (`python tools/run_tests.py`; `--fast` skips the slow `nn` and `custom_gesture` suites, which are part of this count).
 
 ![Tests](figures/tests_overview.png)
 
@@ -279,6 +282,7 @@ An independent check of the finished application is recorded in [VERIFICATION.md
 - Seed spread is large for the nets (the GRU baseline moved by about 10 points between seeds), so one-seed rankings (the newer-architectures test, the zoo's nets) are indicative, not final.
 - Adaptation is not zero-shot, and its gain is not uniform across people.
 - Latencies are from one idle machine (i5-9300H, GTX 1650); a robot's SBC will differ. The nets were timed without the pipe to the worker process (about 1 ms more in the app).
+- The adaptation default for ML models applies to the zoo trainer only; the classic RETRAIN sweep (`train_model.py`), which produces the deployed `gesture_model.joblib`, trains plain models.
 - Acquisition is Myo-only; nothing here was run against a real second band.
 - The nested subset estimate is honest about subset choice, not about the 5-person sample.
 

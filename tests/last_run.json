@@ -1,5 +1,5 @@
 {
- "finished": "2026-10-27 05:30:32",
+ "finished": "2026-10-27 06:27:48",
  "results": [
   {
    "suite": "datalayer",
@@ -7,7 +7,7 @@
    "exit": 0,
    "passed": 150,
    "total": 150,
-   "seconds": 6.3,
+   "seconds": 6.1,
    "ok": true,
    "failures": []
   },
@@ -17,7 +17,7 @@
    "exit": 0,
    "passed": 109,
    "total": 109,
-   "seconds": 45.5,
+   "seconds": 46.2,
    "ok": true,
    "failures": []
   },
@@ -27,7 +27,7 @@
    "exit": 0,
    "passed": 50,
    "total": 50,
-   "seconds": 18.5,
+   "seconds": 18.3,
    "ok": true,
    "failures": []
   },
@@ -67,7 +67,7 @@
    "exit": 0,
    "passed": 346,
    "total": 346,
-   "seconds": 10.2,
+   "seconds": 10.5,
    "ok": true,
    "failures": []
   },
@@ -77,7 +77,7 @@
    "exit": 0,
    "passed": 109,
    "total": 109,
-   "seconds": 54.4,
+   "seconds": 54.2,
    "ok": true,
    "failures": []
   },
@@ -87,7 +87,7 @@
    "exit": 0,
    "passed": 103,
    "total": 103,
-   "seconds": 7.3,
+   "seconds": 7.1,
    "ok": true,
    "failures": []
   },
@@ -97,7 +97,7 @@
    "exit": 0,
    "passed": 161,
    "total": 161,
-   "seconds": 6.1,
+   "seconds": 5.7,
    "ok": true,
    "failures": []
   },
@@ -107,7 +107,7 @@
    "exit": 0,
    "passed": 48,
    "total": 48,
-   "seconds": 42.0,
+   "seconds": 43.2,
    "ok": true,
    "failures": []
   },
@@ -117,7 +117,7 @@
    "exit": 0,
    "passed": 121,
    "total": 121,
-   "seconds": 20.7,
+   "seconds": 5.8,
    "ok": true,
    "failures": []
   },
@@ -127,7 +127,7 @@
    "exit": 0,
    "passed": 104,
    "total": 104,
-   "seconds": 1.3,
+   "seconds": 1.2,
    "ok": true,
    "failures": []
   },
@@ -137,7 +137,7 @@
    "exit": 0,
    "passed": 48,
    "total": 48,
-   "seconds": 5.3,
+   "seconds": 4.4,
    "ok": true,
    "failures": []
   },
@@ -147,7 +147,7 @@
    "exit": 0,
    "passed": 52,
    "total": 52,
-   "seconds": 5.1,
+   "seconds": 4.4,
    "ok": true,
    "failures": []
   },
@@ -165,9 +165,9 @@
    "suite": "icon",
    "script": "test_icon.py",
    "exit": 0,
-   "passed": 15,
-   "total": 15,
-   "seconds": 1.9,
+   "passed": 17,
+   "total": 17,
+   "seconds": 1.1,
    "ok": true,
    "failures": []
   },
@@ -175,9 +175,9 @@
    "suite": "zoo",
    "script": "test_zoo.py",
    "exit": 0,
-   "passed": 108,
-   "total": 108,
-   "seconds": 42.3,
+   "passed": 109,
+   "total": 109,
+   "seconds": 29.9,
    "ok": true,
    "failures": []
   },
@@ -185,9 +185,9 @@
    "suite": "app_settings",
    "script": "test_app_settings.py",
    "exit": 0,
-   "passed": 66,
-   "total": 66,
-   "seconds": 5.7,
+   "passed": 67,
+   "total": 67,
+   "seconds": 5.3,
    "ok": true,
    "failures": []
   },
@@ -207,7 +207,7 @@
    "exit": 0,
    "passed": 162,
    "total": 162,
-   "seconds": 9.4,
+   "seconds": 9.1,
    "ok": true,
    "failures": []
   },
@@ -217,7 +217,7 @@
    "exit": 0,
    "passed": 48,
    "total": 48,
-   "seconds": 183.0,
+   "seconds": 180.5,
    "ok": true,
    "failures": []
   }

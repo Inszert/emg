@@ -48,7 +48,7 @@ more on a slow link). Resolved versions that day:
 
 ```
 Python 3.14.0 | pip 25.2
-numpy 2.5.4  pandas 3.1.0  scipy 1.18.1  scikit-learn 1.9.1  joblib 1.6.0
+numpy 2.5.4  pandas 3.1.0  scipy 1.18.1  scikit-learn 1.7.2  joblib 1.6.0
 pyarrow 26.0.0  pyserial 3.5  PySide6 6.12.0  (+Addons, Essentials, Pdf, WebEngine)
 pyqtgraph 0.14.0  shiboken6 6.12.0
 ```
@@ -153,8 +153,7 @@ Other no-hardware scripts (`test_review`, `test_markers`,
 `test_class_mask`, `test_model_spec`, `test_trail`, `test_jobs`) exist and are
 listed in `tests/README.md`; they were **not** run for this document.
 
-Main has since added `tools/run_tests.py` (runs all offline suites); it is not in
-the branch these documents were written on, so it was **not** tried here.
+`python tools/run_tests.py` runs every offline suite (`--fast` skips the two slow ones); it was run by the independent check, see docs/VERIFICATION.md.
 
 Do **not** run on a busy or small machine: `test_predict.py` (trains a toy
 model and runs a real retrain), `test_custom_gesture.py` (about 5 min, trains),
@@ -198,22 +197,13 @@ scikit-learn has no GPU backend: RETRAIN is CPU work whatever you install.
 | `ModuleNotFoundError: No module named 'emg_dataset_tool'` when running a script from `tests\` | set `$env:PYTHONPATH = "."` from the project root |
 | `UnicodeEncodeError` printing a path | use the project's entry point (it forces UTF-8); in your own scripts run `chcp 65001` or `python -X utf8` |
 | PowerShell: "running scripts is disabled" when activating the venv | `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, or skip activation and call `.\.venv\Scripts\python.exe` directly |
-| `InconsistentVersionWarning: Trying to unpickle estimator ... from version 1.7.2 when using version 1.9.1` | see below |
+| `InconsistentVersionWarning: Trying to unpickle estimator ... from version 1.7.2 when using version 1.9.1` | scikit-learn is newer than the pin: `python -m pip install "scikit-learn>=1.3,<1.8"` |
 | `torch` not found / NN panel says what is missing | expected without torch; install per section 6 or ignore |
 | the app refuses to predict for a wearer: "this model was trained on 'affine' per-wearer calibration, and <person> has none" | press CALIBRATE (or set the calibration mode to `off` and retrain) |
 
 ## Known issues found while writing this
 
-* **scikit-learn version drift.** `requirements.txt` has `scikit-learn>=1.3`, so
-  a clean install gets 1.9.1, but the shipped `models/gesture_model.joblib` was
-  pickled with **1.7.2**. Verified in the fresh venv: the model still loads and
-  gives the same kind of answer (`FIST 48 %` on a test window, identical to the
-  1.7.2 run), but sklearn prints `InconsistentVersionWarning` for every tree
-  estimator ("might lead to breaking code or invalid results"). To be safe
-  either pin `scikit-learn==1.7.2` in the environment you use with the saved
-  model, or retrain with the new version. Pinning belongs in
-  `requirements.txt`, which is not part of this task: reported to main on the board.
-* `tests/README.md` lists `test_gui.py` as 91 checks; it is now 109.
+* **scikit-learn version.** The saved models were pickled with 1.7.2, and `requirements.txt` now pins `scikit-learn>=1.3,<1.8`, so a clean install resolves 1.7.2 and loads them with no `InconsistentVersionWarning` (verified by the independent check, docs/VERIFICATION.md). Do not upgrade scikit-learn past 1.7.x without retraining.
 * `PySide6` brings `PySide6_Addons` and `PySide6_WebEngine` (about 130 MB
   alone) although the app does not use WebEngine. `PySide6-Essentials` would be
   enough for the app but was **not** tried.

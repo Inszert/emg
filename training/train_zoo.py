@@ -441,7 +441,8 @@ def fit_ml(eid, spec, D, sc, scores, folder, adapt, seeds, joblib, augment=()):
                    "representation": setup["representation"],
                    "feature_set": setup["feature_set"],
                    "freq_features": setup["freq_features"],
-                   "calibration_mode": mode},
+                   "calibration_mode": mode,
+                   "adaptation_mode": "person_features" if adapt else "off"},
         "n_windows": int(len(y)), "created_iso": T.iso_time(time.time()),
     }
 

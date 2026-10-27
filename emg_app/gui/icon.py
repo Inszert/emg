@@ -50,8 +50,13 @@ def set_app_user_model_id(app_id: str = APP_USER_MODEL_ID) -> bool:
 
 def apply_app_icon(app, window=None, icon_dir: str = None) -> "QtGui.QIcon":
     """Set the icon on the application (so every dialog inherits it) and,
-    optionally, on one window. Returns the icon; never raises."""
+    optionally, on one window. Returns the icon; never raises. With
+    `APP_ICON_ENABLED` off (settings, General) nothing is set and the toolkit's
+    default icon stays."""
     try:
+        from emg_app import config as cfg
+        if not getattr(cfg, "APP_ICON_ENABLED", True):
+            return QtGui.QIcon()
         set_app_user_model_id()
         icon = app_icon(icon_dir)
         if not icon.isNull():

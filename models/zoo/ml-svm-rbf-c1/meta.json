@@ -53,7 +53,8 @@
   "representation": "bandpass",
   "feature_set": "level",
   "freq_features": false,
-  "calibration_mode": "affine"
+  "calibration_mode": "affine",
+  "adaptation_mode": "person_features"
  },
  "n_windows": 1787,
  "created_iso": "2026-10-27T00:17:25.518",

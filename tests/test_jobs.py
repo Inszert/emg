@@ -294,8 +294,15 @@ dead = T.start_training_job(models_dir, "ml", [step("ml", secs=20)])
 time.sleep(1.0)
 watcher = window._attach_training_job(dead)
 status = T.read_job_status(dead)
-subprocess.run(["taskkill", "/T", "/F", "/PID", str(status["pid"])],
-               capture_output=True)
+if os.name == "nt":
+    subprocess.run(["taskkill", "/T", "/F", "/PID", str(status["pid"])],
+                   capture_output=True)
+else:
+    import signal
+    try:
+        os.kill(int(status["pid"]), signal.SIGKILL)
+    except OSError:
+        pass
 check("a runner that dies without a word is noticed and the slot released",
       pump_until(lambda: window._job is None, 15))
 window.close()

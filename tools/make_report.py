@@ -109,8 +109,14 @@ w("- **Seeds.** Ablations use 3 seeds and report mean ± seed spread; the zoo "
 w("- **A switch counts as helping** (`training/ablation_stats.py`) only if its "
   "mean gain over the baseline is at least max(1 point, 2 x the seed noise) AND "
   "it is better for at least 4 of the 5 people; or the same on the robustness "
-  "probes without losing more than 1 point of clean accuracy. Anything else is "
+  "probes without losing more than 1 point of clean accuracy. The seed noise is "
+  "the LARGER of the baseline's and the setting's own spread over seeds "
+  "(`ablation_stats.judge`); that choice is conservative and decides one "
+  "verdict (neural-net adaptation, section 8). Anything else is "
   "\"no evidence\", stays off and remains selectable.")
+w("- **Macro-F1** is computed per held-out person over the six fixed classes (a "
+  "class the person never produced or was never predicted scores 0) and "
+  "averaged over people; it is not scikit-learn's pooled value.")
 w("- **Robustness probes**, applied to the held-out person's raw windows after "
   "the fact: multiplicative + additive noise; the band slid one pod either way "
   "(a circular channel roll); the whole signal 25 % weaker. Statistics for "
@@ -260,14 +266,18 @@ if voting:
     singles = [v for v in voting if not v["model"].startswith("vote")]
     best_single = max(singles, key=lambda v: v["acc_mean"]) if singles else None
     if pair and best_single:
-        w(f"The deployed pair's vote is {pct(pair['acc_mean'])} against "
+        w(f"The combination test's winner, the ET-500 + RF-500-leaf3 vote, reads "
+          f"{pct(pair['acc_mean'])} against "
           f"{pct(best_single['acc_mean'])} for the best single member "
           f"({best_single['model']}): a gain of "
           f"{(pair['acc_mean'] - best_single['acc_mean']) * 100:+.1f} points, "
           "inside the seed spread -- voting does not demonstrably help here."
-          + (f" Voting all four spec models falls to {pct(four['acc_mean'])}: an "
-             "unweighted vote gives the 13-point weaker SVM and LDA an equal "
-             "say." if four else ""))
+          + (f" Voting all four models of `models/model_spec.json` -- which is "
+             f"what the deployed `gesture_model.joblib` currently is -- falls to "
+             f"{pct(four['acc_mean'])}: an unweighted vote gives the 13-point "
+             "weaker SVM and LDA an equal say. Whether to deploy the pair is the "
+             "operator's call (CLAUDE.md 8n); the zoo lets you select it without "
+             "touching the deployed model." if four else ""))
         w("")
     w("![Voting](figures/voting_vs_members.png)")
     w("")
@@ -340,6 +350,23 @@ if fallback:
       "model (seed 0): the fallback costs nothing measurable, so an adapted "
       "model is safe to deploy before a calibration signal exists.")
     w("")
+nn_ad = next((r for r in ad if r["family"] == "nn"), None)
+nn_base = next((r for r in abl if r["family"] == "nn" and r["config"] == "baseline"),
+               None)
+if nn_ad and nn_base and nn_ad["delta_acc"] is not None:
+    own, theirs = nn_ad["acc_std"], nn_base["acc_std"]
+    w(f"**How firm are the two verdicts?** Neural net: the gain is "
+      f"{pts(nn_ad['delta_acc'])} points for {nn_ad['people_better']}/"
+      f"{nn_ad['n_people']} people, but the baseline's seed spread is "
+      f"{pct(theirs)} (the setting's own is {pct(own)}), so 2 x the larger spread "
+      f"is {pct(2 * max(own, theirs))}: the verdict is *no evidence*. Judged against "
+      f"the setting's own spread alone it would pass, so this one is a "
+      f"borderline call decided by the baseline's instability, not a clear "
+      f"negative. ML: adaptation passes on robustness for the ET+RF vote by a "
+      f"small margin and on accuracy for only 3 of 5 people; a single ET-500 "
+      f"does not pass on its own. The ML default is therefore the weakest of the "
+      f"shipped defaults.")
+    w("")
 w("**Caveat.** The gain is not uniform: it comes mostly from the weakest and a "
   "couple of other people and is within the seed noise for some, because the "
   "statistics depend on which windows were sampled. Five people cannot settle "
@@ -378,8 +405,8 @@ if tests:
              for t in tests]))
     w("")
     w(f"{sum(t['passed'] for t in tests)}/{sum(t['total'] for t in tests)} checks "
-      f"in {len(tests)} suites (`python tools/run_tests.py`; the slow `nn` and "
-      "`custom_gesture` suites are run separately).")
+      f"in {len(tests)} suites (`python tools/run_tests.py`; `--fast` skips the "
+      "slow `nn` and `custom_gesture` suites, which are part of this count).")
     w("")
     w("![Tests](figures/tests_overview.png)")
 w("")
@@ -396,6 +423,9 @@ w("- Adaptation is not zero-shot, and its gain is not uniform across people.")
 w("- Latencies are from one idle machine (i5-9300H, GTX 1650); a robot's SBC "
   "will differ. The nets were timed without the pipe to the worker process "
   "(about 1 ms more in the app).")
+w("- The adaptation default for ML models applies to the zoo trainer only; the "
+  "classic RETRAIN sweep (`train_model.py`), which produces the deployed "
+  "`gesture_model.joblib`, trains plain models.")
 w("- Acquisition is Myo-only; nothing here was run against a real second band.")
 w("- The nested subset estimate is honest about subset choice, not about the "
   "5-person sample.")

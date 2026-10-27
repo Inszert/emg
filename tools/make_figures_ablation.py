@@ -116,13 +116,19 @@ if PANELS:
                     fontsize=9, color=GOOD if j["default_worthy"] else TEXT_2,
                     fontweight="bold" if j["default_worthy"] else None)
         ax.axvline(0, color=TEXT_2, lw=1)
-        noise = max(ST.seed_std(base) * 100 * 2, ST.MIN_GAIN * 100)
-        ax.axvspan(-noise, noise, color=MUTED, alpha=0.35, zorder=1)
+        #  The bar a switch has to clear differs per row: twice the LARGER of
+        #  the baseline's and its own seed spread (at least one point). Drawn as
+        #  two grey ticks per row, the judge's own number.
+        for y, name in enumerate(rows[::-1]):
+            need = max(ST.MIN_GAIN, 2 * max(ST.seed_std(base),
+                                            ST.seed_std(g[name]))) * 100
+            ax.plot([-need, need], [y, y], "|", color=TEXT_2, ms=16, mew=2,
+                    zorder=4)
         ax.set_yticks(range(len(rows)))
         ax.set_yticklabels([short(n) for n in rows[::-1]])
-        ax.set_xlabel("accuracy per window, change against the baseline (points); "
-                      "dots = each held-out person; grey = the noise a switch "
-                      "has to clear")
+        ax.set_xlabel("change in accuracy per window against the baseline, points\n"
+                      "dots: each held-out person    ticks: the gain to clear "
+                      "(2 x the larger seed spread, at least 1)")
         ax.xaxis.grid(True, color=GRID)
         ax.set_axisbelow(True)
         b = ST.summarise(base)

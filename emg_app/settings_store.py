@@ -34,6 +34,7 @@ SETTINGS = {
     "ADAPT_LIVE": bool,
     "ASK_CALIBRATION_BEFORE_PREDICT": bool,
     "ASK_RETRAIN_ON_NEW_DATA": bool,
+    "APP_ICON_ENABLED": bool,
 }
 
 

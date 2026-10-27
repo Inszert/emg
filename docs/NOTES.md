@@ -95,9 +95,10 @@ Newest at the bottom of each section.
   75 %, Miso 88 -> 71 %) -- not judged better (3/5 people, within noise) but it
   is the most interesting open lead: Barbora is the person a per-channel map
   seems to hurt. Worth repeating with more wearers before touching the default.
-- **Voting.** The deployed pair (ET-500 + RF-500-leaf3) is 0.1 points better
-  than ET alone (noise). The four-model spec the app currently trains is 7.6
-  points WORSE than the pair. That spec is the operator's call (CLAUDE.md 8n);
+- **Voting.** The combination test's winner, the ET-500 + RF-500-leaf3 vote, is
+  0.1 points better than ET alone (noise). The four-model vote that
+  `models/gesture_model.joblib` actually IS (the spec the app trains) is 7.6
+  points WORSE than that pair. That spec is the operator's call (CLAUDE.md 8n);
   the zoo makes the pair one click (select ET-500 and RF-500-leaf3) without
   touching `model_spec.json`.
 - **Zoo vote star.** The best ML subset searched on the folds (79.3 %) falls to

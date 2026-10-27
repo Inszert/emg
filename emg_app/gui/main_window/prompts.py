@@ -135,7 +135,8 @@ class PromptsMixin:
                          "model that needs one will refuse to predict.")
         elif offer["available"]:
             lines.append(f"\nThe last calibration was made {offer['created']} "
-                         f"({offer['age_h']:.1f} h ago). " + offer["reason"]
+                         f"({offer['age_h']:.1f} h ago). "
+                         + offer["reason"][:1].upper() + offer["reason"][1:]
                          + ".")
             check = offer.get("rest_check")
             if check is not None:

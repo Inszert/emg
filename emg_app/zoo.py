@@ -282,7 +282,8 @@ def star_mark(entry: ZooEntry, stars: dict) -> str:
 #  What two models must agree on before their probabilities can be averaged.
 COMPAT_KEYS = {
     "ml": ("labels", "fs", "window_s", "window_samples", "representation",
-           "feature_set", "freq_features", "calibration_mode"),
+           "feature_set", "freq_features", "calibration_mode",
+           "adaptation_mode"),
     "nn": ("labels", "window_s", "win_samples", "n_channels",
            "calibration_mode"),
 }
