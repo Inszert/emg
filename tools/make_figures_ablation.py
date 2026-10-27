@@ -139,30 +139,44 @@ if PANELS:
 
 # ---- 2. robustness ------------------------------------------------------------------
 if PANELS:
-    fig, axes = plt.subplots(1, len(PANELS), figsize=(7.5 * len(PANELS), 5.4),
+    fig, axes = plt.subplots(len(PANELS), 1, figsize=(11, 5.0 * len(PANELS)),
                              squeeze=False)
     kinds = [("robust_noise", "noise"), ("robust_shift", "band shifted\nby one pod"),
              ("robust_gain", "25 % weaker")]
-    for ax, (title, fam, g) in zip(axes[0], PANELS):
-        names = ["baseline"] + [n for n in g if n != "baseline"]
-        names = [n for n in names if n in g][:6]
-        w = 0.8 / len(names)
+    #  One hue per switch, so every bar can be matched to the legend. The
+    #  baseline keeps its family colour (blue ML / orange NN) and is the only
+    #  bar drawn with a dark outline. Every configuration is shown -- an earlier
+    #  version cut the list at six and silently dropped "adapt" and the
+    #  calibration modes.
+    SWITCH = {"aug:gain": "#8e6bbf", "aug:noise": "#8a8a85", "aug:timewarp": "#2aa5a0",
+              "aug:rotate": "#d9a21b", "aug:chandrop": "#b5527d", "adapt": GOOD,
+              "calib:off": "#a37b5c", "calib:gain": "#6f9ed8",
+              "calib:per_channel": "#c46a6a"}
+    for ax, (title, fam, g) in zip(axes[:, 0], PANELS):
+        names = ["baseline"] + sorted(n for n in g if n != "baseline")
+        w = 0.88 / len(names)
         for i, name in enumerate(names):
             s = ST.summarise(g[name])
-            vals = [s.get(k) for k, _ in kinds]
-            ax.bar(np.arange(3) + i * w, [(v or 0) * 100 for v in vals], w * 0.9,
-                   color=FAMILY[fam] if name == "baseline" else MUTED,
-                   alpha=1.0 if name == "baseline" else 0.55 + 0.07 * i,
-                   edgecolor=SURFACE, label=short(name), zorder=2)
+            vals = [(s.get(k) or 0) * 100 for k, _ in kinds]
+            base = name == "baseline"
+            x = np.arange(3) + i * w
+            ax.bar(x, vals, w * 0.9,
+                   color=FAMILY[fam] if base else SWITCH.get(name, MUTED),
+                   edgecolor=TEXT if base else SURFACE, linewidth=1.2 if base else 0.8,
+                   label=short(name), zorder=2)
+            for xi, v in zip(x, vals):
+                ax.text(xi, v + 1, f"{v:.0f}", ha="center", va="bottom",
+                        fontsize=7.5, color=TEXT_2)
         ax.set_xticks(np.arange(3) + w * (len(names) - 1) / 2)
         ax.set_xticklabels([lab for _, lab in kinds])
-        ax.set_ylabel("accuracy on the perturbed held-out person, %")
+        ax.set_ylabel("accuracy on the perturbed\nheld-out person, %")
         ax.yaxis.grid(True, color=GRID)
         ax.set_axisbelow(True)
         ax.set_ylim(0, 100)
-        ax.legend(fontsize=8, ncol=2, loc="upper center",
-                  bbox_to_anchor=(0.5, -0.12))
+        ax.legend(fontsize=8.5, ncol=min(len(names), 5), loc="upper center",
+                  bbox_to_anchor=(0.5, -0.17))
         ax.set_title(title)
+    fig.subplots_adjust(hspace=0.55)
     save(fig, "ablation_robustness.png")
 
 # ---- 3. voting --------------------------------------------------------------------------
