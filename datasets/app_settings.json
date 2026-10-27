@@ -1,0 +1,21 @@
+{
+  "MODEL_SELECTION_ENABLED": false,
+  "SELECTED_ML": [
+    "ml-rf-500-leaf3",
+    "ml-rf-500",
+    "ml-et-500-leaf3"
+  ],
+  "SELECTED_NN": [
+    "nn-gru",
+    "nn-tsmixer",
+    "nn-chan-transformer"
+  ],
+  "TRAIN_AUGMENT_NN": [],
+  "TRAIN_AUGMENT_ML": [],
+  "TRAIN_ADAPT_NN": false,
+  "TRAIN_ADAPT_ML": true,
+  "ADAPT_LIVE": true,
+  "ASK_CALIBRATION_BEFORE_PREDICT": true,
+  "ASK_RETRAIN_ON_NEW_DATA": true,
+  "APP_ICON_ENABLED": true
+}
