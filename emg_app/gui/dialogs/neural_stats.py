@@ -9,6 +9,7 @@ import math
 import numpy as np
 
 from emg_app import config as cfg
+from emg_app import zoo
 from emg_app.gui.tokens import (
     COL_ACCENT, COL_BAD, COL_GOOD, COL_PANEL, COL_TEXT_DIM, COL_WARN, RAD_SM,
     SP_SM)
@@ -21,6 +22,18 @@ from emg_app.gui.widgets import (
 if TYPE_CHECKING:                  # type hints only; avoids an import cycle
     from emg_app.neural import NeuralEngine
     from emg_app.prediction import LivePredictor
+
+
+def _files_size(paths) -> str:
+    """Total size of the files in use (one model, or every member of a vote)."""
+    import os
+    paths = [p for p in paths if os.path.exists(p)]
+    if not paths:
+        return "?"
+    if len(paths) == 1:
+        return file_size_text(paths[0])
+    return (zoo.human_size(sum(os.path.getsize(p) for p in paths))
+            + f"  ({len(paths)} files)")
 
 
 class NeuralStatsDialog(QtWidgets.QDialog):
@@ -48,8 +61,16 @@ class NeuralStatsDialog(QtWidgets.QDialog):
         self.engine = engine
         self.predictor = predictor
 
-        sidecar = load_nn_stats(engine.model_path) or {}
+        #  The net(s) the engine will actually run: the Settings selection when
+        #  it is on, the deployed checkpoint otherwise. This used to read the
+        #  deployed sidecar whatever was selected.
+        paths = engine.model_paths()
+        sidecar = load_nn_stats(paths[0]) or {}
         stats = dict(sidecar.get("stats") or {})
+        self.vote_entries = (zoo.selected_entries("nn")
+                             if len(paths) > 1 else [])
+        if self.vote_entries:
+            sidecar, stats = self._vote_description(sidecar, stats)
         self.sidecar = sidecar
         layout = QtWidgets.QVBoxLayout(self)
         layout.setSpacing(8)
@@ -57,7 +78,7 @@ class NeuralStatsDialog(QtWidgets.QDialog):
         if not sidecar:
             layout.addWidget(make_label("No neural network trained.", 14, True))
             layout.addWidget(wrap_label(
-                f"Nothing at {nn_stats_path(engine.model_path)}.\n"
+                f"Nothing at {nn_stats_path(paths[0])}.\n"
                 "The sidecar is written by the trainer alongside the "
                 "checkpoint; without it the application cannot read a "
                 "checkpoint's metrics, because a .pt file is a torch pickle "
@@ -72,14 +93,18 @@ class NeuralStatsDialog(QtWidgets.QDialog):
             return
 
         kind = sidecar.get("kind", "?")
-        layout.addWidget(make_label(f"NN-{kind}", 18, True, COL_ACCENT))
+        layout.addWidget(make_label(
+            f"NN-{kind}" if not self.vote_entries
+            else "NN " + str(kind), 18, True, COL_ACCENT))
         layout.addWidget(wrap_label(
             f"{sidecar.get('architecture', '')}", 10, False, COL_TEXT_DIM
         ))
         layout.addWidget(make_label(
             f"trained {sidecar.get('created_iso', '?')}   |   "
             f"{stats.get('n_parameters', '?')} parameters   |   "
-            f"{stats.get('epochs', '?')} epochs", 10, False, COL_TEXT_DIM))
+            + (f"{stats.get('epochs', '?')} epochs"
+               if not self.vote_entries else "each net trained on its own"),
+            10, False, COL_TEXT_DIM))
 
         #  The separation rule, at the top, where it cannot be scrolled past.
         banner = QtWidgets.QLabel(
@@ -100,6 +125,8 @@ class NeuralStatsDialog(QtWidgets.QDialog):
         body = QtWidgets.QVBoxLayout(inner)
         body.setSpacing(10)
 
+        if self.vote_entries:
+            self._add_members(body)
         grouping = stats.get("grouping", "?")
         tiles = QtWidgets.QHBoxLayout()
         for caption, value, note in (
@@ -161,6 +188,9 @@ class NeuralStatsDialog(QtWidgets.QDialog):
                 body.addWidget(hint)
         else:
             body.addWidget(make_label(
+                "Not measured for a combination of nets: each net's own "
+                "control is in its own statistics."
+                if self.vote_entries else
                 "Not measured on this run (--no-control).", 10, False,
                 COL_TEXT_DIM))
 
@@ -194,11 +224,13 @@ class NeuralStatsDialog(QtWidgets.QDialog):
                   calibration.get("mode") else "")
             + (f"   wearers: {', '.join(calibration.get('subjects') or [])}"
                if calibration.get("subjects") else ""),
-            f"Training      : {stats.get('epochs', '?')} epochs, batch "
-            f"{stats.get('batch_size', '?')}, lr "
-            f"{stats.get('learning_rate', '?')}, weight decay "
-            f"{stats.get('weight_decay', '?')}, label smoothing "
-            f"{stats.get('label_smoothing', '?')}",
+            ("Training      : each net as in its own statistics "
+             "(see the table above)" if self.vote_entries else
+             f"Training      : {stats.get('epochs', '?')} epochs, batch "
+             f"{stats.get('batch_size', '?')}, lr "
+             f"{stats.get('learning_rate', '?')}, weight decay "
+             f"{stats.get('weight_decay', '?')}, label smoothing "
+             f"{stats.get('label_smoothing', '?')}"),
             "Early stopping: NO -- stopping when the held-out fold looks "
             "best is fitting the test set.",
             "Scaling       : log1p + per-channel standardise, fitted on the "
@@ -332,6 +364,70 @@ class NeuralStatsDialog(QtWidgets.QDialog):
 
     # -- pieces ---------------------------------------------------------------
 
+    def _vote_description(self, first_sidecar: dict, first_stats: dict):
+        """
+        The sidecar and statistics of a SOFT VOTE of nets.
+
+        A vote has no sidecar of its own, and the first member's numbers are
+        that net's, not the vote's. What is true of the vote is built here:
+        the members' shared description, their summed size, and -- measured
+        from their stored out-of-fold probabilities -- how the vote scores.
+        """
+        entries = self.vote_entries
+        names = [e.name for e in entries]
+        sidecar = {k: first_sidecar.get(k) for k in (
+            "labels", "window_s", "overlap", "win_samples", "calibration",
+            "n_channels", "model_fs") if k in first_sidecar}
+        sidecar["kind"] = "soft vote of %d nets" % len(entries)
+        sidecar["architecture"] = " + ".join(names)
+        sidecar["created_iso"] = max(
+            (str(e.meta.get("created_iso") or "") for e in entries), default="")
+        stats = {k: first_stats[k] for k in (
+            "window_s", "overlap", "win_samples", "n_recordings",
+            "n_recordings_total", "deduped") if k in first_stats}
+        stats["n_parameters"] = sum(e.params or 0 for e in entries)
+        stats["epochs"] = "per member"
+        measured = zoo.vote_stats(entries)
+        if measured:
+            stats.update(measured)
+        else:
+            stats["validation_protocol"] = (
+                "not measured for this combination: the nets' stored "
+                "out-of-fold probabilities are missing or were made on a "
+                "different dataset. Each net's own score is listed below.")
+        stats["model_name"] = "soft vote: " + " + ".join(names)
+        return sidecar, stats
+
+    def _add_members(self, body) -> None:
+        """One row per net of a soft vote: its OWN numbers, never the vote's."""
+        body.addWidget(make_label("THE %d NETS IN THIS VOTE" %
+                                  len(self.vote_entries), 11, True,
+                                  COL_TEXT_DIM))
+        rows = zoo.member_rows(self.vote_entries)
+        table = QtWidgets.QTableWidget(len(rows), 5)
+        table.setHorizontalHeaderLabels(
+            ["net", "per window", "macro-F1", "per gesture", "parameters"])
+        table.verticalHeader().setVisible(False)
+        table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
+
+        def pct(v):
+            return "--" if v is None else f"{v * 100:.1f} %"
+        for r, row in enumerate(rows):
+            cells = [row["name"], pct(row["window_acc"]), pct(row["macro_f1"]),
+                     pct(row["vote_acc"]),
+                     "--" if row["params"] is None
+                     else f"{row['params']:,}".replace(",", " ")]
+            for c, text in enumerate(cells):
+                item = QtWidgets.QTableWidgetItem(text)
+                if c:
+                    item.setTextAlignment(QtCore.Qt.AlignCenter)
+                table.setItem(r, c, item)
+        table.resizeColumnsToContents()
+        table.horizontalHeader().setStretchLastSection(True)
+        fit_table_height(table, len(rows))
+        body.addWidget(table)
+
     def _add_confusion(self, body, matrix, labels) -> None:
         body.addWidget(make_label(
             "PER GESTURE (per window, summed over folds)", 11, True,
@@ -401,8 +497,9 @@ class NeuralStatsDialog(QtWidgets.QDialog):
         sidecar = getattr(self, "sidecar", {}) or {}
         parts = size["parts"]
         rows = [
-            ("size on disk", file_size_text(self.predictor.full_path),
-             file_size_text(self.engine.full_model_path)),
+            ("size on disk", _files_size(self.predictor.active_paths
+                                         or [self.predictor.full_path]),
+             _files_size(self.engine.model_paths())),
             ("learned numbers",
              f"{size['total']:,}" if size["total"] else "?",
              f"{net_params:,} parameters" if net_params else "?"),

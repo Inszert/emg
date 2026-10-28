@@ -45,6 +45,8 @@ import os
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
+import numpy as np
+
 from emg_app import config as cfg
 
 STAR_TOP_N = 3
@@ -449,3 +451,123 @@ def describe_selection(family: str, root: str = None) -> str:
     if len(entries) == 1:
         return entries[0].name
     return "soft vote: " + " + ".join(e.name for e in entries)
+
+
+# ==============================================================================
+# THE SCORE OF A SOFT VOTE
+# ==============================================================================
+
+def _macro_f1(y, pred, n_classes: int) -> float:
+    import numpy as np
+    f = []
+    for c in range(n_classes):
+        tp = int(np.sum((pred == c) & (y == c)))
+        fp = int(np.sum((pred == c) & (y != c)))
+        fn = int(np.sum((pred != c) & (y == c)))
+        f.append(0.0 if tp == 0 else 2 * tp / (2 * tp + fp + fn))
+    return float(np.mean(f))
+
+
+def vote_stats(entries: List[ZooEntry], results_dir: str = None) -> Optional[dict]:
+    """
+    The measured score of the soft vote of `entries`, or None when it cannot be
+    measured honestly.
+
+    A vote has no `stats` block of its own: its members each carry theirs, and
+    the mean of the members' scores is NOT the vote's score. What exists is
+    every member's stored OUT-OF-FOLD probabilities (`results/zoo_eval/`, one
+    file per model and seed, all from the same leave-one-person-out folds), so
+    the vote is scored exactly as the trainer scores a model: average the
+    members' probabilities window by window, take the argmax, count per held-out
+    person. Nothing is refitted.
+
+    None when: fewer than two models, mixed families, a model trained WITHOUT
+    somebody (its folds are different), a missing file, or a model whose stored
+    probabilities were made on another dataset than the one it was saved with.
+    The combination here was CHOSEN BY THE USER, not searched for, so unlike
+    `ensembles.json` there is no selection bias to correct for.
+    """
+    import numpy as np
+    if len(entries) < 2 or len({e.family for e in entries}) != 1:
+        return None
+    if any(e.excluded for e in entries):
+        return None
+    family = entries[0].family
+    folder = results_dir or os.path.join(cfg.PROJECT_DIR, "results", "zoo_eval")
+    data_file = os.path.join(folder, f"data_{family}.npz")
+    if not os.path.exists(data_file):
+        return None
+    data = np.load(data_file, allow_pickle=True)
+    digest = str(data["digest"])
+    if any(str(e.meta.get("data_digest")) != digest for e in entries):
+        return None
+    y = data["y"]
+    persons = data["persons"].astype(str)
+    uid = data["uid"]
+    labels = [str(x) for x in data["labels"]]
+    n_classes = len(labels)
+    seeds = [s for s in range(20) if all(os.path.exists(os.path.join(
+        folder, f"oof_{e.id}_s{s}.npz")) for e in entries)]
+    if not seeds:
+        return None
+    people = sorted(set(persons.tolist()))
+    per_person = {p: [] for p in people}
+    f1s, votes, cms = [], [], []
+    for s in seeds:
+        P = sum(np.load(os.path.join(folder, f"oof_{e.id}_s{s}.npz"))["probs"]
+                for e in entries) / len(entries)
+        pred = P.argmax(1)
+        seed_f1, seed_vote = [], []
+        for p in people:
+            rows = np.flatnonzero(persons == p)
+            per_person[p].append(float((pred[rows] == y[rows]).mean()))
+            seed_f1.append(_macro_f1(y[rows], pred[rows], n_classes))
+            ok = tot = 0
+            for u in sorted(set(uid[rows].tolist())):
+                m = rows[uid[rows] == u]
+                ok += int(np.bincount(pred[m]).argmax() == y[m][0])
+                tot += 1
+            seed_vote.append(ok / tot if tot else float("nan"))
+        f1s.append(np.mean(seed_f1))
+        votes.append(np.nanmean(seed_vote))
+        cm = np.zeros((n_classes, n_classes), dtype=int)
+        for t, q in zip(y, pred):
+            cm[t, q] += 1
+        cms.append(cm)
+    pp = {p: float(np.mean(v)) for p, v in per_person.items()}
+    vals = list(pp.values())
+    return {
+        "window_accuracy": float(np.mean(vals)),
+        "window_accuracy_std": float(np.std(vals)),
+        "window_macro_f1": float(np.mean(f1s)),
+        "recording_vote_accuracy": float(np.mean(votes)),
+        "n_recordings_voted": int(len(set(uid.tolist()))),
+        "fold_accuracies": vals,
+        "confusion_matrix": np.round(np.mean(cms, axis=0)).astype(int).tolist(),
+        "n_windows": int(len(y)),
+        "grouping": "subject",
+        "majority_class_baseline": float(np.bincount(y).max() / len(y)),
+        "labels": labels,
+        "subjects": people,
+        "subject_independent": {"per_subject": pp, "mean": float(np.mean(vals)),
+                                "std": float(np.std(vals))},
+        "seeds": len(seeds),
+        "validation_protocol": (
+            "leave-one-person-out soft vote of " + " + ".join(
+                e.name for e in entries) + ": the members' stored out-of-fold "
+            f"probabilities averaged window by window ({len(seeds)} seed(s), "
+            f"{len(people)} people). The combination was chosen by you, not "
+            "searched for, so the number carries no selection bias."),
+    }
+
+
+def member_rows(entries: List[ZooEntry]) -> List[dict]:
+    """One line per member for a vote's stats screens: the member's OWN numbers."""
+    rows = []
+    for e in entries:
+        sc = e.meta.get("scores") or {}
+        rows.append({"name": e.name, "window_acc": sc.get("window_acc"),
+                     "macro_f1": sc.get("macro_f1"),
+                     "vote_acc": sc.get("vote_acc"),
+                     "size_bytes": e.size_bytes, "params": e.params})
+    return rows

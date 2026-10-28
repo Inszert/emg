@@ -17,6 +17,7 @@ import numpy as np
 
 from emg_app import config as cfg
 from emg_app import settings_store
+from emg_app import zoo
 from emg_app.class_mask import NO_ANSWER, describe_off, kept_note, off_key
 from emg_app.dataset import dataset_summary
 from emg_app.gui.dialogs.neural_setup import NeuralSetupDialog
@@ -82,6 +83,12 @@ class NeuralMixin:
         #  blended number would hide exactly this.
         self.nn_agreement = wrap_label("", FS_SM, True, COL_TEXT_DIM)
         layout.addWidget(self.nn_agreement)
+
+        #  How each net of a soft vote answered (empty for one net).
+        self.nn_vote_label = wrap_label("", FS_SM, False, COL_TEXT_DIM)
+        self.nn_vote_label.setTextFormat(QtCore.Qt.RichText)
+        self.nn_vote_label.setVisible(False)
+        layout.addWidget(self.nn_vote_label)
 
         buttons = QtWidgets.QHBoxLayout()
         self.nn_start_button = QtWidgets.QPushButton("START NN")
@@ -219,7 +226,7 @@ class NeuralMixin:
 
         if not engine.trained():
             self.nn_status_label.setText(
-                f"No checkpoint at {engine.model_path}.\n"
+                f"No checkpoint at {engine.active_model_path}.\n"
                 "Press TRAIN NEURAL NET, or run:  python training/train_nn.py")
             self.nn_status_label.setStyleSheet(
                 f"color: {COL_TEXT_DIM}; background: transparent;")
@@ -228,10 +235,17 @@ class NeuralMixin:
         state_colour = {"ready": COL_GOOD, "error": COL_BAD,
                         "starting": COL_WARN}.get(engine.state, COL_TEXT_DIM)
         text = engine.describe() if engine.ready else engine.status
+        entries = zoo.selected_entries("nn")
+        if entries and not engine.ready:
+            text += ("\nSelected in Settings: "
+                     + (entries[0].name if len(entries) == 1 else
+                        f"soft vote of {len(entries)} nets: "
+                        + " + ".join(e.name for e in entries))
+                     + " -- START NN loads it.")
         #  Which gestures the net may answer with: the worker's labels when it
         #  runs, the sidecar's when it does not -- the mask applies either way.
         net_labels = engine.labels or (
-            (load_nn_stats(engine.model_path) or {}).get("labels") or [])
+            (load_nn_stats(engine.active_model_path) or {}).get("labels") or [])
         mask = describe_off(net_labels)
         if mask:
             text += "\n" + mask
@@ -413,6 +427,7 @@ class NeuralMixin:
             self.nn_conf.setStyleSheet(
                 f"color: {COL_WARN}; background: transparent;")
             self.nn_agreement.setText("")
+            self.nn_vote_label.setVisible(False)
             for name, (bar, value) in self.nn_prob_bars.items():
                 bar.setValue(0)
                 value.setText("off" if name in prediction.off else "--")
@@ -453,6 +468,13 @@ class NeuralMixin:
                 f"{COL_BORDER}; border-radius: 3px; }}"
                 f"QProgressBar::chunk {{ background: "
                 f"{colour if top else COL_TEXT_DIM}; border-radius: 2px; }}")
+
+        from emg_app.vote_view import vote_html
+        rows = self.nn_engine.vote_rows(prediction.label)
+        self.nn_vote_label.setVisible(bool(rows))
+        self.nn_vote_label.setText(
+            vote_html(rows, prediction.label, COL_GOOD, COL_WARN, COL_TEXT_DIM)
+            if rows else "")
 
         #  Agreement, only when the classifier is actually running and its
         #  answer is recent. Comparing against a prediction from a minute ago

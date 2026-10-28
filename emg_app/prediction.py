@@ -72,10 +72,15 @@ class MeanProba:
     def __init__(self, members):
         self.members = list(members)
         self.n_jobs = 1
+        #  Each member's own probabilities for the LAST call, so the panel can
+        #  show how the vote was cast (vote_view). Display only.
+        self.last_members: list = []
 
     def predict_proba(self, X):
-        return np.mean([np.asarray(m.predict_proba(X), dtype=float)
-                        for m in self.members], axis=0)
+        each = [np.asarray(m.predict_proba(X), dtype=float)
+                for m in self.members]
+        self.last_members = each
+        return np.mean(each, axis=0)
 
     def predict(self, X):
         return np.argmax(self.predict_proba(X), axis=1)
@@ -291,10 +296,30 @@ class LivePredictor:
             self.model = None
             return False
         #  The first member's numbers describe THAT model, not the vote, so
-        #  they must not stay on display: keep only what is true of the vote.
-        self.stats = {"model_name": "soft vote: " + " + ".join(names),
-                      "ensemble_of": list(names),
-                      "validation_protocol": "see the members' own statistics"}
+        #  they must not stay on display. What is true of the vote: how it is
+        #  built (shared by the members), and -- measured, from the members'
+        #  stored out-of-fold probabilities -- how it scores. Without that the
+        #  statistics screen read "?" for every number.
+        first = dict(payloads[0].get("stats") or {})
+        keep = ("feature_set", "representation", "window_s", "overlap",
+                "n_features", "calibration_mode", "calibrated_subjects",
+                "n_recordings", "n_recordings_total", "selection_grouping")
+        self.stats = {k: first[k] for k in keep if k in first}
+        self.stats["model_name"] = "soft vote: " + " + ".join(names)
+        self.stats["ensemble_of"] = list(names)
+        self.stats["created_iso"] = max(
+            (str(pl.get("created_iso") or (pl.get("stats") or {})
+                 .get("created_iso") or "") for pl in payloads), default="")
+        entries = [e for e in zoo.selected_entries("ml") if e.file in paths]
+        self.stats["members"] = zoo.member_rows(entries)
+        measured = zoo.vote_stats(entries)
+        if measured:
+            self.stats.update(measured)
+        else:
+            self.stats["validation_protocol"] = (
+                "not measured for this combination: the members' stored "
+                "out-of-fold probabilities are missing or were made on a "
+                "different dataset. Each member's own score is listed below.")
         self.payload_meta = dict(self.payload_meta)
         self.payload_meta["ensemble_of"] = list(names)
         return self._finish()
@@ -404,6 +429,25 @@ class LivePredictor:
                     else "  |  adaptation: global statistics")
         return (f"{name}  |  {self.window_s * 1000:.0f} ms @ {self.fs:.0f} Hz  |  "
                 f"{self.feature_set} features{cal}{suffix}")
+
+    @property
+    def using_selection(self) -> bool:
+        """True when the loaded model comes from the Settings selection rather
+        than from MODEL_PATH (a single zoo model counts)."""
+        if not self.active_paths:
+            return False
+        return (os.path.abspath(self.active_paths[0])
+                != os.path.abspath(self.full_path)) or len(self.active_paths) > 1
+
+    def vote_rows(self, final_label: str) -> list:
+        """How each member of a soft vote answered the last window (empty for
+        a single model)."""
+        last = getattr(self.model, "last_members", None)
+        if not self.members or not last:
+            return []
+        from emg_app.vote_view import member_rows
+        return member_rows(self.members, [m[0] for m in last], self.labels,
+                           final_label)
 
     def data_status(self, fingerprint: dict = None) -> dict:
         """

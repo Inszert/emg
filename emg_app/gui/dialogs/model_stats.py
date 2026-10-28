@@ -24,6 +24,32 @@ if TYPE_CHECKING:                  # type hints only; avoids an import cycle
 
 
 class ModelStatsDialog(QtWidgets.QDialog):
+    @staticmethod
+    def _members_table(members):
+        table = QtWidgets.QTableWidget(len(members), 5)
+        table.setHorizontalHeaderLabels(
+            ["model", "per window", "macro-F1", "per gesture", "size"])
+        table.verticalHeader().setVisible(False)
+        table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
+
+        def pct(v):
+            return "--" if v is None else f"{v * 100:.1f} %"
+        from emg_app import zoo
+        for r, m in enumerate(members):
+            cells = [m["name"], pct(m["window_acc"]), pct(m["macro_f1"]),
+                     pct(m["vote_acc"]), zoo.human_size(m["size_bytes"])]
+            for c, text in enumerate(cells):
+                item = QtWidgets.QTableWidgetItem(text)
+                if c:
+                    item.setTextAlignment(QtCore.Qt.AlignCenter)
+                table.setItem(r, c, item)
+        table.resizeColumnsToContents()
+        table.horizontalHeader().setStretchLastSection(True)
+        from emg_app.gui.widgets import fit_table_height
+        fit_table_height(table, len(members))
+        return table
+
     """
     What the trained model actually is and how well it really does.
 
@@ -107,6 +133,14 @@ class ModelStatsDialog(QtWidgets.QDialog):
             tiles.addWidget(box)
         body.addLayout(tiles)
 
+        #  A soft vote: the members' OWN numbers, so the vote's tiles above
+        #  are never mistaken for a member's.
+        if stats.get("members"):
+            body.addWidget(make_label(
+                "THE %d MODELS IN THIS VOTE" % len(stats["members"]), 11,
+                True, COL_TEXT_DIM))
+            body.addWidget(self._members_table(stats["members"]))
+
         chance = 1.0 / max(1, len(predictor.labels or stats.get("labels", []) or [1]))
         body.addWidget(make_label(
             f"Chance level for {len(predictor.labels)} gestures is "
@@ -124,6 +158,17 @@ class ModelStatsDialog(QtWidgets.QDialog):
             "app loads.", 10, False, COL_TEXT_DIM)
         note.setWordWrap(True)
         body.addWidget(note)
+
+        if getattr(predictor, "using_selection", False) and self.panel.ready and                 set(self.panel.names) != set(predictor.members or []):
+            warn = make_label(
+                "The trail below is the one saved with the DEPLOYED model ("
+                + ", ".join(self.panel.names) + "), not your Settings "
+                "selection (" + stats.get("model_name", "?") + "). Its rows "
+                "and the * marker do not follow the selection; how the "
+                "selected models voted is shown under the probability bars "
+                "of the LIVE CLASSIFIER panel.", 10, False, COL_WARN)
+            warn.setWordWrap(True)
+            body.addWidget(warn)
 
         self.trail_view = DecisionTrailView(self.panel, predictor, self)
         trail_frame = QtWidgets.QFrame()

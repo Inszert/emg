@@ -34,6 +34,7 @@ from matplotlib.patches import Rectangle                         # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJECT = os.path.dirname(HERE)
+sys.path.insert(0, PROJECT)
 RUN = os.path.join(PROJECT, "models", "comb_test", "20261022-003918")
 OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(PROJECT, "docs",
                                                           "figures")
@@ -55,11 +56,30 @@ CMAP = LinearSegmentedColormap.from_list("blue", BLUE_RAMP)
 #  Diverging with the two MODELS as the poles and the neutral grey between:
 #  blue = the ML vote has the larger share, orange = the net has.
 DIV = LinearSegmentedColormap.from_list("ml_nn", [ML, "#f0efec", NN])
-#  Gestures: REST is neutral grey (no activity), the five active ones take
-#  the categorical slots that are NOT the two model colours.
-GESTURE_COLOR = {"REST": MUTED, "FIST": "#1baf7a", "OPEN": "#eda100",
-                 "THUMB_UP": "#e87ba4", "WAVE_LEFT": "#008300",
-                 "WAVE_RIGHT": "#6250d6"}
+#  The net is orange everywhere, so its heat maps are orange too.
+ORANGE_RAMP = ["#fcfcfb", "#fbe0d2", "#f8c4a8", "#f4a27a", "#ee8049",
+               "#d25a25", "#a4401a", "#6f2a0f"]
+CMAP_NN = LinearSegmentedColormap.from_list("orange", ORANGE_RAMP)
+
+
+def ink(cmap, value, vmin=0.0, vmax=100.0):
+    """White or near-black text, whichever reads better on the cell colour
+    (WCAG relative luminance) -- the switch follows the ramp instead of a
+    hand-picked percentage."""
+    r, g, b, _a = cmap((value - vmin) / (vmax - vmin))
+    return "white" if _lum((r, g, b)) < 0.18 else TEXT
+
+
+def _lum(rgb):
+    lin = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+           for c in rgb]
+    return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+
+#  Gestures use the application's own colours (cfg.label_color: "the one
+#  colour of gesture X, everywhere it is drawn"), not a palette of the
+#  figures' own -- the old one painted FIST green where the app paints it red.
+from emg_app import config as _cfg                                   # noqa: E402
+GESTURE_COLOR = dict(_cfg.LABEL_COLORS)    # the colours the application draws
 GESTURE_LETTER = {"REST": "R", "FIST": "F", "OPEN": "O", "THUMB_UP": "T",
                   "WAVE_LEFT": "L", "WAVE_RIGHT": "W"}
 SHORT = {"WAVE_LEFT": "WAVE_L", "WAVE_RIGHT": "WAVE_R", "THUMB_UP": "THUMB"}
@@ -145,16 +165,15 @@ def row_pct(cm):
     return cm / cm.sum(axis=1, keepdims=True).clip(min=1) * 100
 
 
-def draw_matrix(ax, cm, title, small=False, show_y=True):
+def draw_matrix(ax, cm, title, small=False, show_y=True, cmap=CMAP):
     pct = row_pct(cm)
-    ax.imshow(pct, cmap=CMAP, vmin=0, vmax=100)
+    ax.imshow(pct, cmap=cmap, vmin=0, vmax=100, interpolation="nearest")
     for i in range(N):
         for j in range(N):
-            dark = pct[i, j] > 55
             ax.text(j, i, f"{pct[i, j]:.0f}", ha="center", va="center",
                     fontsize=8 if small else 10,
                     fontweight="bold" if i == j else "normal",
-                    color="white" if dark else TEXT)
+                    color=ink(cmap, pct[i, j]))
     names = [SHORT.get(l, l) for l in LABELS]
     ax.set_xticks(range(N), names, rotation=45 if small else 0,
                   ha="right" if small else "center",
@@ -169,6 +188,12 @@ def draw_matrix(ax, cm, title, small=False, show_y=True):
     ax.set_yticks(np.arange(-.5, N), minor=True)
     ax.grid(which="minor", color=SURFACE, linewidth=1.6)
     ax.tick_params(which="minor", length=0)
+
+    #  The grid lines that draw the gaps between cells are clipped to the axes,
+    #  so on the outer edge the colour of the last cell showed as a thin dark
+    #  sliver beyond them. Unclipped, they cover it.
+    for _tick in list(ax.xaxis.get_minor_ticks()) + list(ax.yaxis.get_minor_ticks()):
+        _tick.gridline.set_clip_on(False)
 
 
 # ==========================================================================
@@ -218,15 +243,16 @@ for i, person in enumerate(PEOPLE):
         count[i, g] = m.sum()
         grid[i, g] = RIGHT[m].mean() * 100 if m.any() else np.nan
 fig, ax = plt.subplots(figsize=(7.6, 4.0))
-ax.imshow(grid, cmap=CMAP, vmin=0, vmax=100, aspect="auto")
+ax.imshow(grid, cmap=CMAP, vmin=0, vmax=100, aspect="auto",
+          interpolation="nearest")
 for i in range(len(PEOPLE)):
     for g in range(N):
         v = grid[i, g]
         ax.text(g, i - 0.1, f"{v:.0f}%", ha="center", va="center",
                 fontsize=10, fontweight="bold",
-                color="white" if v > 55 else TEXT)
+                color=ink(CMAP, v))
         ax.text(g, i + 0.27, f"n={count[i, g]}", ha="center", va="center",
-                fontsize=7, color="white" if v > 55 else TEXT_2)
+                fontsize=7, color=ink(CMAP, v), alpha=0.85)
 ax.set_xticks(range(N), [SHORT.get(l, l) for l in LABELS], fontsize=9)
 ax.set_yticks(range(len(PEOPLE)), PEOPLE, fontsize=9)
 ax.xaxis.tick_top()
@@ -237,6 +263,8 @@ ax.set_xticks(np.arange(-.5, N), minor=True)
 ax.set_yticks(np.arange(-.5, len(PEOPLE)), minor=True)
 ax.grid(which="minor", color=SURFACE, linewidth=2)
 ax.tick_params(which="minor", length=0)
+for _tick in list(ax.xaxis.get_minor_ticks()) + list(ax.yaxis.get_minor_ticks()):
+    _tick.gridline.set_clip_on(False)
 ax.set_title("ML vote: % of windows right, person x gesture", pad=28)
 note(fig, "Person held out; n = windows. The trouble is the FIST / OPEN / "
           "THUMB_UP trio, unevenly: Barbora gets 19 / 0 / 4 % of them while "
@@ -337,8 +365,8 @@ fig, axes = plt.subplots(2, 2, figsize=(10.6, 8.2))
 axes = axes.ravel()
 ax = axes[0]
 bins = np.linspace(0.2, 1.0, 17)
-ax.hist(conf[RIGHT], bins=bins, color=ML, alpha=0.9, label="right")
-ax.hist(conf[~RIGHT], bins=bins, color=TEXT_2, alpha=0.85, label="wrong")
+ax.hist([conf[~RIGHT], conf[RIGHT]], bins=bins, stacked=True,
+        color=[TEXT_2, ML], label=["wrong", "right"])
 ax.set_xlabel("probability the vote gave its top answer")
 ax.set_ylabel("windows")
 ax.set_title("How sure it is")
@@ -360,8 +388,11 @@ for lo, hi in zip(edges[:-1], edges[1:]):
 ax.plot([0.3, 1], [0.3, 1], color=MUTED, linewidth=1.2, linestyle="--")
 ax.plot(mid, acc, "-o", color=ML, linewidth=2, markersize=6)
 for x, a, c in zip(mid, acc, cnt):
-    ax.annotate(f"n={c}", (x, a), xytext=(0, -13), textcoords="offset points",
-                ha="center", fontsize=7.5, color=TEXT_2)
+    late = x > 0.8
+    ax.annotate(f"n={c}", (x, a), xytext=(-6, -14) if late else (0, -13),
+                textcoords="offset points", ha="right" if late else "center",
+                va="center" if late else "baseline", fontsize=7.5,
+                color=TEXT_2)
 ax.set_xlim(0.3, 1.0)
 ax.set_ylim(0.3, 1.0)
 ax.set_xlabel("mean stated confidence")
@@ -379,6 +410,7 @@ for b, v in zip(bars, ranks):
     ax.text(b.get_x() + b.get_width() / 2, v + 1, f"{v:.0f}%", ha="center",
             fontsize=10, color=TEXT_2)
 ax.set_ylim(0, 108)
+ax.set_yticks(range(0, 101, 20))
 ax.set_ylabel("% of windows, true gesture in the top k")
 ax.set_title("Near misses")
 hgrid(ax)
@@ -403,10 +435,11 @@ ax.set_ylabel("accuracy of the answered windows, %")
 ax.set_title("Answer only when sure")
 ax.set_xlim(0, 105)
 ax.set_ylim(70, 108)
+ax.set_yticks(range(70, 101, 5))
 hgrid(ax)
 fig.tight_layout(rect=(0, 0.09, 1, 1))
 note(fig, "ML vote, person held out, all 1,787 windows. Top left: the votes "
-          "of wrong windows (dark) are spread over low confidence, while the "
+          "of wrong windows (dark, stacked under the right ones) are spread over low confidence, while the "
           "right ones pile up at 1.0. Top right: the curve sits ABOVE the "
           "diagonal -- the vote is UNDER-confident (a forest's probability "
           "is the share of trees that agree, which is cautious): when it "
@@ -444,11 +477,11 @@ for i, a in enumerate(members):
 fig, axes = plt.subplots(1, 2, figsize=(12.2, 5.0),
                          gridspec_kw={"width_ratios": [1.5, 1]})
 ax = axes[0]
-ax.imshow(share, cmap=CMAP, vmin=40, vmax=100)
+ax.imshow(share, cmap=CMAP, vmin=40, vmax=100, interpolation="nearest")
 for i in range(len(members)):
     for j in range(len(members)):
         ax.text(j, i, f"{share[i, j]:.0f}", ha="center", va="center",
-                fontsize=9, color="white" if share[i, j] > 80 else TEXT)
+                fontsize=9, color=ink(CMAP, share[i, j], 40, 100))
 ax.set_xticks(range(len(members)), [nice[m] for m in members], rotation=40,
               ha="right", fontsize=8.5)
 ax.set_yticks(range(len(members)), [nice[m] for m in members], fontsize=8.5)
@@ -516,7 +549,8 @@ for ax, person in zip(axes, show):
                                    linewidth=1.8 if p != g else 0))
             ax.text(k + 0.47, row + 0.43, GESTURE_LETTER[LABELS[p]],
                     ha="center", va="center", fontsize=7.5, fontweight="bold",
-                    color=TEXT)
+                    color="white" if _lum(matplotlib.colors.to_rgb(
+                        GESTURE_COLOR[LABELS[p]])) < 0.3 else TEXT)
         ax.text(-0.35, row + 0.43, LABELS[g], ha="right", va="center",
                 fontsize=9, color=TEXT)
         ax.text(b - a + 0.1, row + 0.43, f"{acc * 100:.0f}%", ha="left",
@@ -694,12 +728,13 @@ recall_by_w = np.array([row_pct(np.asarray(r["confusion_matrix"])).diagonal()
 fig, axes = plt.subplots(1, 3, figsize=(14.2, 4.6),
                          gridspec_kw={"width_ratios": [1.15, 1, 1.1]})
 ax = axes[0]
-ax.imshow(recall_by_w.T, cmap=CMAP, vmin=0, vmax=100, aspect="auto")
+ax.imshow(recall_by_w.T, cmap=CMAP_NN, vmin=0, vmax=100, aspect="auto",
+          interpolation="nearest")
 for i in range(len(wl)):
     for g in range(N):
         v = recall_by_w[i, g]
         ax.text(i, g, f"{v:.0f}", ha="center", va="center", fontsize=9,
-                color="white" if v > 55 else TEXT)
+                color=ink(CMAP_NN, v))
 ax.set_xticks(range(len(wl)), [f"{w_:.1f}" for w_ in wl])
 ax.set_yticks(range(N), [SHORT.get(l, l) for l in LABELS], fontsize=8.5)
 ax.set_xlabel("window length, s")

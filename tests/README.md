@@ -18,6 +18,7 @@ python tests\test_calibration.py    # 143 checks -- per-wearer calibration (the 
 python tests\test_nn.py             # 158 checks -- the neural net: the SEPARATION rule first, then the protocol, the engine, the refusals, the architectures
 python tests\test_zoo.py              # 108 checks -- the model zoo, soft voting (ML and NN), adaptation, augmentation, the settings store, the questions' logic
 python tests\test_app_settings.py     # 66 checks -- the Models / Training / General tabs, applying and restoring, both questions on the real window
+python tests\test_vote_view.py         # 43 checks -- a selected soft vote is described as itself: measured stats from the members' stored probabilities, per-member answers under the bars, MODEL STATS / NN STATS follow the selection
 python tools\run_tests.py              # every offline suite, one line each
 python tests\test_class_mask.py       # 121 checks -- switching a gesture off in the classifiers without retraining (the mask, the model file untouched, the dialog, the real window)
 python tests\test_device.py         # 104 checks -- the device profile and channel-count independence, the label set, the recording plan

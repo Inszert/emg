@@ -52,6 +52,25 @@ LIGHT_BLUE = "#86b6ef"
 BLUE_RAMP = ["#fcfcfb", "#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5",
              "#256abf", "#184f95", "#0d366b"]
 CMAP = LinearSegmentedColormap.from_list("blue", BLUE_RAMP)
+# The neural net is orange everywhere, so its matrices are orange too.
+ORANGE_RAMP = ["#fcfcfb", "#fbe0d2", "#f8c4a8", "#f4a27a", "#ee8049",
+               "#d25a25", "#a4401a", "#6f2a0f"]
+CMAP_NN = LinearSegmentedColormap.from_list("orange", ORANGE_RAMP)
+NEUTRAL = "#3b3a38"     # a highlight that is neither the ML nor the NN colour
+# One colour per gesture, the SAME ones the application draws (cfg.label_color).
+from emg_app import config as _cfg                                   # noqa: E402
+GESTURE = dict(_cfg.LABEL_COLORS)
+
+
+def ink(cmap, value, vmin=0.0, vmax=100.0):
+    """White or near-black text, whichever reads better on the cell colour
+    (WCAG relative luminance, so the switch point follows the ramp instead of
+    a hand-picked percentage)."""
+    r, g, b, _a = cmap((value - vmin) / (vmax - vmin))
+    lin = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+           for c in (r, g, b)]
+    lum = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+    return "white" if lum < 0.18 else TEXT
 
 plt.rcParams.update({
     "figure.facecolor": SURFACE, "axes.facecolor": SURFACE,
@@ -121,19 +140,19 @@ def confusion(y, pred, n):
 # ==========================================================================
 # 1. confusion matrices
 # ==========================================================================
-def draw_confusion(ax, cm, labels, title):
+def draw_confusion(ax, cm, labels, title, cmap=CMAP):
     rows = cm.sum(axis=1, keepdims=True).clip(min=1)
     pct = cm / rows * 100
-    ax.imshow(pct, cmap=CMAP, vmin=0, vmax=100)
+    ax.imshow(pct, cmap=cmap, vmin=0, vmax=100, interpolation="nearest")
     n = len(labels)
     for i in range(n):
         for j in range(n):
-            dark = pct[i, j] > 55
+            fg = ink(cmap, pct[i, j])
             ax.text(j, i - 0.08, f"{pct[i, j]:.0f}%", ha="center", va="center",
                     fontsize=10, fontweight="bold" if i == j else "normal",
-                    color="white" if dark else TEXT)
+                    color=fg)
             ax.text(j, i + 0.25, f"{cm[i, j]}", ha="center", va="center",
-                    fontsize=7, color="white" if dark else TEXT_2)
+                    fontsize=7, color=fg, alpha=0.85)
     names = [SHORT.get(l, l) for l in labels]
     ax.set_xticks(range(n), names, rotation=0, fontsize=8.5)
     ax.set_yticks(range(n), names, fontsize=8.5)
@@ -148,17 +167,24 @@ def draw_confusion(ax, cm, labels, title):
     ax.grid(which="minor", color=SURFACE, linewidth=2)
     ax.tick_params(which="minor", length=0)
 
+    #  The grid lines that draw the gaps between cells are clipped to the axes,
+    #  so on the outer edge the colour of the last cell showed as a thin dark
+    #  sliver beyond them. Unclipped, they cover it.
+    for _tick in list(ax.xaxis.get_minor_ticks()) + list(ax.yaxis.get_minor_ticks()):
+        _tick.gridline.set_clip_on(False)
+
 
 cm_ml = confusion(Y, P_VOTE.argmax(1), len(LABELS))
 nn_labels = list(NN_STATS["labels"])
 cm_nn = np.asarray(NN_STATS["confusion_matrix"])
 
-for cm, labels, title, name in (
+for cm, labels, title, name, cmap in (
         (cm_ml, LABELS, "ML soft vote (ExtraTrees + RandomForest)",
-         "confusion_ml_vote.png"),
-        (cm_nn, nn_labels, "Neural net (GRU, 0.7 s)", "confusion_nn.png")):
+         "confusion_ml_vote.png", CMAP),
+        (cm_nn, nn_labels, "Neural net (GRU, 0.7 s)", "confusion_nn.png",
+         CMAP_NN)):
     fig, ax = plt.subplots(figsize=(6.2, 5.6))
-    draw_confusion(ax, cm, labels, title)
+    draw_confusion(ax, cm, labels, title, cmap)
     note(fig, "Rows: what was made; columns: what the model said. Big number "
               "= % of that row, small = window count. Each person held out "
               "in turn (trained on the other four).")
@@ -166,7 +192,7 @@ for cm, labels, title, name in (
 
 fig, axes = plt.subplots(1, 2, figsize=(12, 5.6))
 draw_confusion(axes[0], cm_ml, LABELS, "ML soft vote (ET + RF)")
-draw_confusion(axes[1], cm_nn, nn_labels, "Neural net (GRU 0.7 s)")
+draw_confusion(axes[1], cm_nn, nn_labels, "Neural net (GRU 0.7 s)", CMAP_NN)
 note(fig, "Both scored with each person held out. FIST, OPEN and THUMB_UP "
           "are where both models lose their points; the waves and REST are "
           "easy for both.")
@@ -191,11 +217,16 @@ Z = (X - X.mean(0)) / X.std(0).clip(min=1e-9)
 _u, s, vt = np.linalg.svd(Z, full_matrices=False)
 XY = Z @ vt[:2].T
 var = s ** 2 / np.sum(s ** 2) * 100
-lim_x = np.percentile(XY[:, 0], [0.5, 99.5])
-lim_y = np.percentile(XY[:, 1], [0.5, 99.5])
+# The FULL range plus a margin: percentile limits used to cut off the edge of
+# the REST, WAVE_LEFT and WAVE_RIGHT clusters at the panel border.
+_pad = 0.04
+lim_x = (XY[:, 0].min(), XY[:, 0].max())
+lim_y = (XY[:, 1].min(), XY[:, 1].max())
+lim_x = (lim_x[0] - _pad * np.ptp(lim_x), lim_x[1] + _pad * np.ptp(lim_x))
+lim_y = (lim_y[0] - _pad * np.ptp(lim_y), lim_y[1] + _pad * np.ptp(lim_y))
 
 
-def pca_grid(groups, values, title, name, ncols, caption):
+def pca_grid(groups, values, title, name, ncols, caption, colour=None):
     rows = int(np.ceil(len(groups) / ncols))
     fig, axes = plt.subplots(rows, ncols, figsize=(3.4 * ncols, 3.2 * rows),
                              sharex=True, sharey=True)
@@ -204,7 +235,8 @@ def pca_grid(groups, values, title, name, ncols, caption):
         m = values == g
         ax.scatter(XY[~m, 0], XY[~m, 1], s=3, color=MUTED, alpha=0.35,
                    linewidths=0, rasterized=True)
-        ax.scatter(XY[m, 0], XY[m, 1], s=6, color=ML, alpha=0.75,
+        ax.scatter(XY[m, 0], XY[m, 1], s=6, alpha=0.8,
+                   color=(colour or {}).get(g, NEUTRAL),
                    linewidths=0, rasterized=True)
         ax.set_title(f"{g}  ({m.sum()})", fontsize=10.5)
         ax.set_xlim(*lim_x)
@@ -231,8 +263,9 @@ pca_grid(pca_labels, np.asarray(pca_labels)[y_pca],
          f"Every training window ({len(XY)}) as one dot: the deployed setup's "
          "50 features (bandpass, level, 1.0 s, calibrated), projected to 2-D "
          "by PCA, which never sees the labels. Each panel highlights one "
-         "gesture in blue over all the others in grey. Separate clusters = "
-         "the features tell the gestures apart.")
+         "gesture in its own colour (the one the application uses) over all the "
+         "others in grey. Separate clusters = the features tell the gestures "
+         "apart.", colour=GESTURE)
 pca_grid(people, persons_pca, "Feature space (PCA) -- by person",
          "pca_by_person.png", 3,
          "The same projection, one person highlighted per panel. Everyone "
@@ -326,8 +359,13 @@ save(fig, "ml_single_models.png")
 # 5. soft voting -- what it adds and what it costs
 # ==========================================================================
 def pooled(names_):
+    """Accuracy per window as the MEAN OVER THE HELD-OUT PEOPLE -- the number
+    every other figure quotes (77.6 for the pair). Pooling all windows instead
+    weights people by how many windows they have and gave 79.1."""
     p = sum(proba(n) for n in names_) / len(names_)
-    return float((p.argmax(1) == Y).mean() * 100)
+    hit = p.argmax(1) == Y
+    return float(np.mean([hit[PERSONS == q].mean() for q in np.unique(PERSONS)])
+                 * 100)
 
 
 combos = [("ExtraTrees alone", ["ET-500"]),
@@ -345,8 +383,8 @@ for b, v in zip(bars, vals):
 ax.set_yticks(range(len(combos)), [c for c, _ in combos])
 ax.invert_yaxis()
 ax.set_xlim(60, 84)
-ax.set_xlabel("accuracy, % of all windows (person held out)")
-ax.set_title("Soft voting: two forests = one forest; weaker members cost ~8 pts")
+ax.set_xlabel("accuracy per window, mean over the people held out, %")
+ax.set_title("Soft voting: two forests = one forest; weaker members cost 8-10 pts")
 vgrid(ax)
 ax.tick_params(axis="y", length=0)
 note(fig, "Unweighted soft vote = mean of the members' probabilities. "
@@ -358,7 +396,8 @@ save(fig, "soft_voting.png")
 # ==========================================================================
 fig, axes = plt.subplots(1, 2, figsize=(12, 4.2))
 ax = axes[0]
-for fs, color in (("level", ML), ("both", NN), ("classic", ML4)):
+for fs, color in (("level", "#6250d6"), ("both", "#d9a21b"),
+                  ("classic", "#2aa5a0")):
     xs = sorted({r["setup"]["window_s"] for r in ml_result["singles"]
                  if r["setup"]["feature_set"] == fs})
     ys = [max(r["window_accuracy"] for r in ml_result["singles"]
@@ -374,7 +413,7 @@ ax.set_ylabel("accuracy per window, %")
 ax.legend(title="feature set", fontsize=8.5, title_fontsize=8.5)
 hgrid(ax)
 ax = axes[1]
-for kind, color in (("gru", NN), ("cnn_gru", LIGHT_BLUE)):
+for kind, color in (("gru", NN), ("cnn_gru", "#f5b08c")):
     pts = sorted((r["config"]["window_s"], r["window_accuracy"] * 100)
                  for r in nn_rows if r["stage"] == "N1"
                  and r["config"]["kind"] == kind)
@@ -402,7 +441,7 @@ nn_gpu = next((n for n in (bench or {}).get("nn", [])
                if n.get("device") == "cuda"), None)
 w = ml_result["winner"]
 panels = [
-    ("accuracy per window, %", [w["window_accuracy"] * 100, 69.5,
+    ("accuracy per window, %", [w["window_accuracy"] * 100, vals[-1],
                                 NN_STATS["window_accuracy"] * 100], False),
     ("accuracy per gesture, %", [w["recording_vote_accuracy"] * 100, 73.7,
                                  NN_STATS["recording_vote_accuracy"] * 100],
@@ -472,7 +511,12 @@ ax.invert_yaxis()
 ax.set_xlim(50, 85)
 ax.set_xlabel("accuracy per window, % (person held out)")
 ax.set_title("What each model reads: full input vs channel averages only")
-ax.legend(loc="lower right", fontsize=8.5)
+from matplotlib.patches import Patch                                 # noqa: E402
+from matplotlib.legend_handler import HandlerTuple                   # noqa: E402
+ax.legend([(Patch(color=ML), Patch(color=NN)), Patch(color=MUTED)],
+          ["full input (blue ML, orange NN)", "only the 8 channel averages"],
+          handler_map={tuple: HandlerTuple(ndivide=None, pad=0)},
+          loc="lower right", fontsize=8.5)
 vgrid(ax)
 ax.tick_params(axis="y", length=0)
 note(fig, "DC-only control: the same model given each window's 8 channel "

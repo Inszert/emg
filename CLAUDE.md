@@ -628,6 +628,28 @@ calibration mode or adaptation (`zoo.check_vote`, `_vote_problem`, the worker
 itself) -- never averaged anyway. **ML and nets are never voted together**
 (rule 13 stands).
 
+**A selected vote is described as itself (2026-10-28).** A vote has no `stats`
+block, and the first member's numbers are that model's, not the vote's -- the
+statistics screens used to show the deployed model's (or `?`). Now:
+`zoo.vote_stats()` scores the vote from its members' stored out-of-fold
+probabilities (`results/zoo_eval/`, same folds, checked against the trainer's
+own `scores_from_probs` in `tests/test_vote_view.py`) and returns None rather
+than a number when it cannot: fewer than two models, a model trained *without*
+someone, a missing file, or probabilities made on another dataset. The
+combination is the user's choice, not a search, so it carries no selection
+bias. `LivePredictor` puts that, the members' own scores (`members`) and the
+newest member's date into `stats`; MODEL STATS shows a members table; NN STATS
+reads the SELECTED nets (`engine.active_model_path` / `model_paths()`), never
+`engine.model_path`, which is only the deployed one. Both panels show *how each
+member voted on this window* under the bars (`emg_app/vote_view.py`: members'
+probabilities go through the same class mask; display only, the answer is still
+the mean). The DECISION TRAIL is still built from `gesture_panel.joblib` of the
+DEPLOYED model and does not follow the selection -- MODEL STATS says so in a
+banner when they differ. Open statistics windows are closed when the selection
+changes. **The zoo's NN numbers are 2 seeds** and move a lot (NN-gru 72.4 %
+on one seed, 63.0 % on the other, 67.7 % mean): the 72.4 % quoted elsewhere is
+a single seed, and nets within ~2 points of each other are not ranked.
+
 **Adaptation to the person** (`emg_app/adaptation.py`): standardise each
 person's input with statistics from ~10 % of their own UNLABELLED windows (about
 9 s -- the length of a calibration sweep). A model trained with it records

@@ -45,6 +45,16 @@ SURFACE, TEXT, TEXT_2, GRID, MUTED = ("#fcfcfb", "#0b0b0b", "#52514e",
                                       "#e4e3de", "#c9c8c2")
 ML, NN = "#2a78d6", "#eb6834"
 ML_LIGHT, NN_LIGHT = "#a9c9f2", "#f6c0a6"
+#  The light / dark legend swatches used to be grey, which matched no bar. Each
+#  entry now shows the light (or dark) shade of BOTH family colours.
+import matplotlib.legend                                              # noqa: E402
+from matplotlib.legend_handler import HandlerTuple                    # noqa: E402
+from matplotlib.patches import Rectangle as _Rect                     # noqa: E402
+matplotlib.legend.Legend.update_default_handler_map(
+    {tuple: HandlerTuple(ndivide=None, pad=0)})
+SHADE_HANDLES = [(_Rect((0, 0), 1, 1, color=ML_LIGHT),
+                  _Rect((0, 0), 1, 1, color=NN_LIGHT)),
+                 (_Rect((0, 0), 1, 1, color=ML), _Rect((0, 0), 1, 1, color=NN))]
 plt.rcParams.update({
     "figure.facecolor": SURFACE, "axes.facecolor": SURFACE,
     "savefig.facecolor": SURFACE, "font.family": "DejaVu Sans",
@@ -124,7 +134,7 @@ def fig_rotation(rot):
             if col == 0:
                 ax.set_ylabel("% of windows")
             ax.grid(axis="x", visible=False)
-    handles = [plt.Rectangle((0, 0), 1, 1, color=c) for c in (MUTED, TEXT_2)]
+    handles = SHADE_HANDLES
     fig.legend(handles, ["no augmentation (light)",
                          "with rotation augmentation (dark)"],
                loc="lower center", ncol=2, frameon=False, fontsize=9)
@@ -210,7 +220,7 @@ def fig_pairs(rows):
         ax.set_title(f"{title}  ({len(rs)} recommended models; "
                      "dots = each model)", fontsize=10, loc="left")
     axes[0].set_ylabel("% of windows, person held out")
-    handles = [plt.Rectangle((0, 0), 1, 1, color=c) for c in (MUTED, TEXT_2)]
+    handles = SHADE_HANDLES
     fig.legend(handles, [f"trained WITH {PERSON} (light)",
                          f"trained WITHOUT {PERSON} (dark)"],
                loc="lower center", ncol=2, frameon=False, fontsize=9)
@@ -411,7 +421,7 @@ def fig_switches(sw):
             ax.margins(y=0.18)
             ax.grid(axis="x", visible=False)
             ax.set_title(f"{FAM_TITLE[fam]}\n{what}", fontsize=10, loc="left")
-    handles = [plt.Rectangle((0, 0), 1, 1, color=c) for c in (MUTED, TEXT_2)]
+    handles = SHADE_HANDLES
     fig.legend(handles, [f"{PERSON} in training (light)",
                          f"{PERSON} left out (dark)"], loc="lower center",
                ncol=2, frameon=False, fontsize=9)

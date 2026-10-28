@@ -73,6 +73,13 @@ class PredictionMixin:
         bars.setColumnStretch(1, 1)
         layout.addWidget(self.prob_box)
 
+        #  How each member of a soft vote answered (empty for one model).
+        self.vote_label = make_label("", 10, False, COL_TEXT_DIM)
+        self.vote_label.setWordWrap(True)
+        self.vote_label.setTextFormat(QtCore.Qt.RichText)
+        self.vote_label.setVisible(False)
+        layout.addWidget(self.vote_label)
+
         self.prediction_note = make_label("", 10, False, COL_TEXT_DIM)
         self.prediction_note.setWordWrap(True)
         layout.addWidget(self.prediction_note)
@@ -262,10 +269,22 @@ class PredictionMixin:
         # The model just changed state, so the provenance line is stale.
         self._refresh_model_status(force=True)
 
+        if hasattr(self, "vote_label"):
+            self.vote_label.setText("")
+            self.vote_label.setVisible(False)
         if ready:
             mask = describe_off(self.predictor.labels)
             self.prediction_note.setText(
                 self.predictor.describe() + (f"\n{mask}" if mask else ""))
+            if self.predictor.members and hasattr(self, "vote_label"):
+                #  Said before the first window, so a selected vote is visible
+                #  at once rather than only after PREDICT has run.
+                self.vote_label.setText(
+                    f"<span style='color:{COL_TEXT_DIM}'>SOFT VOTE of "
+                    f"{len(self.predictor.members)}: "
+                    + " + ".join(self.predictor.members)
+                    + " -- start PREDICT to see how each one votes.</span>")
+                self.vote_label.setVisible(True)
             return
 
         self.prediction_label.setText("--")
@@ -446,6 +465,8 @@ class PredictionMixin:
             for name, (bar, value) in self.prob_bars.items():
                 bar.setValue(0)
                 value.setText("off" if name in prediction.off else "--")
+            if hasattr(self, "vote_label"):
+                self.vote_label.setVisible(False)
             return
         certain = prediction.certain
         colour = COL_GOOD if certain else COL_WARN
@@ -484,9 +505,21 @@ class PredictionMixin:
                 f"QProgressBar::chunk {{ background: "
                 f"{colour if top else COL_TEXT_DIM}; border-radius: 2px; }}")
 
+        self._show_vote_rows(self.predictor, self.vote_label, prediction)
+
         self.plot.set_prediction_overlay(
             f"{prediction.label}  {prediction.percent}", colour,
             "" if certain else "low confidence")
+
+    @staticmethod
+    def _show_vote_rows(source, label, prediction) -> None:
+        """Under the bars: how each member of a soft vote answered THIS window.
+        `source` is the predictor or the net engine; both have `vote_rows`."""
+        from emg_app.vote_view import vote_html
+        rows = source.vote_rows(prediction.label)
+        label.setVisible(bool(rows))
+        label.setText(vote_html(rows, prediction.label, COL_GOOD, COL_WARN,
+                                COL_TEXT_DIM) if rows else "")
 
     def open_model_test(self) -> None:
         """TEST MODEL: a live, cued score of the saved model on this wearer."""

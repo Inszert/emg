@@ -9,8 +9,8 @@ neural family orange, everything else neutral; verdicts are written out, never
 carried by colour alone.
 
   ablation_effects.png   per switch: change in accuracy against the baseline,
-                         each dot one held-out person, the bar the mean, the grey
-                         band the seed-to-seed noise it had to clear
+                         each dot one held-out person, the bar the mean, the two
+                         ticks the gain it had to clear (seed noise)
   ablation_robustness.png  accuracy under noise / a band shifted one pod / a
                          weaker signal, baseline against every switch
   voting_vs_members.png  each ML member alone against the soft votes
@@ -150,7 +150,7 @@ if PANELS:
     #  calibration modes.
     SWITCH = {"aug:gain": "#8e6bbf", "aug:noise": "#8a8a85", "aug:timewarp": "#2aa5a0",
               "aug:rotate": "#d9a21b", "aug:chandrop": "#b5527d", "adapt": GOOD,
-              "calib:off": "#a37b5c", "calib:gain": "#6f9ed8",
+              "calib:off": "#a37b5c", "calib:gain": "#7d8a2e",
               "calib:per_channel": "#c46a6a"}
     for ax, (title, fam, g) in zip(axes[:, 0], PANELS):
         names = ["baseline"] + sorted(n for n in g if n != "baseline")
@@ -203,17 +203,35 @@ if DOC.get("voting"):
 
 # ---- 4. the zoo ------------------------------------------------------------------------------
 models = [m for m in DOC.get("models", []) if m.get("window_acc") is not None]
+#  Labels that sat on top of a neighbour's (points a few pixels apart).
+LABEL_OFFSET = {"ET-500": (6, -12, "left"), "kNN-15": (6, -12, "left"),
+                "NN-circ_gru": (-6, 4, "right"), "NN-cnn_gru": (6, -3, "left"), "RF-500": (9, -3, "left"),
+                "NN-lstm": (6, 4, "left"), "NN-tcn": (-6, 4, "right")}
 if models:
     fig, ax = plt.subplots(figsize=(10, 6))
     for m in models:
+        #  How far the score moves from one seed to the next: without it a
+        #  1-point difference between two nets reads as a ranking.
+        meta_file = os.path.join(ROOT, "models", "zoo", m["id"], "meta.json")
+        try:
+            spread = json.load(open(meta_file, encoding="utf-8"))[
+                "scores"].get("seed_std")
+        except (OSError, ValueError, KeyError):
+            spread = None
+        if spread:
+            ax.errorbar(max(m["size_bytes"] or 1, 1) / 1024,
+                        m["window_acc"] * 100, yerr=spread * 100,
+                        color=FAMILY[m["family"]], alpha=0.35, lw=1,
+                        capsize=0, zorder=2)
         ax.scatter(max(m["size_bytes"] or 1, 1) / 1024, m["window_acc"] * 100,
                    s=70 if m["starred"] else 40, color=FAMILY[m["family"]],
                    edgecolor=TEXT if m["starred"] else SURFACE, lw=1.4,
                    zorder=3)
+        dx, dy, ha = LABEL_OFFSET.get(m["name"], (5, 4, "left"))
         ax.annotate(("★ " if m["starred"] else "") + m["name"],
                     (max(m["size_bytes"] or 1, 1) / 1024, m["window_acc"] * 100),
-                    xytext=(5, 4), textcoords="offset points", fontsize=8,
-                    color=TEXT if m["starred"] else TEXT_2)
+                    xytext=(dx, dy), textcoords="offset points", fontsize=8,
+                    ha=ha, color=TEXT if m["starred"] else TEXT_2)
     ax.set_xscale("log")
     ax.set_xlabel("size on disk, KB (log scale)")
     ax.set_ylabel("accuracy per window, person held out, %")
@@ -223,6 +241,18 @@ if models:
     ax.scatter([], [], color=NN, label="neural net")
     ax.legend(loc="lower right")
     ax.set_title("The model zoo: accuracy against size  (★ = starred)")
+    seeds_ml = {m["seeds"] for m in models if m["family"] == "ml"}
+    seeds_nn = {m["seeds"] for m in models if m["family"] == "nn"}
+    fig.text(0.0, -0.02,
+             f"Mean over the 5 held-out people, then over seeds (ML "
+             f"{'/'.join(map(str, sorted(seeds_ml)))}, neural nets "
+             f"{'/'.join(map(str, sorted(seeds_nn)))}); the thin line is the "
+             "seed-to-seed spread. Differences smaller than it are not a "
+             "ranking: the three starred nets are within 2 points of each "
+             "other, and NN-gru scored 72.4 % on one seed and 63.0 % on "
+             "the other. ML models use adaptation, the nets do not, so these "
+             "numbers differ from the single-model charts.", ha="left",
+             va="top", fontsize=8.5, color=TEXT_2, wrap=True)
     save(fig, "zoo_overview.png")
 
 # ---- 5. the tests ---------------------------------------------------------------------------------

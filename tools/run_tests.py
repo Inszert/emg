@@ -45,6 +45,7 @@ SUITES = [
     ("icon", "test_icon.py", False),
     ("zoo", "test_zoo.py", False),
     ("app_settings", "test_app_settings.py", False),
+    ("vote_view", "test_vote_view.py", False),
     ("defaults", "test_defaults.py", False),
     ("nn", "test_nn.py", True),
     ("custom_gesture", "test_custom_gesture.py", True),

@@ -333,6 +333,7 @@ class NeuralEngine:
         #  many of its nets took them (only nets trained with adaptation do).
         self.adapt_stats = None
         self.adapted_members = 0
+        self.last_member_probs: list = []
         self.script = script or cfg.NN_WORKER_SCRIPT
         self.device = device or cfg.NN_DEVICE
         self.python = python_executable or sys.executable
@@ -770,6 +771,10 @@ class NeuralEngine:
         if not isinstance(probabilities, list) or not probabilities:
             self.counters["errors"] += 1
             return None
+        #  A soft vote of several nets: the worker also sends each net's own
+        #  softmax, kept so the panel can show how the vote was cast.
+        each = payload.get("members")
+        self.last_member_probs = each if isinstance(each, list) else []
         if len(probabilities) != len(self.labels):
             #  A width mismatch means the worker and this engine disagree
             #  about the label set, which can only end in a mislabelled
@@ -869,6 +874,16 @@ class NeuralEngine:
         return ("NN ON CPU",
                 f"torch {info.get('torch')}"
                 + (f" | {reason}" if reason else ""), "warn")
+
+    def vote_rows(self, final_label: str) -> list:
+        """How each net of a soft vote answered the last window (empty for one
+        net)."""
+        names = [m.get("name", "?") for m in (self.meta.get("members") or [])]
+        if len(names) < 2 or not self.last_member_probs:
+            return []
+        from emg_app.vote_view import member_rows
+        return member_rows(names, self.last_member_probs, self.labels,
+                           final_label)
 
     def describe(self) -> str:
         """One line: what this net is."""

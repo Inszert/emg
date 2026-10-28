@@ -345,7 +345,7 @@ class SessionMixin:
         if getattr(self, "predictor", None) is not None and self.predictor.ready:
             out["ML model"] = list(self.predictor.labels)
         engine = getattr(self, "nn_engine", None)
-        sidecar = (load_nn_stats(engine.model_path) or {}) if engine else {}
+        sidecar = (load_nn_stats(engine.active_model_path) or {}) if engine else {}
         if sidecar.get("labels"):
             out["neural net"] = list(sidecar["labels"])
         return out

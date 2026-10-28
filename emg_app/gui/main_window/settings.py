@@ -100,6 +100,12 @@ class SettingsMixin:
                 getattr(self, "one_shot_deadline", 0.0):
             self.stop_prediction()
         self.predictor.load()
+        #  An open statistics window describes the models that were in use, so
+        #  it is closed rather than left showing them under the new selection.
+        for name in ("stats_dialog", "nn_stats_dialog"):
+            dialog = getattr(self, name, None)
+            if dialog is not None and dialog.isVisible():
+                dialog.close()
         if getattr(self, "nn_engine", None) is not None:
             if self.nn_engine.running:
                 self.stop_neural()

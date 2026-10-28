@@ -23,6 +23,7 @@ from collections import defaultdict
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
+import matplotlib.colors                                        # noqa: E402
 import matplotlib.pyplot as plt                                  # noqa: E402
 from matplotlib.colors import LinearSegmentedColormap            # noqa: E402
 from matplotlib.gridspec import GridSpec                         # noqa: E402
@@ -47,9 +48,33 @@ GRID, MUTED = "#e4e3de", "#c9c8c2"
 BLUE_RAMP = ["#fcfcfb", "#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5",
              "#256abf", "#184f95", "#0d366b"]
 CMAP = LinearSegmentedColormap.from_list("blue", BLUE_RAMP)
+#  One hue per model, no two close: the two greens (ROCKET / TSMixer) and the
+#  two warm ones (GRU orange / InceptionTime amber) used to be hard to tell
+#  apart. ML stays blue and the GRU orange, as in every other figure.
 COLOR = {"ml": "#2a78d6", "gru": "#eb6834", "circ_gru": "#6250d6",
-         "chan_transformer": "#e87ba4", "inception": "#eda100",
-         "tsmixer": "#008300", "rocket": "#1baf7a"}
+         "chan_transformer": "#e87ba4", "inception": "#17a2b8",
+         "tsmixer": "#8a6d3b", "rocket": "#1baf7a"}
+
+
+def darker(c, k=0.72):
+    """Text version of a model colour: the light ones (pink, cyan) are fine as
+    bars but unreadable as coloured text on the cream background."""
+    r, g, b = matplotlib.colors.to_rgb(c)
+    return (r * k, g * k, b * k)
+
+
+def model_cmap(m):
+    """White -> the model's own colour -> a dark shade of it, so a model's
+    confusion matrix is drawn in the model's colour (ML blue, GRU orange)."""
+    return LinearSegmentedColormap.from_list(
+        m, ["#fcfcfb", COLOR[m], darker(COLOR[m], 0.45)])
+
+
+def ink(cmap, value, vmin=0.0, vmax=100.0):
+    r, g, b, _a = cmap((value - vmin) / (vmax - vmin))
+    lin = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+           for c in (r, g, b)]
+    return "white" if 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2] < 0.18         else TEXT
 REF = "ml"
 
 plt.rcParams.update({
@@ -258,7 +283,8 @@ ax.set_title("A   Accuracy, person held out")
 ax = fig.add_subplot(gs[1, 2:])
 M = np.array([[S[m]["loso"]["per_person"].get(p, np.nan) * 100
                for p in PEOPLE] for m in order])
-im = ax.imshow(M, cmap=CMAP, vmin=20, vmax=100, aspect="auto")
+im = ax.imshow(M, cmap=CMAP, vmin=20, vmax=100, aspect="auto",
+               interpolation="nearest")
 ax.set_xticks(range(len(PEOPLE)))
 ax.set_xticklabels(PEOPLE)
 ax.set_yticks([])
@@ -267,7 +293,7 @@ for i in range(M.shape[0]):
         if not np.isnan(M[i, j]):
             ax.text(j, i, f"{M[i, j]:.0f}", ha="center", va="center",
                     fontsize=11, fontweight="bold",
-                    color="white" if M[i, j] > 62 else TEXT)
+                    color=ink(CMAP, M[i, j], 20, 100))
 ax.tick_params(length=0)
 for sp in ax.spines.values():
     sp.set_visible(False)
@@ -317,7 +343,7 @@ for (r, c), cell in tab.get_celld().items():
         cell.set_facecolor(SURFACE)
         if c == 0:
             cell.set_text_props(ha="left", fontweight="bold",
-                                color=COLOR[order[r - 1]])
+                                color=darker(COLOR[order[r - 1]]))
             cell._loc = "left"
         if c == 2:
             cell.set_text_props(fontweight="bold")
@@ -331,7 +357,8 @@ for k, m in enumerate(panels[:7]):
         FIRST_CM = ax
     cm = S[m]["loso"]["cm"]
     norm = cm / np.maximum(cm.sum(1, keepdims=True), 1) * 100
-    ax.imshow(norm, cmap=CMAP, vmin=0, vmax=100)
+    cm_map = model_cmap(m)
+    ax.imshow(norm, cmap=cm_map, vmin=0, vmax=100, interpolation="nearest")
     ax.set_xticks(range(N))
     ax.set_yticks(range(N))
     ax.set_xticklabels([SHORT.get(l, l) for l in LABELS], rotation=40,
@@ -344,12 +371,12 @@ for k, m in enumerate(panels[:7]):
             if v >= 0.5:
                 ax.text(j, i, f"{v:.0f}", ha="center", va="center",
                         fontsize=9.5, fontweight="bold" if i == j else None,
-                        color="white" if v > 55 else TEXT)
+                        color=ink(cm_map, v))
     ax.tick_params(length=0)
     for sp in ax.spines.values():
         sp.set_visible(False)
     ax.set_title(f"{TITLES[m]}\n{S[m]['loso']['acc'] * 100:.1f} %",
-                 fontsize=10.5, color=COLOR[m])
+                 fontsize=10.5, color=darker(COLOR[m]))
     if k % 4 == 0:
         ax.set_ylabel("true gesture")
     if k >= 3:
@@ -367,7 +394,7 @@ for m in order:
     off = norm.copy()
     np.fill_diagonal(off, 0)
     i, j = np.unravel_index(off.argmax(), off.shape)
-    ax.text(0, y0, TITLES[m], fontsize=9.2, color=COLOR[m],
+    ax.text(0, y0, TITLES[m], fontsize=9.2, color=darker(COLOR[m]),
             fontweight="bold", va="top")
     ax.text(0, y0 - 0.052, f"{LABELS[i]}  ->  {LABELS[j]}   {off[i, j]:.0f} %",
             fontsize=9.2, color=TEXT_2, va="top")
@@ -401,7 +428,7 @@ for m in nets:
     eps = [e for e, _ in folds[0]["monitor"]]
     A = np.mean([[a for _, a in f["monitor"]] for f in folds], axis=0) * 100
     ax.plot(eps, A, color=COLOR[m], lw=2, marker="o", ms=3.5)
-    ax.text(eps[-1] + 2, A[-1], f"{A[-1]:.0f}", color=COLOR[m], fontsize=9,
+    ax.text(eps[-1] + 2, A[-1], f"{A[-1]:.0f}", color=darker(COLOR[m]), fontsize=9,
             va="center", fontweight="bold")
 ax.set_xlim(0, meta["epochs"] * 1.08)
 ax.set_xlabel("epoch")
@@ -431,14 +458,14 @@ for k, (key, label, col, hatch) in enumerate(series):
 ax.set_xticks(x)
 ax.set_xticklabels([TITLES[m] for m in order], fontsize=10)
 for tick, m in zip(ax.get_xticklabels(), order):
-    tick.set_color(COLOR[m])
+    tick.set_color(darker(COLOR[m]))
     tick.set_fontweight("bold")
 ax.set_ylim(0, 108)
 ax.set_ylabel("accuracy per window, %")
 ax.yaxis.grid(True, color=GRID)
 ax.set_axisbelow(True)
-ax.legend(loc="upper center", ncol=3, bbox_to_anchor=(0.5, 1.12))
-ax.set_title("G   Validation: the same models under three protocols", pad=24)
+ax.legend(loc="lower right", ncol=3, bbox_to_anchor=(1.0, 1.0))
+ax.set_title("G   Validation: the same models under three protocols", pad=8)
 
 # -- caption
 ax = fig.add_subplot(gs[7, :])
