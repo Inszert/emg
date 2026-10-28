@@ -19,7 +19,10 @@ python tests\test_nn.py             # 162 checks -- the neural net: the SEPARATI
 python tests\test_zoo.py              # 117 checks -- the model zoo, soft voting (ML and NN), adaptation, augmentation, the settings store, the questions' logic
 python tests\test_app_settings.py     # 97 checks -- the Models / Training / General tabs, applying and restoring, both questions on the real window
 python tests\test_vote_view.py         # 43 checks -- a selected soft vote is described as itself: measured stats from the members' stored probabilities, per-member answers under the bars, MODEL STATS / NN STATS follow the selection
-python tools\run_tests.py              # every offline suite, one line each
+python tests\test_icon.py              # 17 checks -- the application icon: files, sizes, a missing folder never raises, the settings switch
+python tests\test_defaults.py          # 18 checks -- the shipped training defaults equal what the ablation rule says (read from results/experiments.json)
+python tests\test_custom_gesture.py    # 48 checks -- adding a gesture reaches everything and never retrains by itself (~3 min, trains on a temp copy)
+python tools\run_tests.py              # every offline suite, one line each; writes tests/last_run.json (--fast skips nn and custom_gesture)
 python tests\test_class_mask.py       # 121 checks -- switching a gesture off in the classifiers without retraining (the mask, the model file untouched, the dialog, the real window)
 python tests\test_device.py         # 104 checks -- the device profile and channel-count independence, the label set, the recording plan
 python tests\test_sweep_cost.py     # 48 checks  -- window dedup, the screen, the shortlist, the DC-only control, subject-grouped selection

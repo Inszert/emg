@@ -43,17 +43,20 @@ so `import emg_dataset_tool as T` keeps working everywhere.
 | `settings_store.py` | `app_settings.json`: model selection, training switches, the two questions; defaults = config.py |
 | `prompts.py` | the decisions behind the two questions (is the last calibration offered? what does each retrain answer train?) |
 | `class_mask.py` | switching a gesture off in the live classifiers without retraining: the mask, `kept`, validation (CLAUDE.md 7a) |
+| `gestures.py` | the gesture set: `<DATA_FOLDER>/gestures.json`, added gestures and their cues, colours (CLAUDE.md 7a) |
 | `decision_panel.py` | the DECISION TRAIL panel model |
-| `prediction.py` | `LivePredictor` |
+| `vote_view.py` | how each member of a selected soft vote answered the current window (display only, class-masked); the vote's own measured stats are `zoo.vote_stats` |
+| `prediction.py` | `LivePredictor` (one model, or `MeanProba` over the selected ones) |
 | `app.py` | `main()`, `--summary` |
 | `gui/qt.py` | the guarded Qt imports |
 | `gui/tokens.py`, `gui/theme.py` | design tokens; stylesheet and class colours |
+| `gui/icon.py` | the application icon (`apply_app_icon`; a missing file gives the default icon, never an error) |
 | `gui/widgets.py` | small shared widgets and layout helpers (`fit_to_screen`, `scroll_dialog_body`, ...) |
 | `gui/plot.py` | `EmgPlotWidget` |
 | `gui/decision_trail.py` | MODEL STATS views: DECISION TRAIL and FEATURE SPACE |
 | `gui/workers.py` | dataset export worker, `TrainingJobWatcher` |
-| `gui/dialogs/` | one file per dialog: calibration, model_spec, model_stats, model_test, neural_setup, neural_stats, gesture_setup (the `GestureEditor`), settings (the gear icon), quality, trim |
-| `gui/main_window/` | `MainWindow` = `window.py` (layout, timers, control state, closing) + one mixin per feature: `session`, `recordings`, `labeling`, `takes`, `markers`, `prediction`, `neural`, `training`, `settings` |
+| `gui/dialogs/` | one file per dialog: calibration, model_spec, model_stats, model_test, neural_setup, neural_stats, gesture_setup (the `GestureEditor`), settings (the gear icon) + settings_tabs (the Models / Training / General tabs), quality, trim |
+| `gui/main_window/` | `MainWindow` = `window.py` (layout, timers, control state, closing) + one mixin per feature: `session`, `recordings`, `labeling`, `takes`, `markers`, `prediction`, `neural`, `training`, `settings`, `prompts` (the calibrate / retrain questions) |
 
 `MainWindow`'s mixins are plain classes whose methods run on the window and
 share its widgets and state through `self`; only `window.py` calls `super()`.

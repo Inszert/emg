@@ -24,7 +24,9 @@ Full list, with how to turn each on and off: [`docs/FEATURES.md`](docs/FEATURES.
 - A **model zoo** (16 ML classifiers, 9 neural nets): every model trained and
   scored with a person held out, listed with its size, the best marked with a
   star, any of them selectable in the settings, several voted (soft vote) -- off
-  by default, the original models stay the default
+  by default, the original models stay the default. A selected vote is
+  described as itself: its measured accuracy, a table of its members, and how
+  each member voted on the current window
 - Augmentation and adaptation to the person (per family), switched on only
   where the ablation study measured a gain ([`docs/REPORT.md`](docs/REPORT.md))
 - **Train without some people** (Settings -> Training), with ready-trained
@@ -93,7 +95,9 @@ Optional: `scikit-learn` + `joblib` (training and the live classifier),
 `pandas`, `scipy`, `pyarrow`.
 
 Needs a Myo armband and a Bluegiga BLED112 dongle. Windows, in practice — the
-COM-port handling has not been tried elsewhere. Only one process can hold the
+COM-port handling has not been tried elsewhere; on Linux (WSL) the install,
+the offline tests and the GUI start-up were checked, the dongle was not
+([`docs/install_linux.md`](docs/install_linux.md)). Only one process can hold the
 port, so close `legacy/test_myo.py` before starting the tool.
 
 **The recorder never imports torch.** It asks a subprocess whether a GPU exists, and runs the neural net in another one, so the app starts, records and predicts identically with torch absent.
@@ -374,14 +378,21 @@ datasets/ models/ exports/
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | threads, buffers, state machine, data flow |
 | [`docs/ML_PIPELINE.md`](docs/ML_PIPELINE.md) | recordings to a validated model |
 | [`docs/problems.md`](docs/problems.md) | every failure hit, the fix tried, and whether it worked |
+| [`docs/EXCLUDING_PEOPLE.md`](docs/EXCLUDING_PEOPLE.md) | Barbora, rotation augmentation, and training with / without a person, with graphs |
+| [`docs/DATASET_SUMMARY.md`](docs/DATASET_SUMMARY.md) | **what is in `datasets/` now**, measured: people, seconds, sample rates, quality flags, lineage, calibrations |
+| [`docs/TRAINING_HISTORY.md`](docs/TRAINING_HISTORY.md) | every saved training run (29 classifier sweeps, 8 net sweeps) and what the long runs cost |
+| [`docs/DATA_MAP.md`](docs/DATA_MAP.md) | every saved result, where it is, and which question it answers -- start here when writing a report |
+| [`docs/PUBLICATION_CHECK.md`](docs/PUBLICATION_CHECK.md) | the check of the paper (`publication.tex`) against the data: what was corrected, added, left open |
+| [`docs/UI_REVIEW.md`](docs/UI_REVIEW.md) | the theme-layer UI review and what was fixed |
 | [`tests/README.md`](tests/README.md) | the check scripts; three need the armband |
 
 ---
 
 ## Tests
 
-**2064 checks across eighteen scripts that need no armband — all green on
-2026-10-22**, after the reorganisation into `emg_app/`:
+**2318 checks in 23 suites that need no armband — all green on 2026-10-28**
+(`python tools\run_tests.py`, which runs every offline suite, writes
+`tests/last_run.json` and takes `--fast` to skip the two slow ones):
 
 ```powershell
 python tests\test_datalayer.py        # 150    python tests\test_trail.py       # 103
@@ -390,9 +401,12 @@ python tests\test_review.py           #  50    python tests\test_filters.py     
 python tests\test_label_on_graph.py   #  48    python tests\test_predict.py     # 109
 python tests\test_markers.py          #  88    python tests\test_model_spec.py  # 346
 python tests\test_free_take.py        # 268    python tests\test_no_torch.py    #  11
-python tests\test_nn.py               # 158    python tests\test_calibration.py # 161
+python tests\test_nn.py               # 162    python tests\test_calibration.py # 161
 python tests\test_jobs.py             #  48    python tests\test_device.py      # 104
-python tests\test_custom_gesture.py   # adding a gesture end to end (~5 min)
+python tests\test_class_mask.py       # 121    python tests\test_zoo.py         # 117
+python tests\test_app_settings.py     #  97    python tests\test_vote_view.py   #  43
+python tests\test_icon.py             #  17    python tests\test_defaults.py    #  18
+python tests\test_custom_gesture.py   #  48  (adding a gesture end to end, ~3 min)
 python tests\test_torch.py            # 163  (the retired trainer; needs the GPU)
 ```
 
@@ -412,6 +426,10 @@ ML vote ET + RF          77.6 %  (74.0 % nested)    83.7 %        97.4 %
 NN GRU 0.7 s             72.4 %                     78.9 %        95.3 %
 majority class           ~18 %
 ```
+
+The GRU's 72.4 % is **one training seed**: over three seeds it averages
+67.7 % (seeds 72.4 / 63.0 / 67.8), so the real gap to the ML vote is nearer 10
+points than 5. The ML vote is steadier (77.0 % ± 0.5 over three seeds).
 
 - **Read the ± before the mean.** Held out one at a time, four people score
   70–92 %, while **Barbora scores 28–46 % with every model**. It was
