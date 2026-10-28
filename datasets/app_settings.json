@@ -1,5 +1,5 @@
 {
-  "MODEL_SELECTION_ENABLED": false,
+  "MODEL_SELECTION_ENABLED": true,
   "SELECTED_ML": [
     "ml-rf-500-leaf3",
     "ml-rf-500",
@@ -14,6 +14,7 @@
   "TRAIN_AUGMENT_ML": [],
   "TRAIN_ADAPT_NN": false,
   "TRAIN_ADAPT_ML": true,
+  "TRAIN_EXCLUDE_PERSONS": [],
   "ADAPT_LIVE": true,
   "ASK_CALIBRATION_BEFORE_PREDICT": true,
   "ASK_RETRAIN_ON_NEW_DATA": true,
