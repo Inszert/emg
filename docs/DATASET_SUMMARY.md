@@ -1,11 +1,12 @@
 # DATASET_SUMMARY.md -- what is in `datasets/` now
 
-*Generated 2026-10-28 17:23 by `tools/dataset_summary.py` from the recordings' own metadata and the stored evaluation data; re-run it after recording. Nothing here is typed by hand. `EDA.md` describes the dataset archived on 2026-10-15; this is the working set.*
+*Generated 2026-10-28 17:29 by `tools/dataset_summary.py` from the recordings' own metadata and the stored evaluation data; re-run it after recording. Nothing here is typed by hand. `EDA.md` describes the dataset archived on 2026-10-15; this is the working set.*
 
 ## 1. At a glance
 
 - **211 recordings, 5 people** (Barbora, Betka, Bruno, Dano, Miso), 6 gestures (REST, FIST, OPEN, THUMB_UP, WAVE_LEFT, WAVE_RIGHT), 10.6 minutes of labelled signal in total.
 - Device: Myo armband, 8 channels, EMG mode `filtered` (on-device filtered envelope, about 50 Hz).
+- **Every file was read** (211 clips with 31816 samples, 30 free takes with 89723 samples = 30 minutes): no problems found -- no NaN, timestamps never go backwards, sample counts and label windows agree with the metadata, no sample at the 2047 ceiling (highest count 1659), no dead channel, and 241 of 241 csv files identical to their npz.
 - **One sitting per person** (Barbora: session_01, Betka: session_01, Bruno: session_01, Dano: session_01, Miso: session_01): the band was not taken off and refitted, so the confound inside a person (CLAUDE.md 8f) is still there; the honest number is the person-held-out one.
 - Windows scored (ML, 1.0 s windows at 0.75 overlap, after window-level deduplication): **1787**; the majority class is 18.3 % of them (what a model that always answers the most common gesture would score).
 - Windows scored (neural nets, 0.7 s windows at 0.75 overlap, after window-level deduplication): **2873**; the majority class is 18.6 % of them (what a model that always answers the most common gesture would score).
@@ -54,6 +55,36 @@ Quality flags are findings, never deletions (safety rule 5): Barbora: noisy_base
 | Bruno | 98 | 86 | 107 | 84 | 129 | 98 | 602 |
 | Dano | 98 | 138 | 84 | 130 | 143 | 124 | 717 |
 | Miso | 70 | 105 | 140 | 79 | 70 | 84 | 548 |
+
+## 4c. Signal level per person and gesture
+
+Mean of the on-device filtered envelope over each clip's labelled window and the eight channels, in device counts, averaged over the person's clips of that gesture. `contrast` = the mean of the five active gestures over REST.
+
+| person | REST | FIST | OPEN | THUMB_UP | WAVE_LEFT | WAVE_RIGHT | contrast |
+|---|---|---|---|---|---|---|---|
+| Barbora | 36.1 | 345.0 | 289.4 | 170.6 | 215.3 | 209.9 | 6.8x |
+| Betka | 21.8 | 138.3 | 315.9 | 64.5 | 216.3 | 305.9 | 9.5x |
+| Bruno | 37.2 | 176.1 | 280.3 | 412.1 | 391.4 | 457.6 | 9.2x |
+| Dano | 20.4 | 98.3 | 171.1 | 103.2 | 211.8 | 307.8 | 8.7x |
+| Miso | 58.8 | 193.1 | 181.7 | 92.1 | 139.2 | 249.8 | 2.9x |
+
+**Resting level above the live calibration's ceiling.** A live calibration rejects a REST capture whose per-channel median exceeds 50 counts (`CALIBRATION_MAX_REST_LEVEL`); the mean REST level of Miso is 58.8 (this is a clip mean over channels, not the gate's median, so it is an indication, not a prediction). Such a person may be refused at CALIBRATE even though their recorded REST clips are fine; the derived calibration used for training is unaffected.
+
+A person whose REST is low and whose gestures are weak is hard in a different way from one whose REST is high; the DC-only control (CLAUDE.md 8f) shows how much of every score is exactly this level.
+
+## 4d. Manifest against disk
+
+Every session keeps an append-only `manifest.jsonl` (one line per saved file set). Compared with what is on disk:
+
+| session | logged as saved | on disk | quarantined | logged but gone |
+|---|---|---|---|---|
+| Barbora/session_01 | 43 | 43 | 0 | 0 |
+| Betka/session_01 | 48 | 41 | 0 | 7 |
+| Bruno/session_01 | 44 | 43 | 1 | 0 |
+| Dano/session_01 | 48 | 44 | 4 | 0 |
+| Miso/session_01 | 42 | 40 | 2 | 0 |
+
+- **Betka/session_01: 7 THUMB_UP clips are logged as saved (2026-10-16T15:29 - 2026-10-16T15:30, 3.0 s each, repetitions [1, 2, 3, 4, 5, 6, 7]) but are neither on disk nor in `_deleted/`, and no `deleted` line records them.** 7 clips of the same gesture were saved afterwards (1.4 s each), so they were most likely discarded and re-recorded; the files were removed outside the app's DELETE / REDO path (safety rule 4), and they were never committed to git either, so they cannot be recovered. What is on disk is what the models were trained on.
 
 ## 5. Calibration
 

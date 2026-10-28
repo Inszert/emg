@@ -66,6 +66,41 @@ Goal: 82 % (stretch 92 %), person held out.
 | bandpass-level-w0.7-o0.75 | bandpass | level | 0.7 | 0.75 | ET-500-leaf3 | extra_trees | {"class_weight": "none", "max_depth": 0, "min_samples_leaf": 3, "n_estimators": 500} | 75.55 | 80.38 | 72.28 |
 | raw-level-w1.3-o0.75 | raw | level | 1.3 | 0.75 | RF-500-leaf3 | random_forest | {"class_weight": "none", "max_depth": 0, "max_features": "sqrt", "min_samples_leaf": 3, "n_estimators": 500} | 75.41 | 77.88 | 73.08 |
 
+## ML -- what each choice is worth
+
+Best, mean and worst person-held-out accuracy per window over every distinct single-model fit (576 distinct of 592 listed: one setup is named twice in the run's list, identically). The mean is dominated by the weaker model families, so read the best column for what a choice can reach and the mean for how forgiving it is.
+
+| choice | value | fits | best_% | mean_% | worst_% |
+|---|---|---|---|---|---|
+| representation | bandpass | 192 | 77.36 | 63.26 | 54.1 |
+| representation | raw | 192 | 76.88 | 64.54 | 56.45 |
+| representation | envelope | 192 | 64.02 | 57.27 | 49.52 |
+| feature set | level | 192 | 77.36 | 63.16 | 49.52 |
+| feature set | both | 192 | 74.44 | 62.86 | 54.71 |
+| feature set | classic | 192 | 66.02 | 59.05 | 54.1 |
+| window length (s) | 1.0 | 144 | 77.36 | 62.22 | 50.13 |
+| window length (s) | 1.3 | 144 | 76.85 | 62.0 | 49.52 |
+| window length (s) | 0.7 | 144 | 75.55 | 62.34 | 53.21 |
+| window length (s) | 0.4 | 144 | 71.17 | 60.2 | 53.38 |
+| model family | extra_trees | 72 | 77.36 | 64.49 | 55.27 |
+| model family | random_forest | 72 | 76.88 | 64.28 | 55.02 |
+| model family | hist_gradient_boost | 36 | 74.19 | 62.56 | 53.64 |
+| model family | knn | 72 | 68.41 | 62.13 | 54.1 |
+| model family | mlp | 72 | 67.4 | 62.07 | 54.07 |
+| model family | svm_rbf | 144 | 66.7 | 59.64 | 49.52 |
+| model family | logreg | 72 | 64.09 | 60.1 | 53.78 |
+| model family | lda | 36 | 63.85 | 59.79 | 53.52 |
+
+How far each person is from the others on the same fits -- the best fit any of the 16 models on any setup reached for that person, the median, and the worst:
+
+| held-out person | best fit_% | median fit_% | worst fit_% |
+|---|---|---|---|
+| Barbora | 56.07 | 41.62 | 21.83 |
+| Betka | 88.43 | 64.15 | 50.46 |
+| Bruno | 82.72 | 68.55 | 56.1 |
+| Dano | 94.97 | 70.01 | 58.76 |
+| Miso | 90.17 | 59.12 | 39.64 |
+
 ## ML -- nested check
 
 | held_out_person | accuracy_% | setup_chosen_without_them | members_chosen_without_them |

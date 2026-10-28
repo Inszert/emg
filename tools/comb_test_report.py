@@ -134,6 +134,40 @@ def tables(run_dir):
                        for p in people])
     t["ML_all_models"] = (head, rows)
 
+    # ---- ML: what each choice is worth, over every DISTINCT fit -------------
+    #  The setup list of this run names one setup twice, so the singles hold
+    #  592 entries of which 576 are distinct (the repeats are identical);
+    #  counting the repeats twice would weight that setup double.
+    seen, distinct = set(), []
+    for r in ml.get("singles") or []:
+        key = (r["setup_name"], r["model"]["name"])
+        if key not in seen:
+            seen.add(key)
+            distinct.append(r)
+    marg = []
+    for label, pick in (
+            ("representation", lambda r: r["setup"]["representation"]),
+            ("feature set", lambda r: r["setup"]["feature_set"]),
+            ("window length (s)", lambda r: str(r["setup"]["window_s"])),
+            ("model family", lambda r: r["model"]["kind"])):
+        groups = {}
+        for r in distinct:
+            groups.setdefault(pick(r), []).append(r["window_accuracy"])
+        for value, accs in sorted(groups.items(), key=lambda kv: -max(kv[1])):
+            marg.append([label, value, len(accs), pct(max(accs)),
+                         pct(sum(accs) / len(accs)), pct(min(accs))])
+    t["ML_marginals"] = (["choice", "value", "fits", "best_%", "mean_%",
+                          "worst_%"], marg)
+    spread = []
+    for p_ in people:
+        v = sorted((r.get("per_subject") or {}).get(p_) for r in distinct)
+        v = [x for x in v if x is not None]
+        if v:
+            spread.append([p_, pct(max(v)), pct(v[len(v) // 2]), pct(min(v))])
+    t["ML_person_spread"] = (["held-out person", "best fit_%", "median fit_%",
+                              "worst fit_%"], spread)
+    t["_n_distinct"] = (["n"], [[len(distinct), len(ml.get("singles") or [])]])
+
     # ---- ML: the best vote on each setup ------------------------------------
     head = (["setup", "n_members", "members", "window_acc_%", "std_%",
              "vote_%", "macro_F1_%"] + [f"{p}_%" for p in people])
@@ -228,6 +262,8 @@ def write_xlsx(path, t):
     wb = Workbook()
     wb.remove(wb.active)
     for name, (head, rows) in t.items():
+        if name.startswith("_"):
+            continue                     # helpers for the document only
         ws = wb.create_sheet(name[:31])
         ws.append(head)
         for c in ws[1]:
@@ -245,6 +281,8 @@ def write_xlsx(path, t):
 def write_csv(folder, t):
     os.makedirs(folder, exist_ok=True)
     for name, (head, rows) in t.items():
+        if name.startswith("_"):
+            continue
         with open(os.path.join(folder, f"{name}.csv"), "w",
                   encoding="utf-8-sig") as fh:
             for r in [head] + rows:
@@ -338,6 +376,23 @@ def write_doc(path, run_dir, t, ml, nn, people):
         "",
         md_table(t["ML_all_models"][0][:11], [r[:11] for r in
                                                t["ML_all_models"][1]], 15),
+        "",
+        "## ML -- what each choice is worth",
+        "",
+        "Best, mean and worst person-held-out accuracy per window over every "
+        f"distinct single-model fit ({t['_n_distinct'][1][0][0]} distinct of "
+        f"{t['_n_distinct'][1][0][1]} listed: one setup is named twice in the "
+        "run's list, identically). The mean is dominated by the weaker model "
+        "families, so read the best column for what a choice can reach and the "
+        "mean for how forgiving it is.",
+        "",
+        md_table(*t["ML_marginals"]),
+        "",
+        "How far each person is from the others on the same fits -- the best "
+        "fit any of the 16 models on any setup reached for that person, the "
+        "median, and the worst:",
+        "",
+        md_table(*t["ML_person_spread"]),
         "",
         "## ML -- nested check",
         "",

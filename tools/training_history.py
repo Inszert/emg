@@ -282,7 +282,7 @@ def write_md(ml, nn, runs, path):
     w("Times are wall-clock on the i5-9300H / GTX 1650 machine, with other "
       "work often running at the same time. The combination search's NN half "
       "was stopped by choice after 12 of 34 configurations (GRU 0.7 s kept); "
-      "the ML half ran all 592 combinations (about 10.6 h).")
+      "the ML half ran all 592 listed combinations (about 10.6 h; the list names one setup twice, so 576 are distinct).")
     w("")
     with open(path, "w", encoding="utf-8", newline="\n") as fh:
         fh.write("\n".join(L) + "\n")

@@ -81,3 +81,26 @@ filled; discovery ignores them.
   score differs from the same model in the combination test.
 - **The scores are for people who calibrated:** a calibrated subject-grouped
   score is not zero-shot (CLAUDE.md 8k).
+
+## 6. What was checked by re-computing, not trusting (2026-10-28)
+
+- **Raw recordings**: all 211 clips and 30 free takes read; no NaN, timestamps
+  monotonic, no clipping, no dead channel, every csv identical to its npz
+  ([DATASET_SUMMARY.md](DATASET_SUMMARY.md) section 1, re-run by
+  `tools/dataset_summary.py`).
+- **Manifests against disk**: one gap, Betka's first 7 THUMB_UP clips
+  (DATASET_SUMMARY section 4d; CLAUDE.md 8p).
+- **Combination search**: all 592 CSV rows re-scored from `ml_oof/*.npz` to
+  0.005 points (576 are distinct); every probability row sums to 1, no NaN;
+  the NN CSV equals `nn_results.jsonl`.
+- **Ablations**: every one of the 99 + 21 runs (and 72 + 21 without Barbora)
+  re-computes exactly from its `oof_*.npz`; the six models trained without
+  Barbora and the 25 zoo models match their `meta.json`; the newer-models run
+  matches for its 60 held-out-person folds.
+- **Logs**: no traceback, failure or stall in any log. The one failed run is
+  the first retrain after the combination search ("Nothing could be
+  evaluated", a trainer bug fixed the same day, CLAUDE.md 8n); the second
+  retrain succeeded.
+- **Reproducibility**: the final GRU run was made twice
+  (`log_final_nn_gru07.txt`, `_2.txt`) and gives the identical 72.42 % per
+  window, so a seed is deterministic; the zoo's second seed gives 63.0 %.

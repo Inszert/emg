@@ -1226,7 +1226,7 @@ NN GRU 0.7 s             72.4 %                     78.9 %        1.8 ms (GPU)  
 
 What changed that day, in one place:
 
-- **Settings chosen by a 10.5 h search** (16 classifiers × 37 setups, every
+- **Settings chosen by a 10.5 h search** (16 classifiers × 36 distinct setups -- 592 CSV rows, 16 of them an identical repeat -- every
   soft vote scored from stored out-of-fold probabilities, plus a nested
   check), and **pinned** in `model_spec.json` so RETRAIN reproduces them in
   ~1.5 min. The NN is GRU at 0.7 s, the only architecture selected.

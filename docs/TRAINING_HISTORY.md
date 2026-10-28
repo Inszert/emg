@@ -75,5 +75,5 @@ A sweep of one config is a retrain of the chosen net, not a search. The GRU at 0
 | background job ml (20261022-114727) | -- | 3 min | finished | `models\jobs\20261022-114727_ml_963b64\status.json` |
 | background job ml (20261022-121311) | -- | 2 min | finished | `models\jobs\20261022-121311_ml_f2c30d\status.json` |
 
-Times are wall-clock on the i5-9300H / GTX 1650 machine, with other work often running at the same time. The combination search's NN half was stopped by choice after 12 of 34 configurations (GRU 0.7 s kept); the ML half ran all 592 combinations (about 10.6 h).
+Times are wall-clock on the i5-9300H / GTX 1650 machine, with other work often running at the same time. The combination search's NN half was stopped by choice after 12 of 34 configurations (GRU 0.7 s kept); the ML half ran all 592 listed combinations (about 10.6 h; the list names one setup twice, so 576 are distinct).
 

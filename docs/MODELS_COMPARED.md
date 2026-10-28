@@ -75,8 +75,8 @@ gives a little more, 79.1 % for the ET + RF vote, because the hard person
 (Barbora) has fewer windows. The tables quote the per-person mean unless
 they say otherwise.
 
-**Optimistic vs nested.** The 77.6 % was picked as the best of 592 model ×
-setup combinations on these same five folds, so it flatters itself a
+**Optimistic vs nested.** The 77.6 % was picked as the best of 576 model ×
+setup combinations (592 rows in the CSV: one setup is listed twice, identically) on these same five folds, so it flatters itself a
 little. The **nested** check redoes the whole choice, setup and members,
 without each person and then scores that person. It gives **74.0 %**,
 which is the number to quote for "what would this search give a new
@@ -111,7 +111,7 @@ overlap. These are single models, no voting, person held out:
 | LogReg C=0.1 | 61.5 % | 65.1 % | 58.4 % |
 
 **The forests win by about 10 points, and the same is true on every other
-setup searched.** The whole top 15 of 592 combinations is ExtraTrees or
+setup searched.** The whole top 15 of 576 combinations is ExtraTrees or
 RandomForest. Longer windows help the ML models: 1.0–1.3 s beat 0.5–0.7 s
 everywhere. `level` features (per-channel amplitude) beat the classic shape
 features on every top setup.
@@ -303,7 +303,11 @@ THUMB_UP trio, and it is uneven**: Barbora gets 19 / 0 / 4 % of them,
 Bruno never gets THUMB_UP (0 %), Betka 24 %, while Dano and Miso are at 76–100 %
 everywhere except Dano's OPEN (57 %). Cells such as Betka's THUMB_UP (17 windows)
 come from only a few recordings, so read the large differences, not the
-small ones.
+small ones. Betka's THUMB_UP is thin for a recorded reason: the manifest logs
+14 THUMB_UP clips for her, but the first 7 (3 s each) are gone from disk,
+neither quarantined nor logged as deleted nor ever committed, and the 7 that
+remain are shorter re-cuts (1.0 to 2.1 s), which leaves her 17 windows
+(`DATASET_SUMMARY.md` section 4d).
 
 ### The two models, gesture by gesture
 

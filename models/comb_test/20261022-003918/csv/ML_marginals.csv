@@ -1,0 +1,19 @@
+﻿choice;value;fits;best_%;mean_%;worst_%
+representation;bandpass;192;77,36;63,26;54,1
+representation;raw;192;76,88;64,54;56,45
+representation;envelope;192;64,02;57,27;49,52
+feature set;level;192;77,36;63,16;49,52
+feature set;both;192;74,44;62,86;54,71
+feature set;classic;192;66,02;59,05;54,1
+window length (s);1.0;144;77,36;62,22;50,13
+window length (s);1.3;144;76,85;62,0;49,52
+window length (s);0.7;144;75,55;62,34;53,21
+window length (s);0.4;144;71,17;60,2;53,38
+model family;extra_trees;72;77,36;64,49;55,27
+model family;random_forest;72;76,88;64,28;55,02
+model family;hist_gradient_boost;36;74,19;62,56;53,64
+model family;knn;72;68,41;62,13;54,1
+model family;mlp;72;67,4;62,07;54,07
+model family;svm_rbf;144;66,7;59,64;49,52
+model family;logreg;72;64,09;60,1;53,78
+model family;lda;36;63,85;59,79;53,52

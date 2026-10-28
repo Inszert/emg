@@ -1,6 +1,6 @@
 # Report: models, ablation, defaults and verification
 
-*Generated 2026-10-28 17:23 by `tools/make_report.py` from `results/experiments.json`. Re-run it after any new measurement; nothing below is typed by hand.*
+*Generated 2026-10-28 17:30 by `tools/make_report.py` from `results/experiments.json`. Re-run it after any new measurement; nothing below is typed by hand.*
 
 ## 1. Goal and context
 
@@ -31,7 +31,7 @@ Everything else about the data (sample rates, quality flags, free takes, calibra
 - **Robustness probes**, applied to the held-out person's raw windows after the fact: multiplicative + additive noise; the band slid one pod either way (a circular channel roll); the whole signal 25 % weaker. Statistics for adaptation are taken before the perturbation (a band that drifts after calibration).
 - **DC-only control** (CLAUDE.md 8f/8k): the same model on each window flattened to its 8 channel means -- how much of a score is amplitude rather than gesture shape.
 - **Adaptation** standardises each person's input with statistics from a random 10 % of their own unlabelled windows (about 9 s, a calibration sweep). It is *not* zero-shot: it answers "a new person who wears the band for a few seconds first".
-- **Produced with.** i5-9300H 4C/8T, 7.9 GB RAM, GTX 1650 4 GB; Python 3.14.0, numpy 2.3.4, scikit-learn 1.7.2, torch 2.9.1+cu128, PySide6 6.11.2, pyqtgraph 0.14.0, joblib 1.5.2, pandas 2.3.3; Windows-11-10.0.26300-SP0; commit 6b8982e (the commit the results were last collected on, which can be newer than the training runs themselves -- those are dated in `models/zoo/*/meta.json` and the logs under `results/`).
+- **Produced with.** i5-9300H 4C/8T, 7.9 GB RAM, GTX 1650 4 GB; Python 3.14.0, numpy 2.3.4, scikit-learn 1.7.2, torch 2.9.1+cu128, PySide6 6.11.2, pyqtgraph 0.14.0, joblib 1.5.2, pandas 2.3.3; Windows-11-10.0.26300-SP0; commit 6f1ad55 (the commit the results were last collected on, which can be newer than the training runs themselves -- those are dated in `models/zoo/*/meta.json` and the logs under `results/`).
 
 ## 4. Models and sizes
 

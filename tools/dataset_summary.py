@@ -97,6 +97,127 @@ def calibrations(people):
     return saved, derived
 
 
+def lineage():
+    """
+    Each session's append-only manifest against what is on disk.
+
+    A clip the manifest logged as saved should be in its gesture folder, or in
+    `_deleted/` with a `deleted` line. A clip that is neither was removed some
+    other way; it is reported with its label and times, and how many clips of
+    the same label were saved afterwards, so the reader can see whether it was
+    probably re-recorded.
+    """
+    import re
+    out = {}
+    uid = lambda f: re.search(r"_([0-9a-f]{8})_raw\.npz$", f).group(1)
+    for mf in sorted(glob.glob(os.path.join(DATA, "*", "*", "manifest.jsonl"))):
+        parts = os.path.relpath(mf, DATA).split(os.sep)
+        if parts[0].startswith("_"):
+            continue
+        person, session = parts[0], parts[1]
+        base = os.path.dirname(mf)
+        lines = [json.loads(ln) for ln in open(mf, encoding="utf-8")
+                 if ln.strip()]
+        raw = [d for d in lines if d.get("stage") == "raw"]
+        files = glob.glob(os.path.join(base, "*", "*_raw.npz"))
+        quarantined = {uid(f) for f in files
+                       if os.sep + "_deleted" + os.sep in f}
+        ondisk = {uid(f) for f in files if os.sep + "_" not in
+                  f[len(base):]}
+        gone = [d for d in raw if d["uid"] not in ondisk
+                and d["uid"] not in quarantined]
+        notes = []
+        for label in sorted({d["label"] for d in gone}):
+            g = sorted((d for d in gone if d["label"] == label),
+                       key=lambda d: d["created_iso"])
+            later = [d for d in raw if d["label"] == label
+                     and d["created_iso"] > g[-1]["created_iso"]
+                     and d["uid"] in ondisk]
+            notes.append({
+                "label": label, "clips": len(g),
+                "from": g[0]["created_iso"][:16], "to": g[-1]["created_iso"][:16],
+                "seconds_each": round(float(np.mean(
+                    [d["duration_s"] for d in g])), 1),
+                "clips_of_the_same_gesture_saved_afterwards": len(later),
+                "their_seconds_each": round(float(np.mean(
+                    [d["duration_s"] for d in later])), 1) if later else None,
+                "repetitions": [d["repetition"] for d in g]})
+        out[f"{person}/{session}"] = {
+            "logged_raw": len(raw), "on_disk": len(ondisk),
+            "quarantined": len(quarantined), "logged_but_gone": len(gone),
+            "deleted_entries": sum(1 for d in lines
+                                   if d.get("stage") == "deleted"),
+            "gone": notes}
+    return out
+
+
+def read_signals():
+    """
+    Read EVERY live clip and take (npz and csv) and check them, and measure
+    the signal level per person and gesture.
+
+    Checks: shape (n, 8), no NaN, timestamps never go backwards, n_samples as
+    in the metadata, the label window inside the clip, no sample at the 2047
+    ceiling, no dead channel, and the csv identical to the npz. The level of a
+    clip is the mean over the labelled window and the 8 channels, in device
+    counts (the on-device filtered envelope); a person's level for a gesture
+    is the mean of their clips' levels.
+    """
+    import csv
+    problems, levels, peaks = [], defaultdict(list), []
+    counts = {"clips": 0, "clip_samples": 0, "takes": 0, "take_samples": 0,
+              "csv_identical": 0, "csv_checked": 0}
+    for kind, pattern in (("clips", "*/*/*/*_raw.npz"),
+                          ("takes", "*/*/_takes/*_take.npz")):
+        for path in sorted(glob.glob(os.path.join(DATA, pattern))):
+            rel = os.path.relpath(path, DATA).replace(os.sep, "/")
+            parts = rel.split("/")
+            if any(p.startswith("_") for p in
+                   (parts[:-1] if kind == "clips" else parts[:1])):
+                continue
+            z = np.load(path, allow_pickle=True)
+            emg, t = z["emg"], z["t_unix"]
+            meta = json.loads(str(z["metadata_json"]))
+            counts[kind] += 1
+            counts[kind[:-1] + "_samples"] += int(len(emg))
+            if emg.ndim != 2 or emg.shape[1] != 8:
+                problems.append((rel, "shape", list(emg.shape)))
+            if not np.isfinite(emg.astype(float)).all():
+                problems.append((rel, "NaN"))
+            if len(t) != len(emg) or np.any(np.diff(t) < 0):
+                problems.append((rel, "timestamps"))
+            if len(emg) != meta.get("n_samples"):
+                problems.append((rel, "n_samples differs from the metadata"))
+            lo, hi = meta.get("label_start_index"), meta.get("label_end_index")
+            if kind == "clips" and not (0 <= lo < hi <= len(emg)):
+                problems.append((rel, "label window outside the clip"))
+            if int(emg.max()) >= 2047:
+                problems.append((rel, "touches the 2047 ceiling"))
+            if (emg.max(axis=0) == 0).any():
+                problems.append((rel, "dead channel"))
+            peaks.append(int(emg.max()))
+            csv_path = path[:-4] + ".csv"
+            if os.path.exists(csv_path):
+                counts["csv_checked"] += 1
+                with open(csv_path, encoding="utf-8") as fh:
+                    rows = list(csv.reader(fh))
+                cols = [rows[0].index(f"ch{k}") for k in range(1, 9)]
+                arr = np.array([[int(r[i]) for i in cols] for r in rows[1:]])
+                if arr.shape == emg.shape and (arr == emg).all():
+                    counts["csv_identical"] += 1
+                else:
+                    problems.append((rel, "csv differs from the npz"))
+            if kind == "clips":
+                levels[(parts[0], str(z["label"]))].append(
+                    float(emg[lo:hi].astype(float).mean()))
+    return {"counts": counts, "problems": [list(map(str, p)) for p in problems],
+            "max_count": max(peaks),
+            "levels": {p: {g: (round(float(np.mean(levels[(p, g)])), 1)
+                               if levels.get((p, g)) else None)
+                           for g in GESTURES}
+                       for p in sorted({k[0] for k in levels})}}
+
+
 def windows(family):
     """Windows the models were scored on, per person and gesture."""
     path = os.path.join(RESULTS, "zoo_eval", f"data_{family}.npz")
@@ -180,6 +301,8 @@ def build():
             "per_gesture": {g: sum(1 for m in recs if m["label"] == g)
                             for g in GESTURES}},
         "people": per,
+        "signals": read_signals(),
+        "lineage": lineage(),
         "windows_ml_1.0s": windows("ml"),
         "windows_nn_0.7s": windows("nn"),
         "folders_without_recordings": sorted(
@@ -226,6 +349,18 @@ def write_md(s, path):
       "labelled signal in total.")
     w(f"- Device: {s['device']}, {s['n_channels']} channels, EMG mode "
       f"`{s['emg_mode']}` (on-device filtered envelope, about 50 Hz).")
+    sg = s["signals"]
+    c = sg["counts"]
+    w(f"- **Every file was read** ({c['clips']} clips with {c['clip_samples']} "
+      f"samples, {c['takes']} free takes with {c['take_samples']} samples = "
+      f"{c['take_samples'] / 50 / 60:.0f} minutes): "
+      + ("no problems found -- " if not sg["problems"] else
+         f"{len(sg['problems'])} PROBLEM(S) (listed in the JSON) -- ")
+      + f"no NaN, timestamps never go backwards, sample counts and label "
+      f"windows agree with the metadata, no sample at the 2047 ceiling "
+      f"(highest count {sg['max_count']}), no dead channel, and "
+      f"{c['csv_identical']} of {c['csv_checked']} csv files identical to "
+      "their npz.")
     sessions = {p: P[p]["sessions"] for p in people}
     w("- **One sitting per person** (" + ", ".join(
         f"{p}: {', '.join(v)}" for p, v in sessions.items()) + "): the band "
@@ -303,6 +438,72 @@ def write_md(s, path):
                 [[p] + [win["per_person"][p][g] for g in win["labels"]]
                  + [sum(win["per_person"][p].values())]
                  for p in sorted(win["per_person"])]))
+        w("")
+    w("## 4c. Signal level per person and gesture")
+    w("")
+    w("Mean of the on-device filtered envelope over each clip's labelled "
+      "window and the eight channels, in device counts, averaged over the "
+      "person's clips of that gesture. `contrast` = the mean of the five "
+      "active gestures over REST.")
+    w("")
+    lv = sg["levels"]
+    rows = []
+    for p_ in people:
+        act = [lv[p_][g] for g in s["gestures"] if g != "REST"
+               and lv[p_][g] is not None]
+        rest = lv[p_]["REST"]
+        rows.append([p_] + [lv[p_][g] for g in s["gestures"]]
+                    + [f"{np.mean(act) / rest:.1f}x" if rest else "--"])
+    w(table(["person"] + s["gestures"] + ["contrast"], rows))
+    w("")
+    from emg_app import config as cfg
+    ceiling = float(cfg.CALIBRATION_MAX_REST_LEVEL)
+    high = [p_ for p_ in people if lv[p_]["REST"] and lv[p_]["REST"] > ceiling]
+    if high:
+        w(f"**Resting level above the live calibration's ceiling.** A live "
+          f"calibration rejects a REST capture whose per-channel median "
+          f"exceeds {ceiling:.0f} counts (`CALIBRATION_MAX_REST_LEVEL`); the "
+          "mean REST level of " + ", ".join(
+              f"{p_} is {lv[p_]['REST']}" for p_ in high)
+          + " (this is a clip mean over channels, not the gate's median, so "
+            "it is an indication, not a prediction). Such a person may be "
+            "refused at CALIBRATE even though their recorded REST clips are "
+            "fine; the derived calibration used for training is unaffected.")
+        w("")
+    w("A person whose REST is low and whose gestures are weak is hard in a "
+      "different way from one whose REST is high; the DC-only control "
+      "(CLAUDE.md 8f) shows how much of every score is exactly this level.")
+    w("")
+    w("## 4d. Manifest against disk")
+    w("")
+    w("Every session keeps an append-only `manifest.jsonl` (one line per saved "
+      "file set). Compared with what is on disk:")
+    w("")
+    lin = s["lineage"]
+    w(table(["session", "logged as saved", "on disk", "quarantined",
+             "logged but gone"],
+            [[k, v["logged_raw"], v["on_disk"], v["quarantined"],
+              v["logged_but_gone"]] for k, v in lin.items()]))
+    w("")
+    gone_any = [(k, n) for k, v in lin.items() for n in v["gone"]]
+    if gone_any:
+        for k, n in gone_any:
+            w(f"- **{k}: {n['clips']} {n['label']} clips are logged as saved "
+              f"({n['from']} - {n['to']}, {n['seconds_each']} s each, "
+              f"repetitions {n['repetitions']}) but are neither on disk nor in "
+              "`_deleted/`, and no `deleted` line records them.** "
+              + (f"{n['clips_of_the_same_gesture_saved_afterwards']} clips of "
+                 f"the same gesture were saved afterwards "
+                 f"({n['their_seconds_each']} s each), so they were most "
+                 "likely discarded and re-recorded; the files were removed "
+                 "outside the app's DELETE / REDO path (safety rule 4), and "
+                 "they were never committed to git either, so they cannot be "
+                 "recovered. " if n["clips_of_the_same_gesture_saved_afterwards"]
+                 else "")
+              + "What is on disk is what the models were trained on.")
+        w("")
+    else:
+        w("Nothing logged is missing.")
         w("")
     w("## 5. Calibration")
     w("")

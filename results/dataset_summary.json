@@ -1,5 +1,5 @@
 {
- "created": "2026-10-28T17:23:10",
+ "created": "2026-10-28T17:29:54",
  "root": "datasets/",
  "device": "Myo armband",
  "emg_mode": "filtered",
@@ -377,6 +377,121 @@
      282.0
     ]
    }
+  }
+ },
+ "signals": {
+  "counts": {
+   "clips": 211,
+   "clip_samples": 31816,
+   "takes": 30,
+   "take_samples": 89723,
+   "csv_identical": 241,
+   "csv_checked": 241
+  },
+  "problems": [],
+  "max_count": 1659,
+  "levels": {
+   "Barbora": {
+    "REST": 36.1,
+    "FIST": 345.0,
+    "OPEN": 289.4,
+    "THUMB_UP": 170.6,
+    "WAVE_LEFT": 215.3,
+    "WAVE_RIGHT": 209.9
+   },
+   "Betka": {
+    "REST": 21.8,
+    "FIST": 138.3,
+    "OPEN": 315.9,
+    "THUMB_UP": 64.5,
+    "WAVE_LEFT": 216.3,
+    "WAVE_RIGHT": 305.9
+   },
+   "Bruno": {
+    "REST": 37.2,
+    "FIST": 176.1,
+    "OPEN": 280.3,
+    "THUMB_UP": 412.1,
+    "WAVE_LEFT": 391.4,
+    "WAVE_RIGHT": 457.6
+   },
+   "Dano": {
+    "REST": 20.4,
+    "FIST": 98.3,
+    "OPEN": 171.1,
+    "THUMB_UP": 103.2,
+    "WAVE_LEFT": 211.8,
+    "WAVE_RIGHT": 307.8
+   },
+   "Miso": {
+    "REST": 58.8,
+    "FIST": 193.1,
+    "OPEN": 181.7,
+    "THUMB_UP": 92.1,
+    "WAVE_LEFT": 139.2,
+    "WAVE_RIGHT": 249.8
+   }
+  }
+ },
+ "lineage": {
+  "Barbora/session_01": {
+   "logged_raw": 43,
+   "on_disk": 43,
+   "quarantined": 0,
+   "logged_but_gone": 0,
+   "deleted_entries": 0,
+   "gone": []
+  },
+  "Betka/session_01": {
+   "logged_raw": 48,
+   "on_disk": 41,
+   "quarantined": 0,
+   "logged_but_gone": 7,
+   "deleted_entries": 2,
+   "gone": [
+    {
+     "label": "THUMB_UP",
+     "clips": 7,
+     "from": "2026-10-16T15:29",
+     "to": "2026-10-16T15:30",
+     "seconds_each": 3.0,
+     "clips_of_the_same_gesture_saved_afterwards": 7,
+     "their_seconds_each": 1.4,
+     "repetitions": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+     ]
+    }
+   ]
+  },
+  "Bruno/session_01": {
+   "logged_raw": 44,
+   "on_disk": 43,
+   "quarantined": 1,
+   "logged_but_gone": 0,
+   "deleted_entries": 1,
+   "gone": []
+  },
+  "Dano/session_01": {
+   "logged_raw": 48,
+   "on_disk": 44,
+   "quarantined": 4,
+   "logged_but_gone": 0,
+   "deleted_entries": 6,
+   "gone": []
+  },
+  "Miso/session_01": {
+   "logged_raw": 42,
+   "on_disk": 40,
+   "quarantined": 2,
+   "logged_but_gone": 0,
+   "deleted_entries": 3,
+   "gone": []
   }
  },
  "windows_ml_1.0s": {
