@@ -38,8 +38,9 @@ citation invented (the `TODO_*` keys are unchanged).
   experiments, NN experiments, ML/NN comparison, and one-line introductions for
   the calibration and hardest-wearer subsections.
 - **Data:** the stream arrives in bursts (why windows are resampled onto a 60 Hz
-  grid); every clip and take was read (no NaN, monotonic timestamps, no clipping,
-  no dead channel, highest count 1659 of 2047); per-wearer channel levels and
+  grid); every clip and take was read (no NaN, monotonic timestamps, no dead
+  channel, highest count 1659; 2047 is an empirical ceiling, so the paper says
+  "nominal range" and claims no saturation check); per-wearer channel levels and
   gesture similarity.
 - **Results:** the unevenness of calibration across wearers (off: Bruno 80 -> 57,
   Betka 83 -> 90; global gain: Barbora 46 -> 75, Miso 88 -> 71); the unevenness of
@@ -74,6 +75,24 @@ gesture table, the amplitude-only control (77.8 / 77.6 and 63.3 / 72.4, losses o
 79.3 / 77.0 / 77.6 %, 69.5 %, 77.6 / 74.0 / 77.4 %, the without-Barbora numbers
 (85.4 -> 86.3, 73.5 -> 74.4, -5.7 to +9.5, 59.7 / 39.7 %), 17 to 102 windows per
 cell, the conclusion's 5 to 13 points.
+
+## 3b. Every document in `docs/` was read, and what it changed
+
+Read in full or in the parts that carry facts: REPORT, MODELS_COMPARED,
+EXCLUDING_PEOPLE, COMB_TEST, NOTES, DATASET, DATASET_SUMMARY, DATA_MAP,
+TRAINING_HISTORY, ARCHITECTURE, FEATURES, ML_PIPELINE, EDA, calib_plan,
+VERIFICATION, recommendation, problems, MANUAL, GUIDE, UI_GUIDE (the settings, model
+stats and cutting sections), install_windows, install_linux, how_to_fix_long_training,
+sdk_myo, UI_REVIEW (headings). None of them contradicts a number in the paper. What
+they did turn up, and the edits made:
+
+| document | finding | action |
+|---|---|---|
+| DATASET.md, sdk_myo.md | 2047 is an empirical ceiling, not a documented sensor limit | paper: "nominal range 0--2047", integrity sentence no longer says "sensor ceiling" |
+| ARCHITECTURE.md section 4 | said `measured_rate()` uses the median interval; section 5a (and the code) use the span average | section 4 corrected |
+| calib_plan.md 2.1 | "resting level is NOT wearer-specific" was measured on 2 wearers; with 5 it fails (Miso four channels at 86-112, Bruno two at 81-88, Barbora CH2 76) | dated note added above the table |
+| GUIDE.md section 4 | stale defaults: `REPETITIONS` 30 (now 6), `RECORD_TIME` 2.0 (2.5), `RING_BUFFER_SECONDS` 60/180 (600), `STALL_TIMEOUT_S` 3.0 (6.0) | table values corrected against `emg_app/config.py`; other GUIDE prose (21 classifiers, two-wearer net numbers) is dated history and left as it is |
+| MANUAL.md, GUIDE.md, UI_GUIDE.md | older two-wearer results (86.8 % LDA, 57.5 % net) appear as historical record | left; current numbers are in MODELS_COMPARED.md and the paper |
 
 ## 4. Open (needs you)
 

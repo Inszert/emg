@@ -905,7 +905,7 @@ can still go back and label something you did half a minute ago.
 | Setting | Default | What it does |
 |---|---|---|
 | `PLOT_WINDOW_S` | `30.0` | Visible time window. The whole point of the big window is having room to select in. |
-| `RING_BUFFER_SECONDS` | `180.0` | How far back you can still select. Must exceed `PLOT_WINDOW_S`. |
+| `RING_BUFFER_SECONDS` | `600.0` | How far back you can still select (180 s in earlier versions). Must exceed `PLOT_WINDOW_S`. |
 | `LABEL_MIN_SELECTION_S` | `0.25` | Shortest selection that may be labelled. |
 | `LABEL_DEFAULT_SELECTION_S` | `2.0` | Default cut length: the width of a fresh selection box. The **Default cut (s)** spin box sets it live, for both this panel and the cut-clips dialog. |
 | `LABEL_MAX_VISIBLE_MARKS` | `14` | How many labelled bands stay drawn (a drawing-cost cap only). |
@@ -1237,7 +1237,7 @@ All of these are at the top of `emg_dataset_tool.py`, in the
 | Setting | Default | What it does |
 |---|---|---|
 | `GESTURES` | 6 labels | **The label set.** Drives the GUI, the folders and the plan. Add a gesture by adding a string — nothing else needs changing. Use `UPPER_SNAKE_CASE`; the name becomes a folder name. |
-| `REPETITIONS` | `30` | Repetitions **per gesture**. 6 × 30 = 180 recordings. |
+| `REPETITIONS` | `6` | Repetitions **per gesture**. 6 × 6 = 36 recordings. (The default was 30 until the free-take workflow replaced the long cued session; the examples in section 5 set it explicitly.) |
 | `GESTURE_ORDER` | `"interleaved"` | `"interleaved"` = one round of every gesture, then the next round (**recommended** — spreads fatigue and electrode drift across all labels). `"blocked"` = all 30 FIST, then all 30 OPEN (easiest for the subject, but bakes drift into whichever gesture came last). `"random"` = fully shuffled. |
 | `RANDOM_SEED` | `42` | Makes the shuffling reproducible. |
 | `MAX_RECORDINGS` | `0` | Hard cap on recordings per session. **`0` means unlimited**, not zero. |
@@ -1254,7 +1254,7 @@ REST_TIME  PREPARE_TIME  COUNTDOWN_TIME  RECORD_TIME  POST…  PAUSE_TIME
 | `REST_TIME` | `2.0` s | Relax / return-to-neutral before each repetition. Raise it for tiring gestures. |
 | `PREPARE_TIME` | `0.8` s | How long "GET READY: FIST" is shown. |
 | `COUNTDOWN_TIME` | `3.0` s | Length of the countdown. `3.0` gives three ticks, `2.0` gives two. |
-| `RECORD_TIME` | `2.0` s | **Length of the labeled recording.** 1.0–1.5 s for quick gestures, 2–3 s for sustained holds. |
+| `RECORD_TIME` | `2.5` s | **Length of the labeled recording.** 1.0–1.5 s for quick gestures, 2–3 s for sustained holds. |
 | `PAUSE_TIME` | `1.0` s | Breather after each recording. |
 | `PRE_GESTURE_MS` | `300` | Signal captured **before** the RECORD cue. This is why a fast gesture never loses its onset — the buffer is already running when the subject reacts. Raise to 400–500 for explosive gestures. |
 | `POST_GESTURE_MS` | `300` | Signal captured **after** the window closes, so the release is kept. |
@@ -1292,7 +1292,7 @@ The GUI shows the estimate under *Recording plan*.
 
 | Setting | Default | What it does |
 |---|---|---|
-| `RING_BUFFER_SECONDS` | `60.0` | Length of the rolling display buffer. Fixed memory regardless of session length. |
+| `RING_BUFFER_SECONDS` | `600.0` | Length of the rolling display buffer (10 minutes; section 3 still says 180 s in its prose, which was the earlier default). Fixed memory regardless of session length. |
 | `MAX_RECORDING_SECONDS` | `120.0` | Safety cap on a single recording. Raise only if you deliberately record long takes. |
 
 ## 4.6 The graph
@@ -1439,7 +1439,7 @@ makes the armband think it is not being worn.
 | `RECONNECT_DELAY_S` | `2.0` | Wait before the first retry. |
 | `RECONNECT_MAX_DELAY_S` | `10.0` | Back-off ceiling. |
 | `RECONNECT_MAX_ATTEMPTS` | `0` | `0` = retry forever. |
-| `STALL_TIMEOUT_S` | `3.0` | No packet for this long while "connected" = treat the link as lost. This is what catches the armband falling asleep, which does not raise an error on its own. |
+| `STALL_TIMEOUT_S` | `6.0` | No packet for this long while "connected" = treat the link as lost. This is what catches the armband falling asleep, which does not raise an error on its own. |
 
 ## 4.12 Live classifier
 

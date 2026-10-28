@@ -1,0 +1,933 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+% The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
+% \usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+ \usepackage{tabularx}
+\usepackage{makecell} % for \Xhline
+\usepackage{booktabs}
+\usepackage{placeins} % \FloatBarrier keeps figures inside their section
+\hbadness=10000 \vbadness=10000 % draft: silence harmless underfull-box warnings (remove for the final version)
+% \safefig{options}{path}{name shown if missing}: like \includegraphics, but a missing file
+% gives a red placeholder box instead of a LaTeX error.
+\newcommand{\safefig}[3]{\IfFileExists{#2}{\includegraphics[#1]{#2}}%
+  {\fbox{\parbox[c][2.5cm][c]{0.8\linewidth}{\centering\textcolor{red}{[figure not uploaded yet: #3]}}}}}
+% \usepackage[slovak]{babel}
+
+\usepackage[style=numeric]{biblatex}
+\renewcommand*{\bibfont}{\footnotesize}
+\addbibresource{resources.bib}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\begin{document}
+
+\title{Comparison of Machine Learning vs. Neural Network Approaches in Gesture Recognition from an EMG Armband 
+% {\footnotesize \textsuperscript{*}Note: Sub-titles are not captured in Xplore and
+% should not be used}
+% \thanks{Identify applicable funding agency here. If none, delete this.}
+}
+
+\author{\IEEEauthorblockN{Dániel Szabó}
+\IEEEauthorblockA{\textit{Institute of Artificial Intelligence} \\
+\textit{Technical University of Košice}\\
+Košice, Slovakia \\
+daniel.szabo@student.tuke.sk}
+\and
+\IEEEauthorblockN{Barbora Novysedláková}
+\IEEEauthorblockA{\textit{Institute of Artificial Intelligence} \\
+\textit{Technical University of Košice}\\
+Košice, Slovakia \\
+barbora.novysedlakova@tuke.sk}
+% \and
+% \IEEEauthorblockN{3\textsuperscript{rd} Given Name Surname}
+% \IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
+% \textit{name of organization (of Aff.)}\\
+% City, Country \\
+% email address or ORCID}
+% \and
+% \IEEEauthorblockN{4\textsuperscript{th} Given Name Surname}
+% \IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
+% \textit{name of organization (of Aff.)}\\
+% City, Country \\
+% email address or ORCID}
+% \and
+% \IEEEauthorblockN{5\textsuperscript{th} Given Name Surname}
+% \IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
+% \textit{name of organization (of Aff.)}\\
+% City, Country \\
+% email address or ORCID}
+% \and
+% \IEEEauthorblockN{6\textsuperscript{th} Given Name Surname}
+% \IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
+% \textit{name of organization (of Aff.)}\\
+% City, Country \\
+% email address or ORCID}
+}
+
+\maketitle
+\begin{abstract}
+Low-cost surface electromyography (sEMG) armbands make gesture recognition
+accessible, but classifiers that perform well on the people they were trained
+on often fail on a new wearer. We compare classical machine learning (ML)
+classifiers and neural networks (NN) for gesture recognition from an
+eight-channel Myo armband under a single leave-one-person-out protocol. We
+recorded a dataset of 211 recordings of six gestures from five people, and
+evaluated 16 ML classifiers, including soft-voting ensembles, and 9 neural
+architectures, with window-level deduplication and an amplitude-only control
+to avoid inflated scores. On an unseen person, the best ML ensemble reaches
+77.6\,\% accuracy per window against 72.4\,\% for the best neural network in
+the same search run (67.7\,\% averaged over seeds), whereas the network has
+about 300 times fewer learned parameters and is 30 times faster per window.
+Per-wearer calibration, augmentation and adaptation of the input to the person
+were tested as ways to improve generalisation: calibration is worth about four
+points, augmentation did not help, and adaptation added a further four points
+for the ML models. In informal live use the system seemed to perform better than these
+controlled figures suggest, although this was not measured
+\textcolor{red}{[TODO: measure live accuracy and replace this sentence with the
+result]}.%
+% TODO: measure live accuracy (TEST MODEL, new sitting, band re-donned) and
+% replace the "not measured" statement here and in the Introduction.
+One wearer with a smaller arm was consistently the hardest to recognise;
+excluding her recordings from training changed the accuracy for the other
+people by less than one point on average, so the difficulty appears to lie in
+her own signal, possibly in a loose fit of the band. Both model families fail
+on the same gestures and wearer, which suggests that the data, rather than the
+classifier, is the limiting factor.
+\end{abstract}
+
+
+\begin{IEEEkeywords}
+electromyography, gesture recognition, Myo armband, machine learning, neural networks, cross-subject generalization
+\end{IEEEkeywords}
+
+
+
+\section{Introduction}
+Gesture recognition from surface electromyography (sEMG) is a practical
+interface for prosthetics, assistive devices and robot control, because the
+muscle signal can be read non-invasively from the forearm. Low-cost armbands
+such as the Thalmic Myo, with eight dry electrodes, have made it possible to
+collect such data outside the laboratory \cite{TODO_myo_armband}.
+
+A recurring problem is that accuracy does not transfer between people. A
+classifier trained and tested on recordings of the same wearer often exceeds
+95\,\%, but the same model applied to a person it has never seen performs
+considerably worse, because electrode placement, band orientation, skin
+condition and muscle fatigue change the signal \cite{TODO_inter_subject}. In
+our data the same ML model scores 97.4\,\% on a wearer who is in its training
+data (other recordings held out) and 77.6\,\% on one who is not
+(Fig.~\ref{fig:gap}).
+Reported results are further inflated when overlapping windows from one
+recording appear in both the training and the test set, or when each gesture
+is recorded in a single take, so that a model can separate classes by
+signal amplitude alone instead of by the gesture itself. A subject-independent
+evaluation that excludes the tested person from training is therefore the only
+meaningful estimate of how a model behaves in use.
+
+A further practical issue is the quality of the electrode contact. The armband
+is built for a limited range of arm circumferences, and on thinner arms some
+electrodes may not press firmly against the skin. Such a loose connection is
+easy to overlook: on the live plot the signal can look plausible, and only on
+closer inspection does it become clear that one or more channels carry little
+or no usable information. A model trained or evaluated on such recordings
+effectively sees fewer than eight channels without this being visible in the
+labels or in the overall accuracy, which makes the problem hard to detect
+and to separate from genuine differences between gestures.
+
+Two families of models are commonly used for this task. Classical machine
+learning (ML) classifiers operate on hand-crafted features and are small,
+fast and easy to train on little data. Neural networks (NN) learn directly
+from the windowed time series and can exploit the temporal structure of the
+signal, but typically need more data and a GPU
+\cite{TODO_ml_emg,TODO_dl_emg}. Which family is preferable for an armband
+dataset of realistic size is not obvious, and a fair answer requires that both
+are trained, tuned and scored under exactly the same protocol.
+
+The contributions of this work are as follows:
+\begin{itemize}
+  \item a labelled dataset of 211 recordings of six gestures from five
+        people, together with an open recording tool that preserves raw data
+        and applies per-wearer calibration;
+  \item a unified evaluation pipeline with window-level deduplication,
+        subject-grouped folds and an amplitude-only control that reveals how
+        much of a score comes from channel levels rather than gesture shape;
+  \item a comparison of 16 classical ML classifiers, including soft-voting
+        ensembles, and 9 neural network architectures, both recurrent and
+        non-recurrent, in terms of accuracy on an unseen person, inference time
+        and model size;
+  \item an ablation of training options aimed at generalisation to a new
+        wearer: augmentation (gain, noise, time warping, circular channel
+        rotation emulating a rotated band, and channel dropout emulating a
+        lifted electrode) and adaptation of the input to the person from a few
+        seconds of unlabelled signal. Every option can be switched on or off
+        in the settings of the recording tool, and is enabled by default only
+        where the ablation showed a gain;
+  \item an analysis of a single hard-to-recognise wearer, comparing training
+        with and without her recordings and testing band rotation and
+        adaptation as explanations.
+\end{itemize}
+On a person held out from training, the best ML ensemble reaches
+77.6\,\% per window against 72.4\,\% for the best neural network, while the
+network is about 300 times smaller and 30 times faster per window. Both
+families struggle with the same gestures and with the same wearer, which
+points to the dataset rather than the model as the limiting factor.
+
+One of the five wearers, who has a smaller arm, is consistently the hardest to
+recognise: a model that has never seen her reads only about 60\,\% of her
+windows correctly for the ML models and about 40\,\% for the neural networks,
+compared with 72--94\,\% (ML) and 66--80\,\% (networks) for the other four people. To test whether her
+recordings distort the training set, we repeated the comparison without them.
+For the four remaining people, accuracy changed by less than one percentage
+point on average (+0.9 for both families), and in different directions for
+different people, from +8.0 (Bruno) to $-2.7$ (Betka) points for the ML models. We
+therefore found no consistent effect, although with four people we cannot
+exclude a small one. The overall score does rise when she is excluded, but only
+because her fold, the hardest, no longer enters the average; such figures are
+not comparable. Neither a circular shift of the electrodes, emulating a rotated
+band, nor leaving her out explained her results, whereas adaptation of the
+input to the person raised her accuracy from about 46\,\% to 60\,\% for the ML
+models and from 37\,\% to 63\,\% for the GRU. We
+suspect that a loose fit of the band on a thinner arm contributes, in line
+with the contact problem described above, but this was not tested.
+
+The rest of the paper is organised as follows. Section~\ref{sec:related}
+reviews related work and Section~\ref{sec:dataset} describes the dataset.
+Sections~\ref{sec:ml} and~\ref{sec:nn} describe the machine learning
+algorithms and the neural network, respectively. Section~\ref{sec:experiments}
+presents the experiments, Section~\ref{sec:evaluation} evaluates them, and
+Section~\ref{sec:conclusion} concludes the paper.
+
+
+
+\section{Related Works}
+\label{sec:related}
+\emph{Classical pipelines.} Gesture recognition from sEMG has traditionally used
+windowed, hand-crafted features such as the mean absolute value, waveform length,
+zero crossings and slope sign changes, classified with linear discriminant analysis,
+support-vector machines or tree ensembles \cite{TODO_ml_emg}. \emph{Neural
+networks.} More recent work learns directly from the windowed signal with
+convolutional, recurrent and attention-based networks \cite{TODO_dl_emg} and reports
+high accuracy within a subject. \emph{Cross-subject generalisation.} The accuracy
+falls when a model meets a new wearer, because electrode placement, band orientation
+and anatomy change the signal; the usual remedies are calibration or adaptation to
+the new wearer and augmentation \cite{TODO_inter_subject}. Reported figures can also
+be inflated when overlapping windows of one recording appear in both the training
+and the test set, or when each gesture is recorded in a single take, which is why we
+remove duplicated windows and add an amplitude-only control.
+\emph{Armbands.} The Myo armband \cite{TODO_myo_armband} has eight dry electrodes
+and streams either a raw signal or, in the mode we use, a rectified envelope
+computed on the device at about 50\,Hz.
+\textcolor{red}{[TODO: replace the placeholder citations by the real references and
+add the closest related studies with their reported cross-subject accuracies.]}
+\section{Dataset}
+\label{sec:dataset}
+\subsection{Recording and data structure}
+The data are multichannel time series. The Myo armband provides eight sEMG
+channels, one per dry electrode pod, which we record in its on-device filtered
+mode: the signal is rectified and smoothed into an activation envelope, so
+every sample is a non-negative integer (nominal range 0--2047) and the stream
+has a measured rate of 49.9\,Hz (median; 46.5--51.2\,Hz across recordings);
+the radio link delivers the samples in bursts, so they are not evenly spaced
+in time.
+One recording is therefore a matrix of $T \times 8$ samples with timestamps and
+a gesture label; the median recording has 151 samples (3.0\,s).
+
+Six gestures were recorded: rest, fist, open hand, thumb up, wave left and wave
+right. Each wearer held every gesture in a relaxed way, at the effort they
+would use in practice, during a single continuous take per gesture. The take
+was cut afterwards into labelled clips, and all 211 recordings come from such
+clips. The median clip is 3.0\,s long and 81\,\% are between 2 and 4\,s
+(the shortest is 1.0\,s, the longest 9.5\,s), which gives each wearer between
+113 and 154\,s of signal. The dataset contains five wearers with 40--44
+recordings each, 10.6 minutes of signal in total (Table~\ref{tab:dataset}).
+Each wearer was recorded in one sitting on a single day, so differences
+between sittings cannot be separated from differences between wearers. The
+classes are approximately balanced; rest is the most frequent with 44
+recordings and fist the least frequent with 29. Every recording was checked
+automatically for gaps, saturation and a noisy resting baseline; recordings
+with warnings (47 with a noisy baseline, 6 with a resting signal that was not
+quiet) were flagged but kept. All 211 clips and the 30 longer takes they were
+cut from were also read in full for this paper: none contains missing values,
+the timestamps never run backwards, the highest count is 1659 (the
+nominal maximum is 2047) and no channel is dead.
+
+\begin{table}[!t]
+\centering
+\caption{Number of recordings per wearer and gesture.}
+\label{tab:dataset}
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{lrrrrrrr}
+\toprule
+Wearer & Rest & Fist & Open & Thumb & Wave L & Wave R & Total \\
+\midrule
+Barbora & 13 & 4 & 6 & 5 & 8 & 7 & 43 \\
+Betka   & 7  & 6 & 7 & 7 & 7 & 7 & 41 \\
+Bruno   & 8  & 7 & 7 & 6 & 8 & 7 & 43 \\
+Dano    & 6  & 7 & 7 & 8 & 8 & 8 & 44 \\
+Miso    & 10 & 5 & 8 & 6 & 5 & 6 & 40 \\
+\midrule
+Total   & 44 & 29 & 35 & 32 & 36 & 35 & 211 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The signals of different wearers are not on the same scale. At rest the
+channel levels are around 20 for most channels, but for some wearers several
+channels sit much higher, for example about 80--110 on four channels for one
+wearer, while the activation of a hard contraction reaches several hundred to
+over 1500. We therefore put every wearer on a common scale with an affine
+calibration derived from that wearer's own unlabelled recordings. The signal is
+then resampled onto an even 60\,Hz grid, so that a window always covers the
+same duration, and cut into overlapping windows with 75\,\% overlap.
+Windows are 1.0\,s long for the ML models and 0.7\,s for the neural networks.
+Because clips cut from the same take overlap, windows that cover the same
+stretch of signal are kept only once, which leaves 1787 windows for the ML
+models and 2873 for the neural networks. The ML windows per gesture are 325
+(fist), 318 (open hand), 327 (rest), 223 (thumb up), 319 (wave left) and 275
+(wave right); the majority class (rest) accounts for 18\,\% of them. The ML
+models do not read the window directly but 50 features computed from it
+(Section~\ref{sec:ml}), whereas the networks read the calibrated window.
+
+\subsection{Data visualisation}
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{figures/Dano_session_01_REST_20261012-164359-976.png}
+\caption{Eight sEMG channels (filtered mode, 50\,Hz) over 30\,s of rest for one
+wearer, from an earlier recording of the tool that is not part of the final
+dataset.}
+\label{fig:raw}
+\end{figure*}
+
+Figure~\ref{fig:raw} shows 30\,s of the eight channels of one wearer at rest.
+Even without a gesture the channels are not flat: each has its own baseline
+level, one channel stays clearly higher than the others, and short bursts of
+activity appear on most of them. The signal is therefore a mixture of a
+channel-dependent baseline and brief bursts, which is why the channels are put
+on a common scale before they are used (Section~\ref{sec:dataset}). This
+recording comes from the first test session of the tool and its rest is far more
+active than that of the clips in the final dataset (Fig.~\ref{fig:profiles}).
+
+Figure~\ref{fig:profiles} shows the final dataset: the recorded counts averaged
+over the labelled part of every clip, per wearer, gesture and channel. Rest is
+quiet for most wearers (about 20 counts on every channel for Betka and Dano), but
+four channels sit at 86--112 for Miso, two at 81--88 for Bruno and one at 76 for
+Barbora, which is why a common scale is needed. Every gesture has its own pattern
+of strong channels, but the patterns are close: the open hand and the right wave
+have a cosine similarity of 0.93--0.98 between their mean profiles for every
+wearer. The wearers also differ in how strongly they make a gesture: the thumb up
+is on average three times the rest level for Betka and only 1.6 times for Miso,
+against about 5 for Barbora and Dano and 11 for Bruno.
+\begin{figure*}[!t]
+  \centering
+  \safefig{width=\textwidth}{figures/channel_profiles.png}{channel\_profiles.png}
+  \caption{Mean level of each of the eight channels (recorded counts, colour on a
+  logarithmic scale) for every gesture, one panel per wearer.}
+  \label{fig:profiles}
+\end{figure*}
+
+To see how well the gestures can be separated, Fig.~\ref{fig:pca} projects the
+50 features of every ML window to two dimensions by principal component
+analysis (PCA), which does not use the labels; the two components explain
+61\,\% of the variance. Rest forms a separate cluster, and the two waves
+occupy their own regions, while fist, open hand and thumb up overlap. This
+agrees with the errors of the classifiers in Section~\ref{sec:evaluation}.
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{figures/pca_by_gesture.png}
+\caption{PCA of the 50 features per window (1787 windows), one gesture
+highlighted per panel.}
+\label{fig:pca}
+\end{figure}
+
+\FloatBarrier
+
+\section{Machine learning algorithms}
+\label{sec:ml}
+\subsection{Features}
+Every ML window is a $60\times 8$ block (1.0\,s at 60\,Hz) of the calibrated
+signal. We compare three feature sets. The \emph{level} set has 50 features: for
+each channel the mean, median, 90th percentile, standard deviation, the share of
+the total activation that falls on the channel and the logarithm of the mean
+(48 values), plus the logarithm of the total activation and the ratio of the
+strongest channel to the mean channel. The \emph{classic} set has 88 waveform
+features, eleven per channel (RMS, mean absolute value, variance, standard
+deviation, waveform length, zero crossings, slope sign changes, peak, integrated
+EMG, peak-to-peak and skewness), and \emph{both} has 138. The recorded stream is
+already rectified, and the classic features subtract each channel's median, which
+removes the activation level that identifies a gesture here; the comparison in
+Section~\ref{sec:training} shows the consequence.
+\subsection{Classifiers}
+Sixteen scikit-learn classifiers were compared. Linear and kernel models and
+neighbours read standardised features: shrinkage LDA, logistic regression
+($C=0.1$ and $1$), $k$-NN ($k=15$ and $31$, distance-weighted), an RBF-SVM ($C=1$, 3,
+10 and 30) and two MLPs (one hidden layer of 128 units, and two of 256 and 128, with
+$L_2$ penalties $10^{-3}$ and $10^{-2}$, trained with Adam for at most 1200 iterations
+and stopped on 10\,\% of their own training fold). The tree models read the features
+as they are: histogram gradient boosting (learning rate 0.05, 300 iterations), and
+random forests and extra-trees of 500 trees with a minimum leaf size of one or three
+windows. All other settings are the scikit-learn defaults; none was tuned on the
+held-out wearer.
+\subsection{Soft-voting ensembles}
+A soft vote averages the class probabilities of its members with equal weights and
+answers with the class of the largest mean. The members must be fed identical
+features, nothing is refitted, and the vote is scored from the members' stored
+out-of-fold probabilities, so any subset can be evaluated without training.
+
+Averaging the probabilities of 2--4 models (every subset of the
+eight best models per family, 154 subsets) did not beat the best single model. The
+best ML subset reached 79.3\% on the folds it was searched on but 77.0\% when the
+choice was repeated without each wearer, against 77.6\% for the best single model; an
+unweighted vote that also contained an SVM and LDA scored 69.5\%, because weaker
+members outvote the forests.
+
+\section{Neural Network}
+\label{sec:nn}
+\subsection{NN Architecture}
+All nine networks read the 42-step, eight-channel window after the logarithm and a
+per-channel standardisation fitted on the training wearers, and end in one linear
+layer over the six classes. Most use a width of 32. The \emph{GRU} is a single
+recurrent layer with attention pooling over time; the \emph{CNN-GRU} puts a
+depthwise-separable convolution in front of it, and the \emph{circular GRU} a
+two-dimensional convolution over time and electrode with circular padding along
+the electrodes, because the eight pods form a ring. The \emph{LSTM} has two layers
+and classifies from its last state. The \emph{CNN} has three convolutional layers
+with global average pooling. The \emph{TCN} stacks three depthwise-separable
+convolutions with dilations 1, 2 and 4 and attention pooling. The \emph{channel
+Transformer} treats the whole window of each electrode as one token (two layers,
+four heads), the \emph{InceptionTime-style} network uses three modules with kernel
+sizes 3, 7 and 15 and a residual connection, and \emph{TSMixer} alternates
+mixing along time and across features. They have between 3.9 and 20.3 thousand
+parameters (GRU 4\,455, TCN 3\,943, CNN-GRU 6\,503, InceptionTime-style 6\,854,
+TSMixer 9\,066, circular GRU 9\,927, LSTM 14\,022, CNN 18\,246, channel Transformer
+20\,326). ROCKET, which was tried once, fits only a linear read-out on random
+convolutional kernels (169 thousand parameters). The GRU and TSMixer are described
+in Section~\ref{sec:evaluation}.
+\subsection{Training}
+\label{sec:training}
+
+\textbf{Protocol.} Every model in this paper, classical or neural, is trained and
+scored under the same leave-one-person-out protocol: for each of the five wearers
+the model is fitted on the windows of the other four and scored on the windows of
+the fifth, whom it has never seen. The reported accuracy is the share of correctly
+classified windows of the held-out wearer, averaged over the five wearers. Windows
+overlap by 75\% and are de-duplicated, so that no stretch of signal is counted twice.
+
+\textbf{Network training.} The networks read a 0.7\,s window after the per-wearer
+affine calibration. They are trained with AdamW (learning rate $3\cdot10^{-3}$,
+weight decay $10^{-3}$), cross-entropy with label smoothing 0.05, and class weights
+inversely proportional to the class frequencies of the training fold. The batch size
+is 64, the learning rate follows a cosine decay over a fixed 150 epochs, the hidden
+width is 32 and the dropout 0.25. There is no validation split and no early
+stopping: the number of epochs is fixed in advance, so the held-out wearer never
+influences when training stops. The selected GRU with attention pooling has about
+4.5 thousand learned parameters (25\,KB).
+
+\begin{figure*}[!t]
+  \centering
+  \safefig{width=0.85\textwidth}{figures/zoo_overview.png}{zoo\_overview.png}
+  \caption{The model zoo: leave-one-person-out accuracy against model size (log
+  scale). Blue: 16 classical classifiers (adaptation to the wearer, three seeds);
+  orange: 9 neural networks (two seeds). Ringed markers: the three best models of
+  each family, used in the rest of the paper.}
+  \label{fig:zoo}
+\end{figure*}
+
+\textbf{Model search.} We did not fix the model in advance but searched for it in
+three stages, all under the protocol above.
+\emph{(i) Classical models and features.} Sixteen classifiers (logistic regression
+with two regularisation strengths, shrinkage LDA, $k$-NN with $k=15$ and $31$, an
+RBF-SVM with four values of $C$, two MLPs, histogram gradient boosting, and random
+forests and extra-trees with 500 trees and two leaf-size settings each) were trained
+on 36 feature setups: three signal representations (the signal as recorded, a zero-phase 8\,Hz
+low-pass filtered signal, which our code calls band-passed because for a raw 200\,Hz
+stream it is a 20--95\,Hz band-pass, and its moving-RMS envelope) $\times$ three feature sets (amplitude
+\emph{level} features, classic waveform-shape features, or both) $\times$ four window
+lengths (0.4, 0.7, 1.0 and 1.3\,s). The tree ensembles took the whole top 15; level
+features were best at every window length except 0.4\,s, where they tie with both
+sets (best single model overall 77.4\% against 74.4\% for both feature sets and
+66.0\% for the classic ones); and accuracy rose up to
+1.0\,s windows and then flattened (Fig.~\ref{fig:windows}, Section~\ref{sec:experiments}). The best setup was the
+low-pass filtered signal with level features and 1.0\,s windows.
+\emph{(ii) Networks.} Five architectures (GRU, CNN-GRU, TCN, LSTM and CNN) were first
+swept at 0.3, 0.4 and 0.5\,s windows; at 0.5\,s the GRU led with 68.3\% ahead of the
+CNN-GRU (65.4\%), TCN (64.1\%), LSTM (62.4\%) and CNN (59.9\%). The GRU and CNN-GRU
+were then trained at six window lengths from 0.5 to 1.5\,s, and four newer
+architectures (circular GRU, InceptionTime-style, channel Transformer and TSMixer)
+and ROCKET with a ridge read-out (random convolutional kernels, only the linear
+read-out is fitted) were tried on 0.7\,s windows. The GRU was the best network and
+peaked at 0.7\,s (72.4\%), but its curve
+over window length is jagged and it is a single seed, so we do not read the peak as
+a real preference. In the same single-seed run ROCKET reached 69.7\%, with 169
+thousand parameters and 8.95\,ms per window against 0.68\,ms for the GRU.
+\emph{(iii) The zoo.} All 16 classifiers and 9 networks were then trained again at
+their chosen setups (1.0\,s for ML, 0.7\,s for the networks) with several seeds
+(three for ML, two for the networks, 150 epochs), and sizes and latencies were
+measured (Table~\ref{tab:models}, Fig.~\ref{fig:zoo}). The tree ensembles are the
+most accurate (79.4--80.8\%, 5--13\,MB on disk), the best network, the GRU, reaches
+67.7\% at 25\,KB, and the other networks lie between 61 and 66\%. The three best
+models of each family were carried into the later experiments. Averaged over seeds
+the GRU scores 67.7\%, not the 72.4\% of the single search run, and its overall
+accuracy moved by about 10 points between seeds in our ablation, so differences of
+a few points between networks are within noise.
+
+\textbf{Further training options.} Calibration, adaptation and augmentation, the
+soft-voting ensembles and the comparison of training with and without the hardest
+wearer are reported in Sections~\ref{sec:ml} and~\ref{sec:experiments}.
+
+\section{Experimental Evaluation}
+\label{sec:experiments}
+\subsection{Protocol}
+The protocol is the one of Section~\ref{sec:training}. We report accuracy per
+window as the mean over the five held-out wearers, so that each counts once;
+pooling all windows would weight a wearer by the number of windows and gives 79.1\%
+instead of 77.6\% for the best ML vote, because the hardest wearer has the fewest.
+The spread over wearers is 16\,points (standard deviation) for that vote and is
+the main uncertainty of every figure. The per-gesture figures are the share of the
+windows of a gesture that are classified correctly. Choosing among hundreds of
+models on the same five folds flatters the winner, so for the voting search we also
+repeat the whole choice without each wearer (nested check). The amplitude-only
+control replaces every window by its eight channel means and repeats training and
+scoring; a model that scores the same has used only the activation level.
+\subsection{ML models experiments}
+Over the 576 distinct fits of 16 classifiers on 36 feature setups, the tree
+ensembles hold the whole top 15 and are the best model on all eight setups that use
+level features of the recorded or the low-pass filtered signal, by 1.5 to 9.6 points
+(77.4\% against 67.8\% for the best other model at the winning setup). On 21 of the
+36 setups, mostly weaker ones with classic features or the envelope, a different model
+is best, by up to 6 points. The best score of each family is 77.4\% for extra-trees,
+76.9\% for random forests, 74.2\% for histogram gradient boosting, 68.4\% for $k$-NN,
+67.4\% for an MLP, 66.7\% for the SVM, 64.1\% for logistic regression and 63.9\% for
+LDA. Of the signal
+representations the low-pass filtered (77.4\%) and the recorded signal (76.9\%) are
+equal within noise, and the envelope is clearly worse (64.0\%). The windows give
+71.2\% at 0.4\,s, 75.6\% at 0.7\,s, 77.4\% at 1.0\,s and 76.9\% at 1.3\,s. How much
+a wearer matters is larger than any of these choices: over the same fits the best
+score on the hardest wearer is 56\% and the median 42\%, whereas the easiest wearer
+reaches 95\% at best.
+
+\begin{figure*}[!t]
+  \centering
+  \safefig{width=0.85\textwidth}{figures/window_length.png}{window\_length.png}
+  \caption{Accuracy on a held-out wearer against window length. Left: the best ML
+  model per feature set. Right: GRU and CNN-GRU (150 epochs, one seed).}
+  \label{fig:windows}
+\end{figure*}
+\subsection{NN experiments}
+For the GRU at the six window lengths (one seed each) the accuracy was 66.2\% at
+0.5\,s, 72.4\% at 0.7\,s, 65.1\% at 0.9\,s, 68.2\% at 1.1\,s, 64.7\% at 1.3\,s and
+65.3\% at 1.5\,s, and for the CNN-GRU 62.9, 60.2, 62.2, 61.6, 58.3 and 63.0\%
+(Fig.~\ref{fig:windows}). The weakest of the five folds is only 34--49\% at every length.
+With three seeds the GRU baseline scored 72.4, 63.0 and 67.8\% (mean 67.7\%), so the
+peak at 0.7\,s is not evidence of a preferred length. Re-running the same seed gave
+the identical 72.4\%, so the spread is between seeds and not between runs.
+\subsection{ML models and NN comparison}
+The two families are compared on the figures that matter for a wearable: accuracy
+on an unseen wearer, time per live window and size. In the search run the ML vote
+of two forests scored 77.6\% against 72.4\% for the GRU; over three seeds the same
+two models score 77.0\% and 67.7\%. The vote needs about 52\,ms per window on one
+CPU thread and 17.7\,MB with 1.29 million learned numbers, the GRU 1.8\,ms including
+the transfer to the GPU process and 25\,KB with 4\,455 parameters.
+
+Table~\ref{tab:models} compares all models that were trained in terms of accuracy,
+size and inference time, and shows what extra help each of them was trained with.
+
+\begin{table}[!htb]
+  \caption{All models (leave-one-person-out accuracy per window, \%). Plain = with
+  per-wearer calibration only (search stage), Final = with the help listed in the
+  header (classical: calibration and adaptation, three seeds; networks: calibration
+  only, two seeds). ms = time per live window (classical: one CPU thread, networks:
+  GPU). $^\dagger$Single-seed run of the newer-architectures test, not part of the
+  zoo; the GRU scored 72.4\% in that run.}
+  \label{tab:models}
+  \centering
+  \footnotesize
+  \setlength{\tabcolsep}{2.6pt}
+  \begin{tabular}{lrrrrr}
+    \hline
+    Model & Size & ms & Plain & Final & Gain \\
+    \hline
+    \multicolumn{6}{l}{\textit{Classical, 1.0\,s windows, calibration + adaptation}} \\
+    RF-500-leaf3  & 4.8\,MB & 26.4 & 76.6 & 80.8 & $+4.2$ \\
+    RF-500        & 5.7\,MB & 26.5 & 76.6 & 80.5 & $+3.9$ \\
+    ET-500-leaf3  & 11.5\,MB & 26.9 & 75.6 & 79.4 & $+3.8$ \\
+    ET-500        & 13.0\,MB & 26.6 & 77.4 & 79.4 & $+2.0$ \\
+    SVM-C1        & 219\,KB & 2.47 & 65.2 & 77.2 & $+12.0$ \\
+    SVM-C3        & 167\,KB & 2.27 & 64.9 & 76.4 & $+11.5$ \\
+    MLP-256-128   & 564\,KB & 3.53 & 65.0 & 75.7 & $+10.7$ \\
+    MLP-128       & 102\,KB & 2.34 & 67.3 & 74.9 & $+7.6$ \\
+    HGB           & 2.9\,MB & 28.6 & 67.8 & 74.6 & $+6.8$ \\
+    LogReg-C0.1   & 10.7\,KB & 2.25 & 61.5 & 74.4 & $+12.9$ \\
+    SVM-C10       & 157\,KB & 2.33 & 64.2 & 74.4 & $+10.2$ \\
+    SVM-C30       & 150\,KB & 4.67 & 64.1 & 73.8 & $+9.7$ \\
+    LDA           & 31\,KB & 2.60 & 63.1 & 73.4 & $+10.3$ \\
+    $k$-NN-31     & 371\,KB & 5.76 & 66.5 & 72.9 & $+6.4$ \\
+    $k$-NN-15     & 371\,KB & 3.55 & 66.3 & 72.8 & $+6.5$ \\
+    LogReg-C1     & 10.7\,KB & 2.17 & 62.6 & 69.7 & $+7.1$ \\
+    \hline
+    \multicolumn{6}{l}{\textit{Networks, 0.7\,s windows, calibration only}} \\
+    ROCKET$^\dagger$ & -- & 8.95 & -- & 69.7 & -- \\
+    GRU           & 23.5\,KB & 0.81 & -- & 67.7 & -- \\
+    TSMixer       & 45.9\,KB & 1.81 & -- & 66.3 & -- \\
+    Chan.\ Transf. & 92.2\,KB & 1.25 & -- & 66.0 & -- \\
+    LSTM          & 61.3\,KB & 0.52 & -- & 63.9 & -- \\
+    Circ.\ GRU    & 47.1\,KB & 1.28 & -- & 63.4 & -- \\
+    TCN           & 30.2\,KB & 2.08 & -- & 62.8 & -- \\
+    CNN           & 82.6\,KB & 1.09 & -- & 62.6 & -- \\
+    CNN-GRU       & 34.9\,KB & 1.49 & -- & 62.3 & -- \\
+    Inception-S   & 42.3\,KB & 2.62 & -- & 61.1 & -- \\
+    \hline
+  \end{tabular}
+\end{table}
+\subsection{Calibration, augmentation and adaptation}
+Three kinds of help for a new wearer were compared, each against a baseline on
+identical folds and seeds.
+
+\begin{figure*}[!t]
+  \centering
+  \safefig{width=0.85\textwidth}{figures/exclusion_per_person.png}{exclusion\_per\_person.png}
+  \caption{Accuracy on each remaining wearer for models trained with (light) and
+  without (dark) Barbora's recordings; mean of the three recommended models per
+  family, dots are single models.}
+  \label{fig:barbora}
+\end{figure*}
+Three kinds of help are available
+(Tables~\ref{tab:models} and~\ref{tab:help}). \emph{Calibration} puts every wearer on a
+common scale from their own unlabelled signal; switching it off costs the ML models
+4.3 points. \emph{Adaptation} standardises the input with statistics of a random 10\%
+of the wearer's unlabelled windows (about 9\,s) and adds a further 4.3 points to the ML
+pair, so that it rises from 72.7\% without any help to 77.0\% with calibration and
+81.3\% with both. It helps every classical model, by 2--4 points for the forests and
+10--13 for the SVMs, LDA and logistic regression with $C=0.1$, so the best non-forest
+model (SVM) is 3.6 points behind the best forest instead of about 10. The gain
+is uneven across wearers (for the ML pair Barbora $+14.6$, Miso $+8.4$, Dano $+5.3$,
+Betka $-0.6$ and Bruno $-6.3$ points), and by our rule it passes only on the
+robustness probes and then narrowly, so it is the weakest of the defaults we use. For the GRU it
+gave $+4.5$ points but with a baseline seed spread of 4.7 (against its own spread
+of 1.5 it would have passed, so this is a borderline call), so we left it off; the ML models are
+therefore trained with it and the networks without, which slightly favours the ML
+models. The gain is uneven: for the GRU it lifted Barbora from 37\% to 63\% but
+lowered Betka by 7 points (86\% to 79\%). A classical model trained with adaptation
+and used without the wearer's statistics reads 78.2\% against 78.5\% with them
+(seed 0), so it can be used before a calibration signal exists. Five \emph{augmentations} (gain, noise, time warp, band rotation, i.e.\ a
+circular shift of the eight channels, and a dead electrode) were also tried. Judged by
+a fixed rule (a gain of at least one point and twice the larger of the two seed spreads, in at least four
+of the five wearers), none is used: gain, rotation and dead electrode hurt, noise and
+time warp do nothing. Calibration is uneven across wearers too. Switching it off lowers Bruno from 80\% to
+57\% but raises Betka from 83\% to 90\% and Barbora from 46\% to 53\%, and a single
+global gain, which keeps the profile across channels intact, raises Barbora from 46\%
+to 75\% and lowers Miso from 88\% to 71\%. The mean favours the affine calibration we
+use (global gain $+3.6$ points but in only three of five wearers and within noise),
+yet the global gain is the most interesting lead for the hardest wearer and
+deserves a test with more wearers. Rotation raises the accuracy with a band slid by one electrode by
+about 17 points (ML 43.8\%\,$\to$\,61.1\%, GRU 45.6\%\,$\to$\,62.2\%) but costs 4--7
+points on unshifted data.
+
+\begin{table}[!htb]
+  \caption{What each extra help achieved (accuracy change in points, five wearers,
+  three seeds). Reference: ML = soft vote of ET-500 and RF-500-leaf3, GRU = network,
+  both with calibration only. Clean = normal test data, shifted = band slid by one
+  electrode. The seed spread of the reference is 0.5 points (ML) and 4.7 (GRU), so
+  GRU changes below about 9 points cannot be told from noise. n/m = not measured.
+  Used = whether ML / GRU training uses it.}
+  \label{tab:help}
+  \centering
+  \footnotesize
+  \setlength{\tabcolsep}{2.6pt}
+  \begin{tabular}{lrrrrl}
+    \hline
+    & \multicolumn{2}{c}{ML vote} & \multicolumn{2}{c}{GRU} & \\
+    Extra help & clean & shifted & clean & shifted & Used \\
+    \hline
+    Reference, accuracy \% & 77.0 & 43.8 & 67.7 & 45.6 & -- \\
+    Calibration off       & $-4.3$ & $+6.0$ & n/m & n/m & on / on \\
+    Global gain only      & $+3.6$ & $+1.1$ & n/m & n/m & off \\
+    Per-channel only      & $-8.1$ & $-4.2$ & n/m & n/m & off \\
+    Adaptation            & $+4.3$ & $+0.6$ & $+4.5$ & $+3.2$ & on / off \\
+    Aug.: gain            & $-4.7$ & $-2.4$ & $-1.8$ & $-0.3$ & off \\
+    Aug.: noise           & $+0.0$ & $-1.1$ & $+0.4$ & $+0.8$ & off \\
+    Aug.: time warp       & $-0.1$ & $-0.7$ & $-0.4$ & $+0.3$ & off \\
+    Aug.: band rotation   & $-6.6$ & $+17.3$ & $-4.2$ & $+16.6$ & off \\
+    Aug.: dead electrode  & $-4.2$ & $-1.5$ & $-1.1$ & $+4.3$ & off \\
+    Barbora left out      & $+0.9$ & -- & $+0.9$ & -- & off \\
+    \hline
+  \end{tabular}
+\end{table}
+\subsection{The hardest wearer}
+One wearer is read far worse than the others. We looked for the cause and for a
+remedy.
+
+
+Barbora is the hardest wearer: models
+that have never seen her read her at only about 60\% (ML) and 39\% (networks), far
+below everybody else. Her errors are not blurred but substituted: with the plain ML
+vote 81\% of her fist windows are answered as open hand, all of her open-hand windows
+as right wave and 83\% of her thumb-up windows as open hand, while rest and both waves
+are read correctly (94--98\%). The model is also as sure of these substituted answers
+as of correct ones (mean top probability 0.60 when right and 0.61 when wrong), whereas
+for the other four wearers wrong answers are clearly less certain (0.38--0.53 against
+0.64--0.82), so the confidence cannot be used to catch her errors. Rotation augmentation did not help (ML 45.9\% $\to$ 41.6\%;
+for the GRU 36.7\% $\to$ 56.1\%, but with very different results across seeds and
+a loss of 25 points on Miso). We therefore also trained the six recommended models
+again with identical settings but without her recordings, and scored them on the
+four remaining wearers (Betka, Bruno, Dano, Miso). For a kept wearer both numbers
+come from a model that never saw him or her, so the difference is exactly what
+Barbora's recordings did for that person.
+
+The effect is small and not consistent (Fig.~\ref{fig:barbora},
+Table~\ref{tab:barbora-models}). Averaged over the four wearers, leaving her out
+changes the ML models from 85.4\% to 86.3\% and the networks from 73.5\% to 74.4\%
+(+0.9 points in both cases; +0.2 to +2.2 for single models). Single-wearer changes
+range from $-5.7$ to $+9.5$ points and often change sign between models for the
+same wearer (Betka, Miso). With four wearers and two or three seeds this cannot be
+separated from noise. The headline scores without her are higher
+(86.2--86.4\% for ML and 73.6--75.4\% for the networks) only because the hardest
+wearer is no longer in the average, so they are not comparable with the five-wearer
+scores. Her own result is the clear loser: without her recordings she is read at
+59.7\% (ML) and 39.7\% (networks); the case where the model has seen her recordings
+and she wears the band in a new sitting was not measured. Leaving a wearer out is
+therefore offered as a setting, off by default.
+
+\begin{table}[!htb]
+  \caption{Change in accuracy (points) of the six recommended models on each
+  remaining wearer when Barbora's recordings are left out of training.}
+  \label{tab:barbora-models}
+  \centering
+  \footnotesize
+  \setlength{\tabcolsep}{3.5pt}
+  \begin{tabular}{lrrrrr}
+    \hline
+    Model & Betka & Bruno & Dano & Miso & Mean \\
+    \hline
+    ET-500-leaf3       & $-0.4$ & $+5.3$ & $+1.0$ & $+2.8$ & $+2.2$ \\
+    RF-500-leaf3       & $-3.2$ & $+9.1$ & $-0.3$ & $-4.2$ & $+0.4$ \\
+    RF-500             & $-4.6$ & $+9.5$ & $-0.7$ & $-3.6$ & $+0.2$ \\
+    \hline
+    Chan.\ Transformer & $-4.1$ & $+4.7$ & $+1.3$ & $+2.6$ & $+1.1$ \\
+    TSMixer            & $-2.6$ & $+0.3$ & $-1.5$ & $+8.1$ & $+1.1$ \\
+    GRU                & $+6.9$ & $+1.2$ & $-0.1$ & $-5.7$ & $+0.6$ \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\section{Evaluation of Experiments}
+\label{sec:evaluation}
+\subsection{Errors per gesture and per person}
+\begin{figure*}[!t]
+  \centering
+  \safefig{width=0.8\textwidth}{figures/confusion_both.png}{confusion\_both.png}
+  \caption{Confusion matrices with the wearer held out, ML vote (left) and GRU
+  (right). Rows are the gesture that was made, columns the answer of the model; the
+  large number is the share of the row.}
+  \label{fig:confusion}
+\end{figure*}
+The errors are concentrated in a few gestures and a few wearers. The waves and rest
+are easy for both families, whereas fist, open hand and thumb up are where both lose
+their points (Table~\ref{tab:gestures}). The three use overlapping forearm muscles, and
+on an eight-electrode band their patterns lie close together: in a projection of all
+training windows that never sees the labels, the waves and rest form their own
+islands while fist, open hand and thumb up overlap in the middle (Fig.~\ref{fig:pca}).
+The open hand and the right wave are almost the same signal (cosine similarity of the
+mean channel profiles 0.98 in the recorded counts and 0.92 after calibration, against
+0.56 between the two waves). Choosing another model therefore removes few of these
+errors: of the 1787 windows, 896 (50\%) are classified correctly by all of eight
+classical models (two forests, gradient boosting, an MLP, $k$-NN, an SVM, LDA and
+logistic regression) and 235 (13\%) by none, and a vote of these cannot repair the
+latter. The
+forest and the GRU lose their points on the same three gestures but not always through
+the same confusion: the GRU sends fist to thumb up 14 points more often, the forest
+sends the open hand to the right wave 13 points more often.
+
+\begin{table}[!htb]
+  \caption{Share of correctly classified windows per gesture (\%), wearer held out:
+  soft vote of ET-500 and RF-500-leaf3 (ML) and GRU (NN), single run of the
+  combination test. The last column is the most frequent wrong answer of the ML vote.}
+  \label{tab:gestures}
+  \centering
+  \footnotesize
+  \setlength{\tabcolsep}{3.5pt}
+  \begin{tabular}{lrrl}
+    \hline
+    Gesture & ML & NN & Main confusion \\
+    \hline
+    Rest        & 93.0 & 92.5 & thumb up \\
+    Wave left   & 98.4 & 93.3 & -- \\
+    Wave right  & 91.6 & 85.2 & open hand \\
+    Fist        & 68.3 & 48.7 & open hand \\
+    Open hand   & 59.7 & 60.5 & fist, wave right, thumb up \\
+    Thumb up    & 59.2 & 54.2 & open hand \\
+    \hline
+  \end{tabular}
+\end{table}
+
+\begin{figure}[!t]
+  \centering
+  \safefig{width=\columnwidth}{figures/generalisation_gap_paper.png}{generalisation\_gap\_paper.png}
+  \caption{The price of an unseen wearer: accuracy per window for a wearer who is in
+  the training data (other recordings held out) and for a wearer who is not.}
+  \label{fig:gap}
+\end{figure}
+For a wearer who is in the training data, with other recordings of theirs held out,
+both models read 97.4\% (ML vote) and 95.3\% (GRU) of the windows correctly, 20 and 23
+points more than for an unseen wearer (Fig.~\ref{fig:gap}); even this figure is
+optimistic, because clips cut from one take are close relatives.
+
+Per wearer the picture is uneven (ML vote and GRU, mean of three seeds, each wearer
+held out in turn): Betka 82.7\% and 86.0\%, Bruno 79.8\% and 69.2\%, Dano 88.9\% and
+74.7\%, Miso 87.7\% and 72.1\%, and Barbora 45.9\% and 36.7\%. The spread between
+wearers is about 43 points for the ML vote and 49 for the GRU, and Barbora alone
+accounts for most of it. The GRU is better than the vote on one wearer (Betka) and
+worse on the other four, but its single seeds differ a great deal (for Barbora 48.8,
+29.8 and 31.6\%), and with five wearers we do not read more into this. Why Barbora is hard is not settled: a rotated band does not explain it
+(Section~\ref{sec:experiments}), and a loose fit of the band on a thin arm is a
+hypothesis that we have not tested.
+
+\subsection{What the models read}
+To find out what each model uses, every window was replaced by its eight channel
+averages, which removes all shape and timing, and the same model was trained and scored
+again (the amplitude-only control). For the ML vote this changes nothing: 77.8\% with the
+averages alone against 77.6\% with all 50 level features. The tree ensembles read the
+calibrated activation level of each channel, and only that. This is not a defect, since
+after per-wearer calibration these levels transfer well between people, but it means
+the classical models cannot separate two gestures that differ only in how they
+develop in time. The GRU, in contrast, loses 9.2 points under the control (72.4\% to
+63.3\%), so it does use the time course of the signal. The loss is not spread evenly:
+it is about 26 points for rest, 20 for thumb up and 14 for the open hand, and nothing
+for the waves. Two of these three are also the hardest gestures of the ML vote, which
+suggests that timing carries some of the information that levels do not. The GRU
+result is a single seed, however, and its seed-to-seed spread of about 10 points is
+larger than this difference, so we treat it as an indication and not as a measured
+effect.
+
+\subsection{How the best models work}
+\textbf{Random forest and extra-trees (best classical models).} The best model of the
+zoo is a random forest of 500 trees in which every leaf holds at least three windows
+(RF-500-leaf3, 80.8\%), followed by the same forest without the leaf limit and by
+extra-trees with 500 trees. A forest is a set of decision trees, each trained on a
+random part of the windows and a random part of the features, which then vote; extra-trees
+additionally choose the split thresholds at random, which makes them faster and
+smoother. The input is a vector of 50 amplitude features computed from a 1.0\,s window
+of the low-pass filtered, calibrated signal: for each of the eight channels the mean,
+median, 90th percentile, standard deviation, the share of the total activation that
+falls on the channel and the logarithm of the mean, plus the logarithm of the total
+activation and the ratio of the strongest channel to the mean channel. Nothing in this vector describes the shape of
+the waveform, which is why the amplitude-only control above loses nothing. The trees
+split mainly on which channels are strong and how strong, and the forests fit these
+rules without needing a tuned learning rate, which suits a data set this small.
+
+\textbf{GRU (best network).} The network reads a 0.7\,s window, about 40 time steps of
+eight channels, after the calibration and a per-channel standardisation fitted on the
+training wearers. A single gated recurrent layer with 32 units runs along the window
+and produces a state for every time step. Instead of using only the last state, an
+attention layer learns a weight for each step and the network keeps both the weighted
+mean and the plain mean of the states, so that it can focus on the part of the window in
+which the gesture is present without losing the overall activation level. The 64
+resulting numbers go through dropout (0.25) and one linear layer to the six classes.
+In total it has 4\,455 parameters (25\,KB).
+
+\textbf{TSMixer (second network).} TSMixer is the best network that has no recurrence
+and the next one in accuracy (66.3\%, 46\,KB). The eight channels are first embedded
+into 24 features per time step. Two mixer blocks then alternate between two small
+networks with a residual connection and layer normalisation: one mixes information
+along time, with the same weights for every feature, and the other mixes the features of
+one time step. The mean and the maximum over time are concatenated and classified by one
+linear layer. It reaches almost the accuracy of the GRU while all time steps are
+processed in parallel, but it is twice as large and slower per window (1.8 against
+0.8\,ms), and in our runs it was not better than the GRU.
+
+\subsection{Speed, soft voting and the single network}
+A live prediction is made every 0.15\,s, so everything faster than that keeps up. The
+classical pipeline needs 1.7\,ms to resample, calibrate and compute the features and
+then about 25\,ms for each of the two forests, so the soft vote of both takes about
+52\,ms per window on one CPU thread. The SVM and LDA take under a millisecond, but
+they are also 13--14 points less accurate. The network needs about 0.8\,ms for the
+forward pass and 1.8\,ms including the round trip to the process that runs it on the
+GPU (2.9\,ms on the CPU), about thirty times less than the forest vote, and it is two
+orders of magnitude smaller on disk (25\,KB against 5--13\,MB per forest).
+
+Soft voting averages the class probabilities of several models. We searched all
+subsets of two to four of the eight best models per family (154 subsets). The best
+vote, of ET-500 and RF-500-leaf3, reached 77.6\%, only 0.2 points above ET-500 alone
+(77.4\%), and 74.0\% when the search was repeated without each wearer. A vote that
+also contained an SVM and LDA was worse (69.5\%), because an unweighted vote gives
+the weaker members the same say as the forests. Since two forests also cost twice the
+time of one, we regard voting as not worth it here: a single forest is as good and
+half as slow. The network is used on its own and is never combined with the classical
+models, so that it stays an independent second opinion. Alone it is 5 points behind the
+vote in the single-run comparison (72.4\% against 77.6\%) and 13 points behind the best
+forest of the zoo when averaged over seeds (67.7\% against 80.8\%), but it is the only
+model that uses the time course of the signal, it is tiny, and it is fast enough to run
+on a small board. The gap between the two numbers for the GRU is mainly seed
+variance.
+
+\subsection{Limitations}
+The results rest on five wearers, and the figures should be read with that in mind.
+Each wearer has only 17 to 102 windows of a gesture, from a handful of recordings, so
+a single cell of a per-wearer table can move a lot with one more recording, and
+the ML score depends strongly on one person (Barbora). The smallest cell, Betka's
+thumb up (17 windows), is small for a recorded reason: the first seven of her 14
+thumb-up clips (3\,s each) were discarded and seven shorter clips (1.0--2.1\,s) were
+recorded afterwards, and only these are in the dataset. The soft vote of the two forests
+reached 77.6\% on the folds on which it was selected, but 74.0\% when the whole
+selection was repeated without each wearer, so the first number is optimistic. The
+network figures come from one or two training seeds and differ by up to about 10
+points between seeds, which is more than most of the differences between networks.
+
+The electrode contact is another limitation. The band does not fit all arms equally
+tightly, and one of the wearers, who has a thin arm and is the hardest case, was observed by
+the operator not to wear it tightly; the fit was not measured. We did not record a
+second sitting with a tighter fit, so whether a loose contact is the cause remains
+untested. Calibration also has a cost: a model trained on
+calibrated features needs every new wearer to calibrate first, and the calibration used
+for training was derived from the recorded signal rather than from the live
+rest-and-squeeze procedure. Only one wearer (Dano) has a live calibration, a guided
+sweep over the gestures, and its per-channel reference levels differ from the derived
+ones by a factor of 0.8 to 2.2; whether a model trained on the derived scale predicts
+well on the live scale was not measured, and the other wearers have no live
+calibration.
+
+Finally, all accuracies are measured offline on recorded holds, with the wearer
+held out, and not live. Live use differs in three ways: gestures are made and relaxed
+rather than held, the prediction is repeated every 0.15\,s on overlapping windows, and
+the wearer sees the result. The live accuracy has not been measured, and the numbers
+in this paper should not be read as one.
+\textcolor{red}{[TODO: measure the live accuracy in a real session with the armband worn,
+not on the recorded data set, and report it here.]}
+
+\section{Conclusion}
+\label{sec:conclusion}
+We compared classical machine learning with small neural networks for recognising six
+gestures from the Myo armband on five wearers, always on a wearer the model had not
+seen. The best classical model, a random forest, reached 80.8\% per window with
+calibration and adaptation to the wearer; the soft vote of two forests reached 77.6\%
+(74.0\% when the selection was repeated without each wearer) and the best network, a GRU
+with 4\,455 parameters, 72.4\% in a single run and 67.7\% averaged over seeds. The
+classical models are therefore ahead by about 5 to 13 points, but the network is two
+orders of magnitude smaller and about thirty times faster per window. Voting did not
+help, since one forest is as good as two.
+
+Calibrating every wearer on their own signal was the most useful addition, and adapting
+the input statistics to the wearer helped the classical models further. Augmentation did
+not help. The forests read only the calibrated level of each channel, whereas the GRU
+also uses the time course of the signal, which is the reason to expect it to improve with
+more data. Most errors come from fist, open hand and thumb up, and from one wearer
+(Barbora), whose recordings the models read at only about 60\% (ML) and 39\% (networks)
+when they have not seen her. With five wearers these results are an indication and
+not a final ranking.
+
+The next steps are more wearers, a second sitting with a tighter fit of the band for
+the hardest wearer, and a measurement of the live accuracy.
+\textcolor{red}{[TODO: live measurement on a real armband, not from the recorded data
+set, still has to be done and added here.]}
+The code, the recording tool and the training pipeline are available at
+\textcolor{red}{\texttt{https://github.com/Inszert/emg}}
+\textcolor{red}{[TODO: replace with the official repository.]}
+
+\printbibliography
+
+\end{document}

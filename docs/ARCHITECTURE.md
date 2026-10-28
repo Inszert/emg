@@ -141,8 +141,8 @@ absolute (so recordings can be correlated with anything else) and immune to
 NTP steps or DST changes mid-session.
 
 The sample rate is **measured**, never assumed:
-`measured_rate()` takes the median inter-sample interval, so a few dropped
-packets do not skew it. `NOMINAL_SAMPLE_RATE` is only used to size buffers and
+`measured_rate()` takes the span average `(n-1) / (t[-1]-t[0])` (not the median
+interval: delivery is bursty, see section 5a), so a few dropped packets barely skew it. `NOMINAL_SAMPLE_RATE` is only used to size buffers and
 to sanity-check the measurement.
 
 ## 5. Connection lifecycle

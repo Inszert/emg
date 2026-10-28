@@ -118,6 +118,15 @@ All numbers from the 85-recording two-wearer dataset on disk
 
 ### 2.1 Resting level is NOT wearer-specific
 
+> **Update 2026-10-28: this held for two wearers and does not hold for five.**
+> Measured on the current dataset (`docs/DATASET_SUMMARY.md`): Miso has four
+> channels with a resting level of 86-112 counts, Bruno two at 81-88 and Barbora
+> one (CH2) at 76, against 18-26 for the others. Resting level is therefore partly
+> a property of the wearer (contact, fit), which is why the rest-subtracting
+> `affine` calibration helps and "a rest-anchored calibration is a no-op" is no
+> longer true. The two-wearer table below is kept as the record of what was
+> measured at the time.
+
 | | CH1 | CH2 | CH3 | CH4 | CH5 | CH6 | CH7 | CH8 |
 |---|---|---|---|---|---|---|---|---|
 | `Betka` REST | 19 | 21 | 22 | 21 | 22 | 22 | 25 | 20 |
