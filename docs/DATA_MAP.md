@@ -19,6 +19,7 @@ document already summarises it. Counts below were taken from the checkout on
 | newer architectures | [REPORT.md](REPORT.md) section 5, `models/reports/new_models_test_run1/` | `tools/new_models_test.py`, `tools/make_figure_new_models.py` |
 | how fast is a live window? | [REPORT.md](REPORT.md) section 9, `models/reports/bench_models_20261022.json` | `tools/bench_models.py`, `tools/bench_zoo.py` |
 | do the automatic checks pass? | [REPORT.md](REPORT.md) section 11, `tests/last_run.json` | `tools/run_tests.py` |
+| the check of `publication.tex` against the data (what was corrected, added, left open) | [PUBLICATION_CHECK.md](PUBLICATION_CHECK.md), figures made for it by `tools/make_figures_paper.py` | (this pass) |
 | the archived first dataset and why it gave dishonest scores | [EDA.md](EDA.md), `datasets/_archive_pre_r1_20261015/` | (analysis of 2026-10-15) |
 | how did the numbers get here, and what did each training run cost? | [TRAINING_HISTORY.md](TRAINING_HISTORY.md), `results/training_history.json` | `tools/training_history.py` (reads every sweep, log and job file) |
 

@@ -110,9 +110,13 @@ overlap. These are single models, no voting, person held out:
 | LogReg C=1 | 62.6 % | 65.6 % | 60.8 % |
 | LogReg C=0.1 | 61.5 % | 65.1 % | 58.4 % |
 
-**The forests win by about 10 points, and the same is true on every other
-setup searched.** The whole top 15 of 576 combinations is ExtraTrees or
-RandomForest. Longer windows help the ML models: 1.0–1.3 s beat 0.5–0.7 s
+**The forests win by about 10 points on the winning setup (9.6 points over the
+best other model), and they are the best model on all eight setups that use
+`level` features of the recorded or band-passed signal (by 1.5 to 9.6 points).**
+On 21 of the 36 setups, mostly weaker ones (`classic` features or the envelope), a
+different model is best, by up to 6 points (checked 2026-10-28 against
+`ml_result.json`; an earlier version of this paragraph said "every setup"). The
+whole top 15 of 576 combinations is ExtraTrees or RandomForest. Longer windows help the ML models: 1.0–1.3 s beat 0.5–0.7 s
 everywhere. `level` features (per-channel amplitude) beat the classic shape
 features on every top setup.
 
