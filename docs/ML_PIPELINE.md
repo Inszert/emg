@@ -478,8 +478,10 @@ after at most a short calibration. The route, in order of value per hour spent:
    generalisation than repetition count, and until there are two subjects
    `leave_one_person_out()` correctly yields nothing.
 2. **Train on `share`-style features** (`feature_set="level"` already includes
-   them) or `representation="normalized"`, so absolute amplitude — the most
-   subject-specific thing in the signal — carries less weight.
+   them), so absolute amplitude — the most subject-specific thing in the signal —
+   carries less weight. (`representation="normalized"` was also suggested here; it
+   measured 22-48 % because it removes the activation level along with the gain,
+   so use the per-wearer calibration instead, step 5 and CLAUDE.md section 8k.)
 3. **Augment with `augment_rotate_channels`.** Armband rotation is a
    cross-wearer nuisance and this is nearly free. Augment inside the training
    fold only. *Measured here (2026-10-27): it does raise accuracy when the band

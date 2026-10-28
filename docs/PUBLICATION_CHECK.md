@@ -93,6 +93,9 @@ edits made:
 | calib_plan.md 2.1 | "resting level is NOT wearer-specific" was measured on 2 wearers; with 5 it fails (Miso four channels at 86-112, Bruno two at 81-88, Barbora CH2 76) | dated note added above the table |
 | GUIDE.md section 4 | stale defaults: `REPETITIONS` 30 (now 6), `RECORD_TIME` 2.0 (2.5), `RING_BUFFER_SECONDS` 60/180 (600), `STALL_TIMEOUT_S` 3.0 (6.0) | table values corrected against `emg_app/config.py`; other GUIDE prose (21 classifiers, two-wearer net numbers) is dated history and left as it is |
 | ML_PIPELINE.md section 9 | advised "normalise per recording when crossing subjects"; measured, that representation scores 22-48 % and per-wearer calibration is what works | bullet rewritten |
+| ML_PIPELINE.md section 5b step 2 | also recommended `representation="normalized"` for cross-wearer work | rewritten with the measurement |
+| MODELS_COMPARED.md per-person table | the GRU column (92.2 / 69.8 / 73.9 / 74.6 / 28.4) is from a second training pass (mean 67.8 %), not the run behind the 72.4 % headline; the paper uses three-seed means | note added under the table |
+| VERIFICATION.md | its findings (deployed model is the four-member vote, rule uses the larger seed spread, etc.) are already reflected: the paper makes no claim about a "deployed" model and states the larger-spread rule | none needed |
 | ML_PIPELINE.md section 3b | "28-70 Hz, median 63" is from the archived first dataset; current data is 46.5-51.2 Hz, median 49.9 | note added |
 | EDA.md sections 3-11 | describe the archived 308-clip single-wearer dataset (its section 11 "calibration -- open" is long superseded by CLAUDE.md 8k); the banner at the top says it is archived | left as the record |
 | MANUAL.md, GUIDE.md, UI_GUIDE.md | older two-wearer results (86.8 % LDA, 57.5 % net) appear as historical record | left; current numbers are in MODELS_COMPARED.md and the paper |

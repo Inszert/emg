@@ -172,6 +172,11 @@ by how many windows they have):
 | Dano | **89.2 %** | 82.5 % | 73.9 % |
 | Miso | **90.1 %** | 74.6 % | 74.6 % |
 
+*Note (2026-10-28): the GRU column comes from a second training pass inside the
+trainer (mean 67.8 %), not from the run behind the 72.4 % headline. The ablation's
+three-seed means for the same models are ML 45.9 / 82.7 / 79.8 / 88.9 / 87.7 and GRU
+36.7 / 86.0 / 69.2 / 74.7 / 72.1 (Barbora to Miso); `publication.tex` uses those.*
+
 **Barbora is the hard case for every model.** Her gestures have a
 different per-channel pattern. It was suspected to be a band sitting rotated
 on the arm (CLAUDE.md §8, §8h); **that was tested on 2026-10-27 and is not
