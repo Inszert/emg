@@ -128,6 +128,10 @@ pairs ~32 ms apart, and the effective rate across this dataset ranges from
 **28 Hz to 70 Hz** (median 63). A model trained on "13 samples" would see
 windows covering 185–460 ms of real time.
 
+(The 28-70 Hz range is from the first, archived dataset. On the current five-wearer
+data the per-recording rate, measured as a span average, is 46.5-51.2 Hz with a
+median of 49.9 Hz -- `docs/DATASET_SUMMARY.md`; the delivery is still bursty.)
+
 `train_model.py` therefore resamples everything onto a fixed grid
 (`MODEL_FS = 60 Hz`) with `resample_uniform()`, and `LivePredictor` does the
 same to the live window. A window means a fixed *duration* on both sides.
@@ -605,9 +609,13 @@ disables itself rather than showing stale output.
 - **Filtered mode (~50 Hz) gives 10 samples per 200 ms window.** Enough for
   the feature-based models, thin for a CNN. Consider `EMG_MODE = "raw"` if you
   are going to train deep models — see the caveat in `CLAUDE.md` §12.
-- **Normalise per recording, not globally,** when crossing subjects:
-  `representation="normalized"` uses a robust median/MAD scaling that one
-  explosive burst cannot distort.
+- **Do not normalise per recording when crossing subjects** (corrected
+  2026-10-28; this bullet used to recommend it). `representation="normalized"`
+  divides the activation level out together with the wearer's gain and scored
+  22-48 % in every measurement, against 77 % for the levels kept
+  ([`MODELS_COMPARED.md`](MODELS_COMPARED.md)). What works is one constant per
+  *wearer*: the per-wearer calibration (CLAUDE.md section 8k), about four
+  points better on a person the model never saw.
 - **Keep the quality flags.** `skip_quality_errors=True` is the cheapest
   accuracy improvement available, and nothing is deleted to achieve it.
 - **How much data?** Aim for ≥30 repetitions per gesture per session, ≥2

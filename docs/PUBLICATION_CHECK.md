@@ -78,13 +78,13 @@ cell, the conclusion's 5 to 13 points.
 
 ## 3b. Every document in `docs/` was read, and what it changed
 
-Read in full or in the parts that carry facts: REPORT, MODELS_COMPARED,
-EXCLUDING_PEOPLE, COMB_TEST, NOTES, DATASET, DATASET_SUMMARY, DATA_MAP,
-TRAINING_HISTORY, ARCHITECTURE, FEATURES, ML_PIPELINE, EDA, calib_plan,
-VERIFICATION, recommendation, problems, MANUAL, GUIDE, UI_GUIDE (the settings, model
-stats and cutting sections), install_windows, install_linux, how_to_fix_long_training,
-sdk_myo, UI_REVIEW (headings). None of them contradicts a number in the paper. What
-they did turn up, and the edits made:
+All 26 documents were read, in several passes and in ranges for the long ones (the
+sections that carry numbers were also cross-checked against the saved results): REPORT, MODELS_COMPARED, EXCLUDING_PEOPLE, COMB_TEST, NOTES, DATASET,
+DATASET_SUMMARY, DATA_MAP, TRAINING_HISTORY, ARCHITECTURE, FEATURES, ML_PIPELINE, EDA,
+calib_plan, VERIFICATION, recommendation, problems, MANUAL, GUIDE, UI_GUIDE,
+UI_REVIEW, install_windows, install_linux, how_to_fix_long_training, sdk_myo and this
+file. None of them contradicts a number in the paper. What they did turn up, and the
+edits made:
 
 | document | finding | action |
 |---|---|---|
@@ -92,6 +92,9 @@ they did turn up, and the edits made:
 | ARCHITECTURE.md section 4 | said `measured_rate()` uses the median interval; section 5a (and the code) use the span average | section 4 corrected |
 | calib_plan.md 2.1 | "resting level is NOT wearer-specific" was measured on 2 wearers; with 5 it fails (Miso four channels at 86-112, Bruno two at 81-88, Barbora CH2 76) | dated note added above the table |
 | GUIDE.md section 4 | stale defaults: `REPETITIONS` 30 (now 6), `RECORD_TIME` 2.0 (2.5), `RING_BUFFER_SECONDS` 60/180 (600), `STALL_TIMEOUT_S` 3.0 (6.0) | table values corrected against `emg_app/config.py`; other GUIDE prose (21 classifiers, two-wearer net numbers) is dated history and left as it is |
+| ML_PIPELINE.md section 9 | advised "normalise per recording when crossing subjects"; measured, that representation scores 22-48 % and per-wearer calibration is what works | bullet rewritten |
+| ML_PIPELINE.md section 3b | "28-70 Hz, median 63" is from the archived first dataset; current data is 46.5-51.2 Hz, median 49.9 | note added |
+| EDA.md sections 3-11 | describe the archived 308-clip single-wearer dataset (its section 11 "calibration -- open" is long superseded by CLAUDE.md 8k); the banner at the top says it is archived | left as the record |
 | MANUAL.md, GUIDE.md, UI_GUIDE.md | older two-wearer results (86.8 % LDA, 57.5 % net) appear as historical record | left; current numbers are in MODELS_COMPARED.md and the paper |
 
 ## 4. Open (needs you)
