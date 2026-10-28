@@ -1,6 +1,6 @@
 {
  "meta": {
-  "created": "2026-10-28T17:20:36",
+  "created": "2026-10-28T17:23:11",
   "protocol": "leave-one-person-out, 5 people, project windows / dedup / derived calibration; robustness probes on the held-out person's raw windows (noise, band shifted one pod, 25 % weaker)",
   "rule": "training/ablation_stats.py",
   "people": [
@@ -25,7 +25,7 @@
    "pyqtgraph": "0.14.0",
    "joblib": "1.5.2",
    "pandas": "2.3.3",
-   "commit": "2d1f446"
+   "commit": "6b8982e"
   },
   "note": "latencies are measured while other jobs ran; see the report for the quiet-machine benchmark"
  },
@@ -2384,7 +2384,7 @@
   ]
  },
  "dataset": {
-  "created": "2026-10-28T17:19:25",
+  "created": "2026-10-28T17:23:10",
   "root": "datasets/",
   "device": "Myo armband",
   "emg_mode": "filtered",
@@ -2884,10 +2884,12 @@
   ],
   "archives": {
    "_archive_pre_r1_20261015": {
-    "recordings": 328
+    "recordings": 325,
+    "quarantined": 3
    },
    "_corrected_Dano_session_03_to_Barbora": {
-    "recordings": 56
+    "recordings": 43,
+    "quarantined": 13
    }
   }
  },

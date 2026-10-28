@@ -20,6 +20,7 @@ document already summarises it. Counts below were taken from the checkout on
 | how fast is a live window? | [REPORT.md](REPORT.md) section 9, `models/reports/bench_models_20261022.json` | `tools/bench_models.py`, `tools/bench_zoo.py` |
 | do the automatic checks pass? | [REPORT.md](REPORT.md) section 11, `tests/last_run.json` | `tools/run_tests.py` |
 | the archived first dataset and why it gave dishonest scores | [EDA.md](EDA.md), `datasets/_archive_pre_r1_20261015/` | (analysis of 2026-10-15) |
+| how did the numbers get here, and what did each training run cost? | [TRAINING_HISTORY.md](TRAINING_HISTORY.md), `results/training_history.json` | `tools/training_history.py` (reads every sweep, log and job file) |
 
 ## 2. The recordings (`datasets/`)
 
@@ -29,8 +30,8 @@ document already summarises it. Counts below were taken from the checkout on
 | `<person>/<session>/_takes/` | the long free takes the clips were cut from (never training data) |
 | `<person>/<session>/_deleted/` | recordings moved out by DELETE / REDO (moved, never erased) |
 | `<person>/calibration.json`, `calibration_log.jsonl` | the person's current live calibration and every calibration they ever had (append-only) |
-| `_archive_pre_r1_20261015/` | the first 328-recording dataset (one person), kept as a baseline |
-| `_corrected_Dano_session_03_to_Barbora/` | the originals of the recordings that had been saved under the wrong person (README inside) |
+| `_archive_pre_r1_20261015/` | the first 325-recording dataset (one person, plus 3 quarantined), kept as a baseline; README inside |
+| `_corrected_Dano_session_03_to_Barbora/` | the originals of the 43 recordings (plus 13 quarantined) that had been saved under the wrong person (README inside) |
 | `app_settings.json` | the application's saved settings: model selection, training switches, prompts (`gestures.json`, the edited gesture set, is written only once the set is edited; there is none now) |
 
 Empty folders (`Michal/`, `Dano/session_02`, `Dano/session_09`) were never
@@ -57,9 +58,9 @@ filled; discovery ignores them.
 | `model_spec.json`, `nn_spec.json` | what the next RETRAIN trains |
 | `zoo/<id>/` | `meta.json` (scores, setup, compat, dataset digest) and the model; `zoo/ensembles.json` the best voting subsets |
 | `comb_test/20261022-003918/` | the ML + NN combination search: `ml_result.json`, `nn_result.json`, `nn_results.jsonl`, `csv/*.csv` (all models, best vote per setup, nested check, NN configs, window length, confusion), `comb_test_results.xlsx`, `ml_oof/`, logs |
-| `reports/sweep_*.json`, `nn_sweep_*.json` | the full report of each classifier / net training sweep (timestamped, kept) |
+| `reports/sweep_*.json` (29), `nn_sweep_*.json` (8) | the full report of each classifier / net training sweep (timestamped, kept); all read and tabulated in [TRAINING_HISTORY.md](TRAINING_HISTORY.md) |
 | `reports/bench_models_20261022.json` | per-window timing of the deployed model and the net |
-| `reports/decisions.json` | the decision trail of the deployed vote (`explain_votes.py --json`) |
+| `reports/decisions.json` | **out of date**: a decision trail written 2026-10-14 for the then 7-member vote on the one-person, 119-recording dataset (3162 windows). The current deployed model's trail is in `gesture_panel.joblib`; regenerate this file with `training/explain_votes.py --json` (which also rebuilds the panel) before using it |
 | `reports/new_models_test_run1/` | the newer-architectures test (out-of-fold probabilities, losses) |
 | `jobs/` | the logs of background training jobs |
 | `gesture_model_<stamp>.joblib`, `gesture_nn_<stamp>.pt` | archived earlier deployed models (provenance of past numbers) |

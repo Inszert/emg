@@ -1,5 +1,5 @@
 {
- "created": "2026-10-28T17:19:25",
+ "created": "2026-10-28T17:23:10",
  "root": "datasets/",
  "device": "Myo armband",
  "emg_mode": "filtered",
@@ -499,10 +499,12 @@
  ],
  "archives": {
   "_archive_pre_r1_20261015": {
-   "recordings": 328
+   "recordings": 325,
+   "quarantined": 3
   },
   "_corrected_Dano_session_03_to_Barbora": {
-   "recordings": 56
+   "recordings": 43,
+   "quarantined": 13
   }
  }
 }

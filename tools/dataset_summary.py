@@ -112,6 +112,14 @@ def windows(family):
             "majority_class": float(np.bincount(y).max() / len(y))}
 
 
+def archive_counts(name):
+    """Recordings in an archive folder, the quarantined ones counted apart."""
+    files = glob.glob(os.path.join(DATA, name, "**", "*_raw_meta.json"),
+                      recursive=True)
+    kept = [f for f in files if os.sep + "_deleted" + os.sep not in f]
+    return {"recordings": len(kept), "quarantined": len(files) - len(kept)}
+
+
 def build():
     recs = recordings()
     people = sorted({m["person_id"] for m in recs})
@@ -183,8 +191,7 @@ def build():
                 os.path.join(DATA, "*", "session_*"))
             if os.path.isdir(p) and not os.listdir(p)),
         "archives": {
-            name: {"recordings": len(glob.glob(os.path.join(
-                DATA, name, "**", "*_raw_meta.json"), recursive=True))}
+            name: archive_counts(name)
             for name in sorted(os.listdir(DATA)) if name.startswith("_")},
     }
     return summary
@@ -240,7 +247,9 @@ def write_md(s, path):
           + ", ".join(s["folders_without_recordings"]
                       + s["empty_session_folders"]) + ".")
     w("- Archives, never read by discovery (leading underscore): "
-      + "; ".join(f"`{k}` ({v['recordings']} recordings)"
+      + "; ".join(f"`{k}` ({v['recordings']} recordings"
+                  + (f", {v['quarantined']} more in its `_deleted`"
+                     if v["quarantined"] else "") + ")"
                   for k, v in s["archives"].items()) + ".")
     w("")
     w("## 2. Recordings per person and gesture")

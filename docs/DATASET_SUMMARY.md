@@ -1,6 +1,6 @@
 # DATASET_SUMMARY.md -- what is in `datasets/` now
 
-*Generated 2026-10-28 17:19 by `tools/dataset_summary.py` from the recordings' own metadata and the stored evaluation data; re-run it after recording. Nothing here is typed by hand. `EDA.md` describes the dataset archived on 2026-10-15; this is the working set.*
+*Generated 2026-10-28 17:23 by `tools/dataset_summary.py` from the recordings' own metadata and the stored evaluation data; re-run it after recording. Nothing here is typed by hand. `EDA.md` describes the dataset archived on 2026-10-15; this is the working set.*
 
 ## 1. At a glance
 
@@ -10,7 +10,7 @@
 - Windows scored (ML, 1.0 s windows at 0.75 overlap, after window-level deduplication): **1787**; the majority class is 18.3 % of them (what a model that always answers the most common gesture would score).
 - Windows scored (neural nets, 0.7 s windows at 0.75 overlap, after window-level deduplication): **2873**; the majority class is 18.6 % of them (what a model that always answers the most common gesture would score).
 - Folders that exist but hold no recordings (nothing was lost, they were never filled): Michal, Dano/session_02, Dano/session_09, Michal/session_01.
-- Archives, never read by discovery (leading underscore): `_archive_pre_r1_20261015` (328 recordings); `_corrected_Dano_session_03_to_Barbora` (56 recordings).
+- Archives, never read by discovery (leading underscore): `_archive_pre_r1_20261015` (325 recordings, 3 more in its `_deleted`); `_corrected_Dano_session_03_to_Barbora` (43 recordings, 13 more in its `_deleted`).
 
 ## 2. Recordings per person and gesture
 
