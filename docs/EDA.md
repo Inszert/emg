@@ -12,6 +12,11 @@ headline is that the dataset currently cannot support episode-, session- or
 subject-independent validation, and the ~99 % scores it produces are a
 measurement of electrode state, not of gesture recognition.
 
+> **The working dataset today** (5 people, 211 recordings) is described, with
+> every number measured, in [DATASET_SUMMARY.md](DATASET_SUMMARY.md); where all
+> saved results live is in [DATA_MAP.md](DATA_MAP.md). Everything below is the
+> analysis of the archived first dataset.
+>
 > ### ⚠️ The dataset analysed below was ARCHIVED on 2026-10-15
 >
 > All 325 recordings were moved whole to

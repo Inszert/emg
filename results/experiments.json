@@ -1,6 +1,6 @@
 {
  "meta": {
-  "created": "2026-10-27T18:11:31",
+  "created": "2026-10-28T17:20:36",
   "protocol": "leave-one-person-out, 5 people, project windows / dedup / derived calibration; robustness probes on the held-out person's raw windows (noise, band shifted one pod, 25 % weaker)",
   "rule": "training/ablation_stats.py",
   "people": [
@@ -15,6 +15,18 @@
    "ml": 3
   },
   "hardware": "i5-9300H 4C/8T, 7.9 GB RAM, GTX 1650 4 GB",
+  "software": {
+   "python": "3.14.0",
+   "os": "Windows-11-10.0.26300-SP0",
+   "numpy": "2.3.4",
+   "scikit-learn": "1.7.2",
+   "torch": "2.9.1+cu128",
+   "PySide6": "6.11.2",
+   "pyqtgraph": "0.14.0",
+   "joblib": "1.5.2",
+   "pandas": "2.3.3",
+   "commit": "2d1f446"
+  },
   "note": "latencies are measured while other jobs ran; see the report for the quiet-machine benchmark"
  },
  "models": [
@@ -2137,7 +2149,7 @@
   }
  ],
  "tests": {
-  "finished": "2026-10-27 06:27:48",
+  "finished": "2026-10-28 17:19:04",
   "results": [
    {
     "suite": "datalayer",
@@ -2145,7 +2157,7 @@
     "exit": 0,
     "passed": 150,
     "total": 150,
-    "seconds": 6.1,
+    "seconds": 6.3,
     "ok": true,
     "failures": []
    },
@@ -2155,7 +2167,7 @@
     "exit": 0,
     "passed": 109,
     "total": 109,
-    "seconds": 46.2,
+    "seconds": 49.3,
     "ok": true,
     "failures": []
    },
@@ -2165,7 +2177,7 @@
     "exit": 0,
     "passed": 50,
     "total": 50,
-    "seconds": 18.3,
+    "seconds": 20.7,
     "ok": true,
     "failures": []
    },
@@ -2185,7 +2197,7 @@
     "exit": 0,
     "passed": 88,
     "total": 88,
-    "seconds": 2.6,
+    "seconds": 2.8,
     "ok": true,
     "failures": []
    },
@@ -2195,7 +2207,7 @@
     "exit": 0,
     "passed": 268,
     "total": 268,
-    "seconds": 11.9,
+    "seconds": 12.5,
     "ok": true,
     "failures": []
    },
@@ -2205,7 +2217,7 @@
     "exit": 0,
     "passed": 346,
     "total": 346,
-    "seconds": 10.5,
+    "seconds": 10.8,
     "ok": true,
     "failures": []
    },
@@ -2215,7 +2227,7 @@
     "exit": 0,
     "passed": 109,
     "total": 109,
-    "seconds": 54.2,
+    "seconds": 55.7,
     "ok": true,
     "failures": []
    },
@@ -2225,7 +2237,7 @@
     "exit": 0,
     "passed": 103,
     "total": 103,
-    "seconds": 7.1,
+    "seconds": 7.9,
     "ok": true,
     "failures": []
    },
@@ -2235,7 +2247,7 @@
     "exit": 0,
     "passed": 161,
     "total": 161,
-    "seconds": 5.7,
+    "seconds": 6.3,
     "ok": true,
     "failures": []
    },
@@ -2245,7 +2257,7 @@
     "exit": 0,
     "passed": 48,
     "total": 48,
-    "seconds": 43.2,
+    "seconds": 43.5,
     "ok": true,
     "failures": []
    },
@@ -2255,7 +2267,7 @@
     "exit": 0,
     "passed": 121,
     "total": 121,
-    "seconds": 5.8,
+    "seconds": 6.6,
     "ok": true,
     "failures": []
    },
@@ -2265,7 +2277,7 @@
     "exit": 0,
     "passed": 104,
     "total": 104,
-    "seconds": 1.2,
+    "seconds": 1.4,
     "ok": true,
     "failures": []
    },
@@ -2275,7 +2287,7 @@
     "exit": 0,
     "passed": 48,
     "total": 48,
-    "seconds": 4.4,
+    "seconds": 4.8,
     "ok": true,
     "failures": []
    },
@@ -2285,7 +2297,7 @@
     "exit": 0,
     "passed": 52,
     "total": 52,
-    "seconds": 4.4,
+    "seconds": 4.9,
     "ok": true,
     "failures": []
    },
@@ -2295,7 +2307,7 @@
     "exit": 0,
     "passed": 11,
     "total": 11,
-    "seconds": 3.7,
+    "seconds": 4.1,
     "ok": true,
     "failures": []
    },
@@ -2305,7 +2317,7 @@
     "exit": 0,
     "passed": 17,
     "total": 17,
-    "seconds": 1.1,
+    "seconds": 1.3,
     "ok": true,
     "failures": []
    },
@@ -2313,9 +2325,9 @@
     "suite": "zoo",
     "script": "test_zoo.py",
     "exit": 0,
-    "passed": 109,
-    "total": 109,
-    "seconds": 29.9,
+    "passed": 117,
+    "total": 117,
+    "seconds": 33.4,
     "ok": true,
     "failures": []
    },
@@ -2323,9 +2335,19 @@
     "suite": "app_settings",
     "script": "test_app_settings.py",
     "exit": 0,
-    "passed": 67,
-    "total": 67,
-    "seconds": 5.3,
+    "passed": 97,
+    "total": 97,
+    "seconds": 7.2,
+    "ok": true,
+    "failures": []
+   },
+   {
+    "suite": "vote_view",
+    "script": "test_vote_view.py",
+    "exit": 0,
+    "passed": 43,
+    "total": 43,
+    "seconds": 6.4,
     "ok": true,
     "failures": []
    },
@@ -2335,7 +2357,7 @@
     "exit": 0,
     "passed": 18,
     "total": 18,
-    "seconds": 1.1,
+    "seconds": 1.2,
     "ok": true,
     "failures": []
    },
@@ -2345,7 +2367,7 @@
     "exit": 0,
     "passed": 162,
     "total": 162,
-    "seconds": 9.1,
+    "seconds": 9.6,
     "ok": true,
     "failures": []
    },
@@ -2355,10 +2377,572 @@
     "exit": 0,
     "passed": 48,
     "total": 48,
-    "seconds": 180.5,
+    "seconds": 182.8,
     "ok": true,
     "failures": []
    }
   ]
- }
+ },
+ "dataset": {
+  "created": "2026-10-28T17:19:25",
+  "root": "datasets/",
+  "device": "Myo armband",
+  "emg_mode": "filtered",
+  "n_channels": 8,
+  "gestures": [
+   "REST",
+   "FIST",
+   "OPEN",
+   "THUMB_UP",
+   "WAVE_LEFT",
+   "WAVE_RIGHT"
+  ],
+  "totals": {
+   "recordings": 211,
+   "people": 5,
+   "seconds": 633.8,
+   "per_gesture": {
+    "REST": 44,
+    "FIST": 29,
+    "OPEN": 35,
+    "THUMB_UP": 32,
+    "WAVE_LEFT": 36,
+    "WAVE_RIGHT": 35
+   }
+  },
+  "people": {
+   "Barbora": {
+    "recordings": 43,
+    "sessions": [
+     "session_01"
+    ],
+    "per_gesture": {
+     "REST": 13,
+     "FIST": 4,
+     "OPEN": 6,
+     "THUMB_UP": 5,
+     "WAVE_LEFT": 8,
+     "WAVE_RIGHT": 7
+    },
+    "seconds_total": 112.6,
+    "seconds_mean_clip": 2.62,
+    "seconds_min_clip": 1.08,
+    "seconds_max_clip": 9.48,
+    "sample_rate_mean": 49.8,
+    "sample_rate_min": 49.6,
+    "sample_rate_max": 50.1,
+    "quality_flags": {
+     "noisy_baseline": 7,
+     "rest_not_quiet": 3
+    },
+    "recordings_with_a_flag": 10,
+    "no_activity_non_rest": 0,
+    "first_recording": "2026-10-19T18:19:44.661",
+    "last_recording": "2026-10-19T18:25:02.627",
+    "free_takes": 6,
+    "free_take_minutes": 5.2,
+    "quarantined_files_sets": 0,
+    "cut_from_takes": 43,
+    "calibration_saved": {
+     "created": "2026-10-19T22:04:35.481",
+     "source": "derived_from_recordings",
+     "rest": [
+      23.0,
+      46.0,
+      24.0,
+      19.0,
+      25.0,
+      25.0,
+      25.0,
+      25.0
+     ],
+     "reference": [
+      650.25,
+      378.0,
+      205.0,
+      462.25,
+      929.0,
+      596.0,
+      716.25,
+      596.0
+     ],
+     "contrast": 21.380896226415093,
+     "gesture_sweep": false
+    },
+    "calibration_derived": {
+     "rest": [
+      23.0,
+      46.0,
+      24.0,
+      19.0,
+      25.0,
+      25.0,
+      25.0,
+      25.0
+     ],
+     "reference": [
+      650.25,
+      378.0,
+      205.0,
+      462.25,
+      929.0,
+      596.0,
+      716.25,
+      596.0
+     ]
+    }
+   },
+   "Betka": {
+    "recordings": 41,
+    "sessions": [
+     "session_01"
+    ],
+    "per_gesture": {
+     "REST": 7,
+     "FIST": 6,
+     "OPEN": 7,
+     "THUMB_UP": 7,
+     "WAVE_LEFT": 7,
+     "WAVE_RIGHT": 7
+    },
+    "seconds_total": 113.0,
+    "seconds_mean_clip": 2.76,
+    "seconds_min_clip": 1.01,
+    "seconds_max_clip": 3.99,
+    "sample_rate_mean": 49.9,
+    "sample_rate_min": 49.7,
+    "sample_rate_max": 50.3,
+    "quality_flags": {
+     "noisy_baseline": 20
+    },
+    "recordings_with_a_flag": 20,
+    "no_activity_non_rest": 0,
+    "first_recording": "2026-10-16T15:26:13.603",
+    "last_recording": "2026-10-16T15:51:33.628",
+    "free_takes": 6,
+    "free_take_minutes": 7.5,
+    "quarantined_files_sets": 2,
+    "cut_from_takes": 41,
+    "calibration_saved": {
+     "created": "2026-10-16T17:46:35.227",
+     "source": "derived_from_recordings",
+     "rest": [
+      19.0,
+      21.0,
+      22.0,
+      22.0,
+      22.0,
+      22.0,
+      26.0,
+      20.0
+     ],
+     "reference": [
+      397.0,
+      528.0,
+      285.0,
+      280.0,
+      910.5,
+      1077.0,
+      496.0,
+      471.0
+     ],
+     "contrast": 25.54310344827586,
+     "gesture_sweep": false
+    },
+    "calibration_derived": {
+     "rest": [
+      19.0,
+      21.0,
+      22.0,
+      22.0,
+      22.0,
+      22.0,
+      26.0,
+      20.0
+     ],
+     "reference": [
+      397.0,
+      528.0,
+      285.0,
+      280.0,
+      910.5,
+      1077.0,
+      496.0,
+      471.0
+     ]
+    }
+   },
+   "Bruno": {
+    "recordings": 43,
+    "sessions": [
+     "session_01"
+    ],
+    "per_gesture": {
+     "REST": 8,
+     "FIST": 7,
+     "OPEN": 7,
+     "THUMB_UP": 6,
+     "WAVE_LEFT": 8,
+     "WAVE_RIGHT": 7
+    },
+    "seconds_total": 135.1,
+    "seconds_mean_clip": 3.14,
+    "seconds_min_clip": 2.0,
+    "seconds_max_clip": 4.82,
+    "sample_rate_mean": 49.7,
+    "sample_rate_min": 46.5,
+    "sample_rate_max": 50.5,
+    "quality_flags": {
+     "noisy_baseline": 9
+    },
+    "recordings_with_a_flag": 9,
+    "no_activity_non_rest": 0,
+    "first_recording": "2026-10-21T22:03:20.008",
+    "last_recording": "2026-10-21T22:07:45.552",
+    "free_takes": 6,
+    "free_take_minutes": 5.2,
+    "quarantined_files_sets": 1,
+    "cut_from_takes": 43,
+    "calibration_saved": null,
+    "calibration_derived": {
+     "rest": [
+      19.0,
+      21.0,
+      21.0,
+      21.0,
+      24.0,
+      91.0,
+      77.0,
+      23.0
+     ],
+     "reference": [
+      615.0,
+      1220.0,
+      694.5499999999984,
+      511.84999999999945,
+      1392.8499999999995,
+      1181.0,
+      695.8499999999995,
+      617.0
+     ]
+    }
+   },
+   "Dano": {
+    "recordings": 44,
+    "sessions": [
+     "session_01"
+    ],
+    "per_gesture": {
+     "REST": 6,
+     "FIST": 7,
+     "OPEN": 7,
+     "THUMB_UP": 8,
+     "WAVE_LEFT": 8,
+     "WAVE_RIGHT": 8
+    },
+    "seconds_total": 154.1,
+    "seconds_mean_clip": 3.5,
+    "seconds_min_clip": 2.98,
+    "seconds_max_clip": 4.09,
+    "sample_rate_mean": 49.9,
+    "sample_rate_min": 49.7,
+    "sample_rate_max": 51.2,
+    "quality_flags": {
+     "noisy_baseline": 8
+    },
+    "recordings_with_a_flag": 8,
+    "no_activity_non_rest": 2,
+    "first_recording": "2026-10-15T23:28:20.249",
+    "last_recording": "2026-10-15T23:49:00.385",
+    "free_takes": 6,
+    "free_take_minutes": 8.0,
+    "quarantined_files_sets": 6,
+    "cut_from_takes": 44,
+    "calibration_saved": {
+     "created": "2026-10-26T12:30:14.504",
+     "source": "live_gesture_sweep",
+     "rest": [
+      32.0,
+      29.0,
+      35.0,
+      32.0,
+      31.0,
+      29.0,
+      30.0,
+      34.0
+     ],
+     "reference": [
+      891.25,
+      892.0,
+      320.75,
+      438.5,
+      1062.0,
+      779.5,
+      440.99999999999994,
+      894.25
+     ],
+     "contrast": 22.69543650793651,
+     "gesture_sweep": true
+    },
+    "calibration_derived": {
+     "rest": [
+      20.0,
+      22.0,
+      21.0,
+      20.0,
+      22.0,
+      25.0,
+      20.0,
+      19.0
+     ],
+     "reference": [
+      553.0999999999995,
+      657.0999999999995,
+      154.0,
+      219.0,
+      919.0999999999995,
+      992.0,
+      364.0,
+      404.09999999999945
+     ]
+    }
+   },
+   "Miso": {
+    "recordings": 40,
+    "sessions": [
+     "session_01"
+    ],
+    "per_gesture": {
+     "REST": 10,
+     "FIST": 5,
+     "OPEN": 8,
+     "THUMB_UP": 6,
+     "WAVE_LEFT": 5,
+     "WAVE_RIGHT": 6
+    },
+    "seconds_total": 119.1,
+    "seconds_mean_clip": 2.98,
+    "seconds_min_clip": 2.04,
+    "seconds_max_clip": 3.02,
+    "sample_rate_mean": 49.9,
+    "sample_rate_min": 48.8,
+    "sample_rate_max": 50.4,
+    "quality_flags": {
+     "noisy_baseline": 3,
+     "rest_not_quiet": 3
+    },
+    "recordings_with_a_flag": 6,
+    "no_activity_non_rest": 0,
+    "first_recording": "2026-10-21T22:08:01.496",
+    "last_recording": "2026-10-21T22:11:12.488",
+    "free_takes": 6,
+    "free_take_minutes": 4.1,
+    "quarantined_files_sets": 3,
+    "cut_from_takes": 40,
+    "calibration_saved": null,
+    "calibration_derived": {
+     "rest": [
+      30.0,
+      21.0,
+      21.0,
+      22.0,
+      23.0,
+      98.0,
+      50.0,
+      34.0
+     ],
+     "reference": [
+      465.0,
+      336.0,
+      91.0,
+      197.0,
+      1054.0,
+      836.0,
+      349.0,
+      282.0
+     ]
+    }
+   }
+  },
+  "windows_ml_1.0s": {
+   "labels": [
+    "FIST",
+    "OPEN",
+    "REST",
+    "THUMB_UP",
+    "WAVE_LEFT",
+    "WAVE_RIGHT"
+   ],
+   "n": 1787,
+   "digest": "237a717be2327de9",
+   "per_person": {
+    "Barbora": {
+     "FIST": 102,
+     "OPEN": 50,
+     "REST": 61,
+     "THUMB_UP": 23,
+     "WAVE_LEFT": 40,
+     "WAVE_RIGHT": 18
+    },
+    "Betka": {
+     "FIST": 57,
+     "OPEN": 61,
+     "REST": 62,
+     "THUMB_UP": 17,
+     "WAVE_LEFT": 60,
+     "WAVE_RIGHT": 63
+    },
+    "Bruno": {
+     "FIST": 62,
+     "OPEN": 53,
+     "REST": 66,
+     "THUMB_UP": 53,
+     "WAVE_LEFT": 82,
+     "WAVE_RIGHT": 63
+    },
+    "Dano": {
+     "FIST": 60,
+     "OPEN": 87,
+     "REST": 52,
+     "THUMB_UP": 82,
+     "WAVE_LEFT": 92,
+     "WAVE_RIGHT": 79
+    },
+    "Miso": {
+     "FIST": 44,
+     "OPEN": 67,
+     "REST": 86,
+     "THUMB_UP": 48,
+     "WAVE_LEFT": 45,
+     "WAVE_RIGHT": 52
+    }
+   },
+   "majority_class": 0.182988248461108
+  },
+  "windows_nn_0.7s": {
+   "labels": [
+    "FIST",
+    "OPEN",
+    "REST",
+    "THUMB_UP",
+    "WAVE_LEFT",
+    "WAVE_RIGHT"
+   ],
+   "n": 2873,
+   "digest": "237a717be2327de9",
+   "per_person": {
+    "Barbora": {
+     "FIST": 161,
+     "OPEN": 85,
+     "REST": 104,
+     "THUMB_UP": 40,
+     "WAVE_LEFT": 64,
+     "WAVE_RIGHT": 36
+    },
+    "Betka": {
+     "FIST": 90,
+     "OPEN": 98,
+     "REST": 98,
+     "THUMB_UP": 34,
+     "WAVE_LEFT": 98,
+     "WAVE_RIGHT": 98
+    },
+    "Bruno": {
+     "FIST": 98,
+     "OPEN": 86,
+     "REST": 107,
+     "THUMB_UP": 84,
+     "WAVE_LEFT": 129,
+     "WAVE_RIGHT": 98
+    },
+    "Dano": {
+     "FIST": 98,
+     "OPEN": 138,
+     "REST": 84,
+     "THUMB_UP": 130,
+     "WAVE_LEFT": 143,
+     "WAVE_RIGHT": 124
+    },
+    "Miso": {
+     "FIST": 70,
+     "OPEN": 105,
+     "REST": 140,
+     "THUMB_UP": 79,
+     "WAVE_LEFT": 70,
+     "WAVE_RIGHT": 84
+    }
+   },
+   "majority_class": 0.18552036199095023
+  },
+  "folders_without_recordings": [
+   "Michal"
+  ],
+  "empty_session_folders": [
+   "Dano/session_02",
+   "Dano/session_09",
+   "Michal/session_01"
+  ],
+  "archives": {
+   "_archive_pre_r1_20261015": {
+    "recordings": 328
+   },
+   "_corrected_Dano_session_03_to_Barbora": {
+    "recordings": 56
+   }
+  }
+ },
+ "starred_votes": [
+  {
+   "family": "ml",
+   "members": [
+    "RF-500-leaf3",
+    "RF-500",
+    "ET-500-leaf3"
+   ],
+   "window_acc": 0.8110957543126458,
+   "macro_f1": 0.7880858743691127,
+   "vote_acc": 0.8610982648787527,
+   "per_person": {
+    "Barbora": 0.5986394557823129,
+    "Betka": 0.8197916666666666,
+    "Bruno": 0.7352682497801232,
+    "Dano": 0.9417404129793511,
+    "Miso": 0.9600389863547759
+   },
+   "seeds": 3,
+   "best_single": "RF-500-leaf3",
+   "best_single_acc": 0.8077851307430373,
+   "member_acc": {
+    "RF-500-leaf3": 0.8077851307430373,
+    "RF-500": 0.8049202797197754,
+    "ET-500-leaf3": 0.7943233197547818
+   }
+  },
+  {
+   "family": "nn",
+   "members": [
+    "NN-gru",
+    "NN-tsmixer",
+    "NN-chan_transformer"
+   ],
+   "window_acc": 0.6708217601593225,
+   "macro_f1": 0.6435357824518371,
+   "vote_acc": 0.7049424559180657,
+   "per_person": {
+    "Barbora": 0.36632653061224485,
+    "Betka": 0.8013565891472868,
+    "Bruno": 0.7624584717607974,
+    "Dano": 0.7642956764295676,
+    "Miso": 0.6596715328467153
+   },
+   "seeds": 2,
+   "best_single": "NN-gru",
+   "best_single_acc": 0.6773043186189542,
+   "member_acc": {
+    "NN-gru": 0.6773043186189542,
+    "NN-tsmixer": 0.6632346080939668,
+    "NN-chan_transformer": 0.6603635719392531
+   }
+  }
+ ]
 }

@@ -95,6 +95,30 @@ anyway. ML models and neural nets are never voted together (CLAUDE.md rule 13).
 
 **How to turn it off.** Tick one (or none: the original model).
 
+**What a selected vote shows** (and where). APPLY reloads the ML classifier at
+once; a running neural net is stopped and needs START NN to load the new nets
+(its panel says "Selected in Settings: ... START NN loads it" meanwhile).
+- *Under the probability bars* of both panels: "VOTE of 3: 2 of 3 say FIST",
+  then one line per member with its own answer and confidence ("=" agrees with
+  the vote, "x" disagrees). Before the first window the panel names the vote.
+  Members go through the same gesture mask as the vote; the answer is still the
+  mean.
+- *MODEL STATS / NN STATS* describe the SELECTION, not the deployed model: the
+  vote's measured accuracy, macro-F1 and per-recording vote (scored from the
+  members' stored out-of-fold probabilities, so it is on the same
+  leave-one-person-out folds as every member; `zoo.vote_stats`), and a table of
+  each member's own numbers. If the probabilities are missing or were made on
+  another dataset the vote's numbers read "not measured" rather than a guess.
+- *The DECISION TRAIL* in MODEL STATS is still the one saved with the deployed
+  model and does not follow the selection; the dialog says so in a banner.
+- An open statistics window is closed when the selection changes.
+
+**What voting is worth here** (REPORT.md section 4): the three starred ML models
+voted together score 81.1 % per window against 80.8 % for the best of them (+0.3,
+inside the seed spread); the three starred nets voted together score 67.1 %
+against 67.7 % for the best net (2 seeds only). Voting models of similar
+strength does not demonstrably help; voting weak ones with strong ones hurts.
+
 **Default and why.** Off. The measured voting table in [REPORT.md](REPORT.md)
 shows whether voting beats its members: the ET-500 + RF-500-leaf3 vote is within
 the seed noise of its best member, and voting everything in the four-model spec

@@ -297,6 +297,68 @@ def new_models_block():
 # ---- tests ----------------------------------------------------------------------------------
 
 
+def software_block():
+    """What the numbers were produced with (read from package metadata, so
+    nothing heavy -- torch included -- is imported)."""
+    import platform
+    import subprocess
+    from importlib import metadata
+    out = {"python": platform.python_version(), "os": platform.platform()}
+    for name in ("numpy", "scikit-learn", "torch", "PySide6", "pyqtgraph",
+                 "joblib", "pandas"):
+        try:
+            out[name] = metadata.version(name)
+        except metadata.PackageNotFoundError:
+            pass
+    try:
+        out["commit"] = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, text=True,
+            capture_output=True, timeout=10).stdout.strip() or None
+    except (OSError, subprocess.SubprocessError):
+        out["commit"] = None
+    return out
+
+
+def dataset_block():
+    """The working dataset, from tools/dataset_summary.py (run it first)."""
+    path = os.path.join(ROOT, "results", "dataset_summary.json")
+    if not os.path.exists(path):
+        return None
+    return json.load(open(path, encoding="utf-8"))
+
+
+def starred_votes_block():
+    """
+    What the 'yellow star' selection scores as a soft vote, per family.
+
+    The three starred models voted together, scored from their stored
+    out-of-fold probabilities exactly as the vote is scored in the application
+    (zoo.vote_stats). The combination is fixed by the star rule, not searched
+    for, so there is no selection bias; the best single model is given beside
+    it, measured the same way.
+    """
+    entries = zoo.list_entries()
+    stars = zoo.compute_stars(entries, zoo.read_ensembles())
+    out = []
+    for fam in ("ml", "nn"):
+        members = [e for e in zoo.rank([e for e in entries if e.family == fam
+                                        and not e.excluded])
+                   if e.id in stars["models"]]
+        vs = zoo.vote_stats(members) if len(members) >= 2 else None
+        if not vs:
+            continue
+        best = max(members, key=lambda e: e.window_acc or 0)
+        out.append({"family": fam, "members": [e.name for e in members],
+                    "window_acc": vs["window_accuracy"],
+                    "macro_f1": vs["window_macro_f1"],
+                    "vote_acc": vs["recording_vote_accuracy"],
+                    "per_person": vs["subject_independent"]["per_subject"],
+                    "seeds": vs["seeds"],
+                    "best_single": best.name, "best_single_acc": best.window_acc,
+                    "member_acc": {e.name: e.window_acc for e in members}})
+    return out
+
+
 def tests_block():
     path = os.path.join(ROOT, "tests", "last_run.json")
     if not os.path.exists(path):
@@ -345,12 +407,14 @@ def main(argv):
             "seeds": {"nn": max([r["seed"] for r in nn_runs], default=-1) + 1,
                       "ml": max([r["seed"] for r in ml_runs], default=-1) + 1},
             "hardware": "i5-9300H 4C/8T, 7.9 GB RAM, GTX 1650 4 GB",
+            "software": software_block(),
             "note": "latencies are measured while other jobs ran; see the "
                     "report for the quiet-machine benchmark"},
         "models": models, "ensembles": combos, "ablation": abl,
         "variants": variants_block(), "without": without_blocks(),
         "voting": voting, "new_models": new_models_block(),
-        "defaults": defaults, "tests": tests_block()}
+        "defaults": defaults, "tests": tests_block(),
+        "dataset": dataset_block(), "starred_votes": starred_votes_block()}
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", encoding="utf-8") as fh:
         json.dump(doc, fh, indent=1, default=str)

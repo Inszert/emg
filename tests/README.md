@@ -14,10 +14,10 @@ python tests\test_model_spec.py     # 346 checks -- no hardware (model roster, h
 python tests\test_predict.py        # 109 checks  -- no hardware (trains a toy model, and runs a real retrain)
 python tests\test_trail.py          # 103 checks -- the DECISION TRAIL (every candidate's vote, the fusion, the refusals)
 python tests\test_no_torch.py       # 11 checks  -- the app runs with no PyTorch at all
-python tests\test_calibration.py    # 143 checks -- per-wearer calibration (the transform, refusal, storage, the live gate)
-python tests\test_nn.py             # 158 checks -- the neural net: the SEPARATION rule first, then the protocol, the engine, the refusals, the architectures
-python tests\test_zoo.py              # 108 checks -- the model zoo, soft voting (ML and NN), adaptation, augmentation, the settings store, the questions' logic
-python tests\test_app_settings.py     # 66 checks -- the Models / Training / General tabs, applying and restoring, both questions on the real window
+python tests\test_calibration.py    # 161 checks -- per-wearer calibration (the transform, refusal, storage, the live gate)
+python tests\test_nn.py             # 162 checks -- the neural net: the SEPARATION rule first, then the protocol, the engine, the refusals, the architectures
+python tests\test_zoo.py              # 117 checks -- the model zoo, soft voting (ML and NN), adaptation, augmentation, the settings store, the questions' logic
+python tests\test_app_settings.py     # 97 checks -- the Models / Training / General tabs, applying and restoring, both questions on the real window
 python tests\test_vote_view.py         # 43 checks -- a selected soft vote is described as itself: measured stats from the members' stored probabilities, per-member answers under the bars, MODEL STATS / NN STATS follow the selection
 python tools\run_tests.py              # every offline suite, one line each
 python tests\test_class_mask.py       # 121 checks -- switching a gesture off in the classifiers without retraining (the mask, the model file untouched, the dialog, the real window)

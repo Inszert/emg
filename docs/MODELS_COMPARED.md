@@ -24,6 +24,12 @@ every one can be reproduced with the commands at the end.
 
 **How to read it.**
 
+- **The GRU's 72.4 % is one seed.** Trained again for the model zoo (2 seeds) it
+  scored 72.4 % and 63.0 %, mean 67.7 %; the ablation baseline (3 seeds) is
+  67.7 % too. The ML pair is steadier (77.0 % ± 0.5 over 3 seeds). So the gap
+  between the two models is about 5 points on the single seed quoted here and
+  about 10 on the seed means. The ranking holds; the size of the gap does not.
+  See [REPORT.md](REPORT.md) and [DATA_MAP.md](DATA_MAP.md).
 - **Most accurate on a new person:** the ET + RF vote.
 - **Smallest and fastest:** the GRU, by about 300× in size and 30× in
   speed. It also needs less signal (0.7 s instead of 1.0 s).
@@ -120,21 +126,24 @@ with a single peak at 0.7 s), see *The neural net on its own* below.
 ### Soft voting: what it adds, and what it costs
 
 A soft vote averages the members' predicted probabilities, and the highest
-average wins. Scored on the same stored out-of-fold windows (pooled):
+average wins. Scored on the same stored out-of-fold windows, two ways: the
+**mean over the five held-out people** (the number every other table and figure
+in this project quotes) and **pooled** over all windows (which weights a person
+by how many windows they have):
 
-| vote | pooled accuracy |
-|---|---|
-| ExtraTrees-500 alone | 79.1 % |
-| **ExtraTrees-500 + RandomForest-500 (leaf 3)** | **79.1 %** |
-| ET + RF + LDA | 69.1 % |
-| ET + RF + SVM-rbf C=1 + LDA | 70.5 % |
-| ET + RF + SVM-rbf C=10 + LDA *(≈ the spec in use)* | 71.5 % |
+| vote | mean over people | pooled |
+|---|---|---|
+| ExtraTrees-500 alone | 77.4 % | 79.1 % |
+| **ExtraTrees-500 + RandomForest-500 (leaf 3)** | **77.6 %** | **79.1 %** |
+| ET + RF + LDA | 66.8 % | 69.1 % |
+| ET + RF + SVM-rbf C=1 + LDA | 68.5 % | 70.5 % |
+| ET + RF + SVM-rbf C=10 + LDA *(≈ the spec in use)* | 69.5 % | 71.5 % |
 
 1. **Voting two forests adds almost nothing.** It's +0.2 points per window
    on the per-person mean and 0.0 pooled. The two forests make nearly the
    same mistakes, so averaging them changes few answers. The search kept
    the pair because it was marginally ahead and more stable across people.
-2. **Adding weaker models makes it worse, by about 8 points.** An
+2. **Adding weaker models makes it worse, by about 8 to 11 points.** An
    unweighted average gives SVM and LDA the same say as the forests. They
    are 13–14 points worse on their own, and they are confidently wrong on
    different windows, so they outvote the forests where the forests were
