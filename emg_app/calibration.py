@@ -382,19 +382,17 @@ def calibration_rest_quality(block: np.ndarray) -> dict:
     loud = int(np.argmax(levels))
     info = {"ok": True, "n_samples": n, "levels": levels,
             "loud_channel": loud + 1, "level": float(levels[loud]),
-            "reason": ""}
+            "reason": "", "alert": ""}
     if n < cfg.CALIBRATION_MIN_SAMPLES:
         info["ok"] = False
         info["reason"] = (f"only {n} samples, need "
                           f"{cfg.CALIBRATION_MIN_SAMPLES}")
     elif float(levels[loud]) > cfg.CALIBRATION_MAX_REST_LEVEL:
-        #  The median, so one twitch does not fail it -- this is a hand that
-        #  stayed tense for most of the capture.
-        info["ok"] = False
-        info["reason"] = (f"CH{loud + 1} at {levels[loud]:.0f} counts, "
-                          f"relaxed is under "
-                          f"{cfg.CALIBRATION_MAX_REST_LEVEL:.0f} -- let the "
-                          f"hand go limp")
+        #  The median, so one twitch does not raise it. A high rest is only
+        #  ALERTED: it does not block the record or SAVE -- the wearer decides.
+        info["alert"] = (f"CH{loud + 1} at {levels[loud]:.0f} counts, above "
+                         f"{cfg.CALIBRATION_MAX_REST_LEVEL:.0f} -- the hand may "
+                         f"not be relaxed")
     return info
 
 

@@ -234,11 +234,11 @@ check("describe_calibration says NOT APPLIED when the mode is off",
 relaxed = T.calibration_rest_quality(np.full((150, 8), 21.0))
 check("a relaxed rest is accepted", relaxed["ok"], relaxed["reason"])
 tense = np.full((150, 8), 21.0)
-tense[:, 3] = 80.0
+tense[:, 3] = 200.0
 q = T.calibration_rest_quality(tense)
-check("a rest with one channel still tense is rejected, naming the channel",
-      not q["ok"] and q["loud_channel"] == 4 and "CH4" in q["reason"],
-      q["reason"])
+check("a high rest is ALERTED, not rejected, naming the channel",
+      q["ok"] and q["loud_channel"] == 4 and "CH4" in q["alert"]
+      and q["reason"] == "", q["alert"])
 twitch = np.full((150, 8), 21.0)
 twitch[:20, :] = 400.0
 check("one twitch does not fail a rest -- it is judged on the median",
@@ -247,8 +247,8 @@ check("a stub rest is rejected for its sample count",
       not T.calibration_rest_quality(np.full((5, 8), 21.0))["ok"])
 check("no rest at all is rejected, not raised",
       not T.calibration_rest_quality(None)["ok"])
-check("a rest can never be loud enough to pass as a gesture",
-      T.CALIBRATION_MAX_REST_LEVEL < T.CALIBRATION_MIN_GESTURE_LEVEL)
+check("a relaxed rest carries no alert",
+      relaxed.get("alert") == "")
 
 
 # ==============================================================================
@@ -805,21 +805,24 @@ check("and the shrug's row says what to do about it",
 check("while a good capture reads as accepted",
       verdicts.get("FIST") == "accepted", verdicts.get("FIST"))
 
-#  REST is calibrated too: a tense rest is rejected, blocks the record, and
-#  can be redone from its own row.
+#  REST is calibrated too. A HIGH rest is only alerted on its row: it does not
+#  block the record or SAVE.
 good_rest = sweep.rest_block
-sweep.rest_block = np.full((150, 8), 75.0)
+#  One loud channel that the gestures out-range (FIST reaches 550 on CH1), so
+#  the record is still valid and only the alert fires.
+high_rest = np.full((150, 8), 21.0)
+high_rest[:, 0] = 160.0
+sweep.rest_block = high_rest
 sweep._refresh()
 rest_verdict = sweep.sweep_table.item(0, 3).text()
-check("a TENSE rest is rejected on its row, with what to do about it",
-      "let the hand go limp" in rest_verdict, rest_verdict)
-check("and nothing is built on it -- it is the floor affine subtracts",
-      sweep.pending_record() is None or sweep.pending_record().get("source")
-      != "live_gesture_sweep")
-check("so SAVE is off and the dialog says REST must be redone",
-      not sweep.save_button.isEnabled()
-      and "REST" in sweep.warning_label.text(),
-      sweep.warning_label.text())
+check("a HIGH rest is flagged on its row, not rejected",
+      "high" in rest_verdict.lower() and "saved anyway" in rest_verdict,
+      rest_verdict)
+check("and the record is still built from it",
+      sweep.pending_record() is not None
+      and sweep.pending_record().get("source") == "live_gesture_sweep")
+check("so SAVE stays enabled for a high rest",
+      sweep.save_button.isEnabled())
 sweep.sweep_table.selectRow(0)
 check("selecting the REST row offers it for a redo",
       sweep.selected_gesture() == "REST")

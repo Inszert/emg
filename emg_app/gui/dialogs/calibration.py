@@ -596,6 +596,8 @@ class CalibrationDialog(QtWidgets.QDialog):
                                      cfg.CALIBRATION_REST_PERCENTILE)
         if self.rest_block is not None and not rest_q["ok"]:
             rest_text += f" -- REJECTED: {rest_q['reason']}"
+        elif self.rest_block is not None and rest_q.get("alert"):
+            rest_text += f" -- HIGH (alert only): {rest_q['alert']}"
         self.rest_result.setText(rest_text)
         self.effort_result.setText(
             self._level_text(self.effort_block, cfg.CALIBRATION_EFFORT_PERCENTILE))
@@ -665,8 +667,11 @@ class CalibrationDialog(QtWidgets.QDialog):
                              (f"CH{rest_q['loud_channel']} "
                               f"{rest_q['level']:.0f}"
                               if rest_q["loud_channel"] else "--"),
-                             "accepted" if rest_q["ok"] else rest_q["reason"]]
-                    colour = COL_GOOD if rest_q["ok"] else COL_BAD
+                             ("accepted" if rest_q["ok"] else rest_q["reason"])
+                             if not rest_q.get("alert") or not rest_q["ok"]
+                             else f"high, saved anyway: {rest_q['alert']}"]
+                    colour = (COL_GOOD if rest_q["ok"] and not rest_q.get("alert")
+                              else COL_WARN if rest_q["ok"] else COL_BAD)
             elif block is None:
                 cells = [label, "--", "--", "not captured"]
                 colour = COL_TEXT_DIM

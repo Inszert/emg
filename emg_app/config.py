@@ -1019,8 +1019,8 @@ CALIBRATION_MIN_GESTURE_LEVEL = 60.0
 # gesture's contrast is a ratio over it. A "rest" held with the hand still
 # tense would raise that floor and quietly fail the gestures after it. Measured
 # relaxed levels on this hardware are 19-26 counts per channel (median), so 50
-# is twice that while staying under CALIBRATION_MIN_GESTURE_LEVEL -- a rest
-# must never be loud enough to pass as a gesture.
+# is well above that. A REST above this level is ALERTED, never blocked: the
+# record and SAVE still go through, the operator decides.
 CALIBRATION_MAX_REST_LEVEL = 150.0
 
 # No sample for this long and the dialog treats the stream as down. It is
