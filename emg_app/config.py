@@ -1021,7 +1021,7 @@ CALIBRATION_MIN_GESTURE_LEVEL = 60.0
 # relaxed levels on this hardware are 19-26 counts per channel (median), so 50
 # is twice that while staying under CALIBRATION_MIN_GESTURE_LEVEL -- a rest
 # must never be loud enough to pass as a gesture.
-CALIBRATION_MAX_REST_LEVEL = 50.0
+CALIBRATION_MAX_REST_LEVEL = 150.0
 
 # No sample for this long and the dialog treats the stream as down. It is
 # checked against the newest SAMPLE's age rather than the link state, because

@@ -6,9 +6,7 @@
     "ml-et-500-leaf3"
   ],
   "SELECTED_NN": [
-    "nn-gru",
-    "nn-tsmixer",
-    "nn-chan-transformer"
+    "nn-gru"
   ],
   "TRAIN_AUGMENT_NN": [],
   "TRAIN_AUGMENT_ML": [],
