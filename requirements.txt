@@ -6,6 +6,9 @@
 
 # --- required: Myo communication (the existing, working layer) --------------
 pyserial>=3.5
+# psutil -> ends a project script that holds the dongle's COM port
+#           (emg_app/myo/port_guard.py); without it nothing is cleared
+psutil>=5.9
 
 # --- required: numerics -----------------------------------------------------
 numpy>=1.24

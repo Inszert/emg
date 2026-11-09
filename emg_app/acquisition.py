@@ -30,6 +30,7 @@ from emg_app.recording import Recording, STAGE_RAW
 # ==============================================================================
 
 from emg_app.myo.myo_raw import MyoRaw                      # the working communication layer
+from emg_app.myo.port_guard import clear_blocked_port, is_blocked_port_error
 
 # Attribute handles of the Myo's four unfiltered-EMG characteristics. Only used
 # when EMG_MODE == "raw"; the default "filtered" path never touches these.
@@ -459,7 +460,19 @@ class MyoAcquisition(threading.Thread):
     def _connect(self) -> None:
         """Construct and connect a MyoRaw exactly the way the working code does."""
         self._apply_link_settings()
-        myo = MyoRaw(self.port)
+        try:
+            myo = MyoRaw(self.port)
+        except Exception as exc:
+            #  The port is held by one of this project's scripts: end it and
+            #  take the port, once. Anything else is raised as before.
+            if not (cfg.CLEAR_BLOCKED_PORT and is_blocked_port_error(exc)):
+                raise
+            ended = clear_blocked_port(log=self._log)
+            if not ended:
+                raise
+            self._log(f"The port was blocked; ended {len(ended)} project "
+                      "process(es) holding it -- taking the port now.")
+            myo = MyoRaw(self.port)
         myo.add_emg_handler(self._on_emg_filtered)
 
         if self.mode == "raw":

@@ -281,6 +281,11 @@ VIBRATE_CUES = True
 
 # Serial port of the Myo BLED112 dongle. None = auto-detect (USB PID 2458:0001).
 MYO_PORT = None                  # e.g. "COM3"
+#  If the dongle's port is held by one of this project's test/demo scripts
+#  (test_myo.py, myo.py, test_live*.py), end that process and take the port,
+#  instead of retrying forever. Never ends the recorder itself. See
+#  emg_app/myo/port_guard.py.
+CLEAR_BLOCKED_PORT = True
 
 # Which EMG stream to use:
 #
