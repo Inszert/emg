@@ -558,9 +558,17 @@ check("reusing it is logged with its age",
 window._app_started_ts = time.time() - 7200               # calibrated THIS run
 window._calibration_gate_done = set()
 asked.clear()
+check("a calibration made in this run is in use: no question, goes on",
+      window.calibration_gate("PREDICT") and not asked, asked)
+check("...and it is not asked again on START NN either",
+      window.calibration_gate("START NN") and not asked, asked)
+window._calibration_gate_done = set()
+window._app_started_ts = time.time() + 1               # a later run, same record
+asked.clear()
+answers["value"] = "skip"
 window.calibration_gate("PREDICT")
-check("a calibration made in this run is NOT offered for reuse",
-      asked and asked[0][2] is False, asked)
+check("in a LATER run the question is asked again, with the old one offered",
+      asked and asked[0][2] is True, asked)
 # the buttons go through the gate
 calls = []
 window.calibration_gate = lambda what: (calls.append(what), False)[1]

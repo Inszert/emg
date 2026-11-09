@@ -69,6 +69,25 @@ def rest_check(live_block, record: dict) -> Optional[dict]:
             "rest": [float(x) for x in rest]}
 
 
+def _created_ts(record: dict) -> Optional[float]:
+    created = record.get("created_unix")
+    if isinstance(created, (int, float)):
+        return float(created)
+    return _parse_iso(record.get("created_iso"))
+
+
+def made_this_run(record: Optional[dict], app_started_ts: float) -> bool:
+    """
+    True when the stored calibration was made during this run of the
+    application. That calibration is already the one in use, so the question
+    "calibrate your hand first?" must not come back for it.
+    """
+    if not record:
+        return False
+    created = _created_ts(record)
+    return created is not None and created >= app_started_ts
+
+
 def calibration_offer(record: Optional[dict], app_started_ts: float,
                       now: float = None, live_block=None,
                       max_age_h: float = LAST_CALIBRATION_MAX_AGE_H) -> dict:

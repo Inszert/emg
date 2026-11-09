@@ -78,6 +78,13 @@ class PromptsMixin:
             return True
         root = os.path.join(cfg.PROJECT_DIR, cfg.DATA_FOLDER)
         record = load_calibration(root, person)
+        #  A calibration made this run -- by this gate, or by CALIBRATE on the
+        #  panel at session start -- is already in use. Do not ask again.
+        if PR.made_this_run(record, self._app_started_ts):
+            self._calibration_gate_done.add(person)
+            self._append_log(f"Calibration for {person} was made in this run "
+                             "-- it is in use, not asking again.")
+            return True
         live = None
         try:
             live, _t = latest_model_window(self.acq, 1.0)
