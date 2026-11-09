@@ -12,7 +12,7 @@ Left arm
 
 ML: rest okay, left and right ok. Fist and thumb confused. Left-handed, normal arm width. Open is confused but gets it 50/50.
 
-NN: on rest, chaos.
+NN: other than  rest, chaos.
 
 Right arm
 
