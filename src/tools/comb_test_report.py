@@ -439,7 +439,7 @@ def main(argv=None):
         print("openpyxl not installed -- CSV only")
     write_csv(os.path.join(run_dir, "csv"), t)
     print("wrote", os.path.join(run_dir, "csv"))
-    doc = os.path.join(PROJECT, "docs", "COMB_TEST.md")
+    doc = os.path.join(PROJECT, "..", "docs", "COMB_TEST.md")
     write_doc(doc, run_dir, t, ml, nn, people)
     print("wrote", doc)
     return 0

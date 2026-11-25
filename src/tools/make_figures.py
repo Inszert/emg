@@ -35,7 +35,7 @@ import matplotlib.pyplot as plt                                  # noqa: E402
 from matplotlib.colors import LinearSegmentedColormap            # noqa: E402
 
 RUN = os.path.join(PROJECT, "models", "comb_test", "20261022-003918")
-OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(PROJECT, "docs",
+OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(PROJECT, "..", "docs",
                                                           "figures")
 os.makedirs(OUT, exist_ok=True)
 

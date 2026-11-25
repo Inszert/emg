@@ -31,7 +31,7 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "training"))
 import ablation_stats as ST                                       # noqa: E402
 
-OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "docs", "figures")
+OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "..", "docs", "figures")
 os.makedirs(OUT, exist_ok=True)
 
 SURFACE, TEXT, TEXT_2 = "#fcfcfb", "#0b0b0b", "#52514e"

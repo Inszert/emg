@@ -38,7 +38,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt                                  # noqa: E402
 
 PERSON = sys.argv[1] if len(sys.argv) > 1 else "Barbora"
-OUT = os.path.join(PROJECT, "docs", "figures")
+OUT = os.path.join(PROJECT, "..", "docs", "figures")
 os.makedirs(OUT, exist_ok=True)
 
 SURFACE, TEXT, TEXT_2, GRID, MUTED = ("#fcfcfb", "#0b0b0b", "#52514e",
@@ -1023,7 +1023,7 @@ def write_doc(summary):
     add("python tools/make_exclusion_report.py")
     add("python tools/make_report.py")
     add("```\n")
-    path = os.path.join(PROJECT, "docs", "EXCLUDING_PEOPLE.md")
+    path = os.path.join(PROJECT, "..", "docs", "EXCLUDING_PEOPLE.md")
     with open(path, "w", encoding="utf-8") as fh:
         fh.write("\n".join(L))
     return path
@@ -1075,7 +1075,7 @@ def main():
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(summary, fh, indent=1, default=float)
     doc = write_doc(summary)
-    fill_marked(os.path.join(PROJECT, "docs", "MODELS_COMPARED.md"),
+    fill_marked(os.path.join(PROJECT, "..", "docs", "MODELS_COMPARED.md"),
                 models_compared_block(summary))
     print(f"{len(rows)} trained-without models found, "
           f"{len(summary['switches'])} switch comparison(s); wrote {path}, "

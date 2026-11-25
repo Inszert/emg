@@ -19,7 +19,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 DOC = json.load(open(os.path.join(ROOT, "results", "experiments.json"),
                      encoding="utf-8"))
-OUT = os.path.join(ROOT, "docs", "REPORT.md")
+OUT = os.path.join(ROOT, "..", "docs", "REPORT.md")
 
 
 def pct(v, d=1):
@@ -559,7 +559,7 @@ print("wrote", os.path.relpath(OUT, ROOT), f"({len(L)} lines)")
 
 # ---- the defaults table in docs/FEATURES.md ------------------------------------
 def fill_features_defaults():
-    path = os.path.join(ROOT, "docs", "FEATURES.md")
+    path = os.path.join(ROOT, "..", "docs", "FEATURES.md")
     text = open(path, encoding="utf-8").read().replace("\r\n", "\n")
     marker = "<!-- TABLE: defaults -->"
     a = text.index(marker)

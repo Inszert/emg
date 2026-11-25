@@ -36,7 +36,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PROJECT = os.path.dirname(HERE)
 sys.path.insert(0, PROJECT)
 RUN = os.path.join(PROJECT, "models", "comb_test", "20261022-003918")
-OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(PROJECT, "docs",
+OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(PROJECT, "..", "docs",
                                                           "figures")
 os.makedirs(OUT, exist_ok=True)
 

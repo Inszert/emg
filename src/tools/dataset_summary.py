@@ -558,7 +558,7 @@ if __name__ == "__main__":
     out_json = os.path.join(RESULTS, "dataset_summary.json")
     with open(out_json, "w", encoding="utf-8") as fh:
         json.dump(summary, fh, indent=1)
-    out_md = os.path.join(ROOT, "docs", "DATASET_SUMMARY.md")
+    out_md = os.path.join(ROOT, "..", "docs", "DATASET_SUMMARY.md")
     write_md(summary, out_md)
     print("wrote", os.path.relpath(out_json, ROOT), "and",
           os.path.relpath(out_md, ROOT))

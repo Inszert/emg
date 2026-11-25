@@ -27,7 +27,7 @@ from matplotlib.colors import LinearSegmentedColormap, LogNorm      # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "docs", "figures")
+OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "..", "docs", "figures")
 os.makedirs(OUT, exist_ok=True)
 
 SURFACE, TEXT, TEXT_2 = "#fcfcfb", "#0b0b0b", "#52514e"
