@@ -55,14 +55,16 @@ foreach ($r in $Remotes) {
     if ($Snapshot -contains $r) {
         git fetch $r 2>&1 | Out-Null
         $tmp = Join-Path ([IO.Path]::GetTempPath()) ("push_all_" + [guid]::NewGuid().ToString("N"))
-        $msg = (git log -1 --format=%B HEAD).Trim()
+        $msgFile = Join-Path ([IO.Path]::GetTempPath()) ("push_all_msg_" + [guid]::NewGuid().ToString("N") + ".txt")
+        (git log -1 --format=%B HEAD) | Set-Content -Encoding utf8 $msgFile
         git worktree add --detach $tmp "$r/main" 2>&1 | Out-Null
         Push-Location $tmp
         git rm -rq --ignore-unmatch src doc docs
         git checkout $branch -- src doc
         git add -A src doc
         if (git status --porcelain) {
-            git commit -q -m $msg
+            git commit -q -F $msgFile
+            if ($LASTEXITCODE -ne 0) { $failed += $r; Pop-Location; git worktree remove --force $tmp; continue }
             Write-Host "`n>>> snapshot of src/ + doc/ -> $r/main" -ForegroundColor Cyan
             $pc = @("push"); if ($DryRun) { $pc += "--dry-run" }; $pc += @($r, "HEAD:main")
             & git @pc
