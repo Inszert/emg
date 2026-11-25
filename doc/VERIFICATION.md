@@ -33,18 +33,18 @@ and simulated input only, or not at all (see item 7, icon and taskbar).
 
 | Where | What to change |
 |---|---|
-| `models/gesture_model.joblib` vs `docs/REPORT.md:142`, `docs/NOTES.md:98`, `docs/FEATURES.md:97`, `docs/FEATURES.md:202`, `tools/make_report.py:263`, `tools/make_figure_new_models.py:70` | The deployed model is a four-member soft vote (RF-500-leaf3, ET-500, svm_rbf, lda), not the ET-500 + RF-500-leaf3 pair. Correct the text (or deploy the pair; that is the operator's decision per CLAUDE 8n). |
+| `models/gesture_model.joblib` vs `doc/REPORT.md:142`, `doc/NOTES.md:98`, `doc/FEATURES.md:97`, `doc/FEATURES.md:202`, `tools/make_report.py:263`, `tools/make_figure_new_models.py:70` | The deployed model is a four-member soft vote (RF-500-leaf3, ET-500, svm_rbf, lda), not the ET-500 + RF-500-leaf3 pair. Correct the text (or deploy the pair; that is the operator's decision per CLAUDE 8n). |
 | `emg_app/zoo.py:283-288` (`COMPAT_KEYS`) and `emg_app/zoo.py:291` (`check_vote`) | Add adaptation to the compatibility check, as `emg_app/prediction.py:89-112` already does at load time. CLAUDE 7c and FEATURES 3 say the dialog refuses it. |
-| `tools/make_ui_guide.py:613-637` and `docs/images/ui_question_calibrate.png`, `docs/images/ui_question_retrain.png` | Build the screenshots from the real stored state, or caption them as examples. |
-| `tools/make_figure_new_models.py:70` and `docs/figures/novesie_modely_test.png` | The label "ML vote ET+RF (deployed) 77.6 %" is wrong on two counts (not deployed; 77.0 % in REPORT). |
-| `tools/make_figures_ablation.py:119` and `docs/figures/ablation_effects.png` | The grey band uses only the baseline's seed spread; the judge uses the larger of the two. |
+| `tools/make_ui_guide.py:613-637` and `doc/images/ui_question_calibrate.png`, `doc/images/ui_question_retrain.png` | Build the screenshots from the real stored state, or caption them as examples. |
+| `tools/make_figure_new_models.py:70` and `doc/figures/novesie_modely_test.png` | The label "ML vote ET+RF (deployed) 77.6 %" is wrong on two counts (not deployed; 77.0 % in REPORT). |
+| `tools/make_figures_ablation.py:119` and `doc/figures/ablation_effects.png` | The grey band uses only the baseline's seed spread; the judge uses the larger of the two. |
 | `emg_app/config.py`, `emg_app/gui/dialogs/settings_tabs.py` (`GeneralTab`, line 344), `emg_app/app.py:88` | No switch for the icon exists. Add one or change the requirement. |
-| `docs/install_windows.md:51`, `:58`, `:201`, `:205-216`; `docs/install_linux.md:63`, `:68-69` | scikit-learn 1.9.1 and the `InconsistentVersionWarning` are no longer true: `requirements.txt` pins `<1.8` and the saved model loads with 1.7.2 without a warning. |
-| `docs/MANUAL.md:1350` | `test_gui.py` is 109 checks, not 91. |
+| `doc/install_windows.md:51`, `:58`, `:201`, `:205-216`; `doc/install_linux.md:63`, `:68-69` | scikit-learn 1.9.1 and the `InconsistentVersionWarning` are no longer true: `requirements.txt` pins `<1.8` and the saved model loads with 1.7.2 without a warning. |
+| `doc/MANUAL.md:1350` | `test_gui.py` is 109 checks, not 91. |
 | `tests/test_zoo.py:333` | `import torch` is unguarded in section 4; the suite fails with 0/0 in a torch-free install. |
 | `tests/test_jobs.py:297` | `taskkill` is Windows-only; the suite fails on Linux. |
 | `tools/make_report.py:382` (REPORT:270) | "the slow suites are run separately" is wrong: `tools/run_tests.py` runs them unless `--fast`. |
-| `tools/make_report.py:110`, `docs/REPORT.md:17` and the defaults text | The rule says "2 x the seed noise"; `training/ablation_stats.py:74` uses the larger of two spreads. Say so, and give the sensitivity (section 5). |
+| `tools/make_report.py:110`, `doc/REPORT.md:17` and the defaults text | The rule says "2 x the seed noise"; `training/ablation_stats.py:74` uses the larger of two spreads. Say so, and give the sensitivity (section 5). |
 | `git status` | `datasets/Dano/calibration.json`, `datasets/Dano/calibration_log.jsonl` and `emg_app/gui/main_window/prompts.py` are uncommitted; three agent worktrees are still registered (`git worktree list`). |
 
 ## 1. Clean start
@@ -102,8 +102,8 @@ WSL Ubuntu 24.04 (Python 3.12.3, a fresh venv in `~/venv_emg`, project copied to
 | nn | 162/162 | custom_gesture | 48/48 |
 
 **22/22 suites, 2233/2233 checks** (suite time for `custom_gesture`: 187.6 s). The
-per-suite counts equal `tests/last_run.json` at HEAD and `docs/REPORT.md` section
-11 for all 22 suites. `docs/figures/tests_overview.png` shows the same numbers.
+per-suite counts equal `tests/last_run.json` at HEAD and `doc/REPORT.md` section
+11 for all 22 suites. `doc/figures/tests_overview.png` shows the same numbers.
 
 Torch-free environments: in the fresh venv (no torch), `run_tests.py --fast` gave
 **19/20 suites, 1915/1915** (`zoo` fails, `V\verify\run_tests_venv_fast.log`).
@@ -204,7 +204,7 @@ compared. What was checked instead:
 **Verdict: NESPLNENÉ** for the prose; the tables are correct.
 
 **Tables.** `V\verify\check_numbers.py` parses every generated table in
-`docs/REPORT.md` and `docs/FEATURES.md` and compares it with
+`doc/REPORT.md` and `doc/FEATURES.md` and compares it with
 `results/experiments.json` and `tests/last_run.json`: **455 values, 0 mismatches**
 (ML and NN rows including sizes, latency, stars and trained-with; ablation,
 robustness, voting, new-models, latency, test counts and the defaults rows).
@@ -266,24 +266,24 @@ Negative control: two planted errors (80.8 -> 80.9, 76.9 -> 77.9) were both caug
 **Verdict: NESPLNENÉ** (the links pass; the screenshots do not all match).
 
 **Links.** An inline Python run (not saved): **122 relative links** in `README.md`,
-`docs/*.md`, `tests/README.md` and `emg_app/README.md`, including every image reference.
-All resolve except the three links to `docs/VERIFICATION.md`, which this file now
+`doc/*.md`, `tests/README.md` and `emg_app/README.md`, including every image reference.
+All resolve except the three links to `doc/VERIFICATION.md`, which this file now
 satisfies.
 
 **Screenshots I looked at.**
 
 | File | Matches the current GUI and data? |
 |---|---|
-| `docs/images/ui_main.png` | Yes: gear icon top right, banner, status bar, cards without nested outlines. Callout text overlaps a little (callout 1 over "capture.", callout 9 on the START SESSION label). |
-| `docs/images/ui_settings.png` | Four tabs. The counts (44, 29, 35, 32, 36, 35 recordings) equal the `--summary` totals. The FIST row shows "on" beside a box that looks unchecked while the callout says FIST is off; not resolved by zooming here. |
-| `docs/images/ui_settings_models.png` | Yes: ticks and stars and the numbers (RF-500-leaf3 80.8 %, 78.6 %, 4.8 MB; NN-gru 67.7 %) match the zoo; total 22.0 MB for three ticked models. |
-| `docs/images/ui_settings_training.png` | Yes: "Defaults in this build -- NN: augmentation none, adaptation off; ML: augmentation none, adaptation on." Some callout badges cover labels. |
-| `docs/images/ui_settings_general.png` | Yes (two switches). |
-| `docs/images/ui_question_calibrate.png` | **No.** It shows "reuse the last calibration made 2026-10-27 08:10 (2.3 h ago)". The stored Dano calibration is from 2026-10-26 12:30, more than 8 hours old, and would not be offered. The image comes from a hard-coded offer (`tools/make_ui_guide.py:613`). |
-| `docs/images/ui_question_retrain.png` | **No.** It says "WRIST_FLEX ... 40 recordings of it exist". There are 0 WRIST_FLEX files on disk, and `ui_settings.png` says "nothing recorded yet" for the same gesture. Built from fixed text in `tools/make_ui_guide.py`. |
-| `docs/figures/ablation_effects.png` | The numbers and verdicts match. The ML grey band (about +-1 point) is drawn from the baseline spread only; the judge's bar for the ML adaptation row is 4.9. Source: `tools/make_figures_ablation.py:119`. |
-| `docs/figures/novesie_modely_test.png` | The new-architecture numbers match REPORT section 5. The label "ML vote ET+RF (deployed) 77.6 %" is wrong (not the deployed model; 77.0 % in REPORT). Source: `tools/make_figure_new_models.py:70`. |
-| `docs/figures/tests_overview.png` | Yes: 2233/2233 and each suite's count equal `tests/last_run.json`. |
+| `doc/images/ui_main.png` | Yes: gear icon top right, banner, status bar, cards without nested outlines. Callout text overlaps a little (callout 1 over "capture.", callout 9 on the START SESSION label). |
+| `doc/images/ui_settings.png` | Four tabs. The counts (44, 29, 35, 32, 36, 35 recordings) equal the `--summary` totals. The FIST row shows "on" beside a box that looks unchecked while the callout says FIST is off; not resolved by zooming here. |
+| `doc/images/ui_settings_models.png` | Yes: ticks and stars and the numbers (RF-500-leaf3 80.8 %, 78.6 %, 4.8 MB; NN-gru 67.7 %) match the zoo; total 22.0 MB for three ticked models. |
+| `doc/images/ui_settings_training.png` | Yes: "Defaults in this build -- NN: augmentation none, adaptation off; ML: augmentation none, adaptation on." Some callout badges cover labels. |
+| `doc/images/ui_settings_general.png` | Yes (two switches). |
+| `doc/images/ui_question_calibrate.png` | **No.** It shows "reuse the last calibration made 2026-10-27 08:10 (2.3 h ago)". The stored Dano calibration is from 2026-10-26 12:30, more than 8 hours old, and would not be offered. The image comes from a hard-coded offer (`tools/make_ui_guide.py:613`). |
+| `doc/images/ui_question_retrain.png` | **No.** It says "WRIST_FLEX ... 40 recordings of it exist". There are 0 WRIST_FLEX files on disk, and `ui_settings.png` says "nothing recorded yet" for the same gesture. Built from fixed text in `tools/make_ui_guide.py`. |
+| `doc/figures/ablation_effects.png` | The numbers and verdicts match. The ML grey band (about +-1 point) is drawn from the baseline spread only; the judge's bar for the ML adaptation row is 4.9. Source: `tools/make_figures_ablation.py:119`. |
+| `doc/figures/novesie_modely_test.png` | The new-architecture numbers match REPORT section 5. The label "ML vote ET+RF (deployed) 77.6 %" is wrong (not the deployed model; 77.0 % in REPORT). Source: `tools/make_figure_new_models.py:70`. |
+| `doc/figures/tests_overview.png` | Yes: 2233/2233 and each suite's count equal `tests/last_run.json`. |
 
 ## 7. Definition of done
 
@@ -293,8 +293,8 @@ satisfies.
 | Defaults backed by the Phase-3 numbers and justified | **OBMEDZENIE** | Every default is generated from `experiments.json`, and the verdicts reproduce from the raw runs. The NN adaptation verdict depends on an unstated choice; the ML adaptation default passes on robustness by 0.4 points (section 5). |
 | Every new feature switchable off in the settings | **NESPLNENÉ** | Model selection, voting (untick), augmentation and adaptation (Training tab), both questions (General tab) are switchable and verified. **The icon has no switch** (`emg_app/app.py:88`, `emg_app/gui/icon.py`); FEATURES 9 says to remove the folder. |
 | Icon in the window corner and taskbar | **OBMEDZENIE** | Verified headless: files and sizes; `apply_app_icon` sets window and application icon (`app.py:88` runs before `MainWindow()` at line 105, so the AppUserModelID is set before the first window). The taskbar and the corner need a real desktop; not seen. |
-| Tests ran and results visualised | **SPLNENÉ** | Section 2; `docs/figures/tests_overview.png` matches. |
-| Documentation, tables, README, screenshots, report, Myo SDK, Windows and Linux install current | **NESPLNENÉ** | The install guides' versions and warning are out of date (section 8, item 5); the MANUAL count is 91; the "deployed pair" text; two question screenshots; the "run separately" line. The Myo SDK guide (`docs/sdk_myo.md`, 658 lines) was not checked against hardware (OBMEDZENIE). |
+| Tests ran and results visualised | **SPLNENÉ** | Section 2; `doc/figures/tests_overview.png` matches. |
+| Documentation, tables, README, screenshots, report, Myo SDK, Windows and Linux install current | **NESPLNENÉ** | The install guides' versions and warning are out of date (section 8, item 5); the MANUAL count is 91; the "deployed pair" text; two question screenshots; the "run separately" line. The Myo SDK guide (`doc/sdk_myo.md`, 658 lines) was not checked against hardware (OBMEDZENIE). |
 | Agents communicated on the board | **OBMEDZENIE** | Sections for A, B, C and D are present in `scratchpad\board\BOARD.md`. `coordination/BOARD.md` does not exist yet; main's copy step is outstanding. C's request (nested frames in `_stat_tile`) is in place: the tile uses `QFrame#card` (`emg_app/gui/widgets.py:434-435`), so no nested outline is drawn. |
 | Everything committed and pushed | **NESPLNENÉ** | `origin/main` = `main` = 39c1dea (nothing unpushed), but `git status` shows three modified files that are not committed; three agent worktrees are still registered (all their branches are merged). |
 
@@ -331,7 +331,7 @@ in `calibration_log.jsonl` (the modified copy is one line longer than the commit
    classic RETRAIN, which trains the deployed model, ignores it (section 5, item 5).
 9. **LOW: the ablation figure's grey band** understates the bar for the ML adaptation row
    (`tools/make_figures_ablation.py:119`).
-10. **LOW: `docs/REPORT.md:270` and `docs/MANUAL.md:1350`** have the wrong description of the
+10. **LOW: `doc/REPORT.md:270` and `doc/MANUAL.md:1350`** have the wrong description of the
     slow suites and the old count of 91.
 11. **LOW: the repository is not clean.** Two tracked dataset files were rewritten by the
     app's calibration (the log is appended, so the history is kept); `prompts.py:138` has an
@@ -372,17 +372,17 @@ repeated by D; the evidence for each fix is the test or command named.
 
 | Finding | Action | Evidence |
 |---|---|---|
-| "Deployed pair" is wrong: `gesture_model.joblib` is the four-model vote | Texts corrected everywhere (`tools/make_report.py`, FEATURES, NOTES, `novesie_modely_test.png` title and legend now say "combination-test winner / stored result"). Whether to deploy the pair stays the operator's call (CLAUDE.md 8n). | `docs/REPORT.md` section 6, `docs/NOTES.md` |
+| "Deployed pair" is wrong: `gesture_model.joblib` is the four-model vote | Texts corrected everywhere (`tools/make_report.py`, FEATURES, NOTES, `novesie_modely_test.png` title and legend now say "combination-test winner / stored result"). Whether to deploy the pair stays the operator's call (CLAUDE.md 8n). | `doc/REPORT.md` section 6, `doc/NOTES.md` |
 | Vote pre-check ignored adaptation | `adaptation_mode` added to `zoo.COMPAT_KEYS` (ML); the 16 existing ML metas migrated; `train_zoo.py` writes it; the Models tab now flags and blocks such a vote before the loader would. | `tests/test_zoo.py` (109), `tests/test_app_settings.py` (67) |
-| Question screenshots show typed-in values | Captions say "example values" (the numbers in a real box come from disk) | `docs/UI_GUIDE.md` 10d |
+| Question screenshots show typed-in values | Captions say "example values" (the numbers in a real box come from disk) | `doc/UI_GUIDE.md` 10d |
 | No settings switch for the icon | `APP_ICON_ENABLED` (config, saved settings, General tab "Appearance"; applied at the next start; the saved settings are restored before the icon) | `tests/test_icon.py` (17), `tests/test_app_settings.py` |
-| Install guides stale (scikit-learn 1.9.1, version warning) | Rewritten: `requirements.txt` pins `scikit-learn>=1.3,<1.8`, a clean install resolves 1.7.2 and the saved model loads without a warning (D verified exactly that) | `docs/install_windows.md`, `docs/install_linux.md` |
-| `MANUAL.md:1350` 91 checks | 109 | `docs/MANUAL.md` |
+| Install guides stale (scikit-learn 1.9.1, version warning) | Rewritten: `requirements.txt` pins `scikit-learn>=1.3,<1.8`, a clean install resolves 1.7.2 and the saved model loads without a warning (D verified exactly that) | `doc/install_windows.md`, `doc/install_linux.md` |
+| `MANUAL.md:1350` 91 checks | 109 | `doc/MANUAL.md` |
 | `test_zoo.py` needs torch; `test_jobs.py` uses `taskkill` | Torch-dependent sections are skipped (and said so) without torch; `test_jobs` kills the runner portably | `tests/test_zoo.py`, `tests/test_jobs.py` |
-| "Slow suites run separately" wrong | Sentence corrected (they are in the count; `--fast` skips them) | `docs/REPORT.md` section 11 |
-| Rule text vs `ablation_stats.judge` (larger of two spreads) | Stated in the report's methods; section 8 now says how firm the two adaptation verdicts are (NN: borderline, decided by the baseline's instability; ML: weakest default); the ablation figure now draws the judge's own per-row threshold | `docs/REPORT.md` sections 3 and 8, `ablation_effects.png` |
-| macro-F1 undefined | Defined in the methods (per person over six fixed classes, then averaged) | `docs/REPORT.md` section 3 |
-| ML adaptation default applies to the zoo only | Written in the report's limitations and NOTES | `docs/REPORT.md` section 12 |
+| "Slow suites run separately" wrong | Sentence corrected (they are in the count; `--fast` skips them) | `doc/REPORT.md` section 11 |
+| Rule text vs `ablation_stats.judge` (larger of two spreads) | Stated in the report's methods; section 8 now says how firm the two adaptation verdicts are (NN: borderline, decided by the baseline's instability; ML: weakest default); the ablation figure now draws the judge's own per-row threshold | `doc/REPORT.md` sections 3 and 8, `ablation_effects.png` |
+| macro-F1 undefined | Defined in the methods (per person over six fixed classes, then averaged) | `doc/REPORT.md` section 3 |
+| ML adaptation default applies to the zoo only | Written in the report's limitations and NOTES | `doc/REPORT.md` section 12 |
 | Repo not clean | Three agent worktrees removed after their branches were merged; `prompts.py` committed. **`datasets/Dano/calibration.json` and `calibration_log.jsonl` stay uncommitted on purpose**: they are the owner's own live calibration from 2026-10-26, not part of this work. | `git status`, `git worktree list` |
 | Callout overlaps, empty `datasets/Michal/session_01` | Not changed (cosmetic; the empty folder is the owner's) | -- |
 

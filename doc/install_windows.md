@@ -125,7 +125,7 @@ Command-line flags (`emg_app/app.py`): `--summary`; `--train` /
 `--train-quick` start a retrain as soon as the window is up (this runs a
 CPU-heavy sweep; do not use it on a busy machine).
 
-First use with a band: `docs/sdk_myo.md` section 7 is the step-by-step
+First use with a band: `doc/sdk_myo.md` section 7 is the step-by-step
 hardware checklist. A **new wearer must press CALIBRATE once** (six seconds)
 before the classifier will predict for them.
 
@@ -153,7 +153,7 @@ Other no-hardware scripts (`test_review`, `test_markers`,
 `test_class_mask`, `test_model_spec`, `test_trail`, `test_jobs`) exist and are
 listed in `tests/README.md`; they were **not** run for this document.
 
-`python tools/run_tests.py` runs every offline suite (`--fast` skips the two slow ones); it was run by the independent check, see docs/VERIFICATION.md.
+`python tools/run_tests.py` runs every offline suite (`--fast` skips the two slow ones); it was run by the independent check, see doc/VERIFICATION.md.
 
 Do **not** run on a busy or small machine: `test_predict.py` (trains a toy
 model and runs a real retrain), `test_custom_gesture.py` (about 5 min, trains),
@@ -203,7 +203,7 @@ scikit-learn has no GPU backend: RETRAIN is CPU work whatever you install.
 
 ## Known issues found while writing this
 
-* **scikit-learn version.** The saved models were pickled with 1.7.2, and `requirements.txt` now pins `scikit-learn>=1.3,<1.8`, so a clean install resolves 1.7.2 and loads them with no `InconsistentVersionWarning` (verified by the independent check, docs/VERIFICATION.md). Do not upgrade scikit-learn past 1.7.x without retraining.
+* **scikit-learn version.** The saved models were pickled with 1.7.2, and `requirements.txt` now pins `scikit-learn>=1.3,<1.8`, so a clean install resolves 1.7.2 and loads them with no `InconsistentVersionWarning` (verified by the independent check, doc/VERIFICATION.md). Do not upgrade scikit-learn past 1.7.x without retraining.
 * `PySide6` brings `PySide6_Addons` and `PySide6_WebEngine` (about 130 MB
   alone) although the app does not use WebEngine. `PySide6-Essentials` would be
   enough for the app but was **not** tried.

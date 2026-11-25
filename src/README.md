@@ -9,13 +9,13 @@ the training and validation pipeline that goes with it.
 honestly-labelled dataset with subject-independent validation — because on
 this problem the dataset is the bottleneck and the classifier is not.
 
-![The main window](../docs/images/ui_main.png)
+![The main window](../doc/images/ui_main.png)
 
 ---
 
 ## Features
 
-Full list, with how to turn each on and off: [`../docs/FEATURES.md`](../docs/FEATURES.md).
+Full list, with how to turn each on and off: [`../doc/FEATURES.md`](../doc/FEATURES.md).
 
 - Live 8-channel plot, labelled capture, quality checks, trimming, annotation
 - Two live models: ML soft vote (the answer) and a neural net (second opinion)
@@ -28,28 +28,28 @@ Full list, with how to turn each on and off: [`../docs/FEATURES.md`](../docs/FEA
   described as itself: its measured accuracy, a table of its members, and how
   each member voted on the current window
 - Augmentation and adaptation to the person (per family), switched on only
-  where the ablation study measured a gain ([`../docs/REPORT.md`](../docs/REPORT.md))
+  where the ablation study measured a gain ([`../doc/REPORT.md`](../doc/REPORT.md))
 - **Train without some people** (Settings -> Training), with ready-trained
   `... (without <name>)` models, blue stars for the ones that score higher than their
   yellow-star model on the same people, and the measured with/without comparison of every
-  training switch ([`../docs/EXCLUDING_PEOPLE.md`](../docs/EXCLUDING_PEOPLE.md))
+  training switch ([`../doc/EXCLUDING_PEOPLE.md`](../doc/EXCLUDING_PEOPLE.md))
 - Two questions the application asks: calibrate the hand before PREDICT /
   START NN (reuse the last calibration only after a restart), and retrain all /
   only the selected models when something is out of date
-- App icon; `../docs/sdk_myo.md` for a new band; install guides for Windows and Linux
+- App icon; `../doc/sdk_myo.md` for a new band; install guides for Windows and Linux
 
 ## Quick start
 
-- Windows: [`../docs/install_windows.md`](../docs/install_windows.md)
-- Linux: [`../docs/install_linux.md`](../docs/install_linux.md)
-- Myo SDK / protocol notes: [`../docs/sdk_myo.md`](../docs/sdk_myo.md)
+- Windows: [`../doc/install_windows.md`](../doc/install_windows.md)
+- Linux: [`../doc/install_linux.md`](../doc/install_linux.md)
+- Myo SDK / protocol notes: [`../doc/sdk_myo.md`](../doc/sdk_myo.md)
 
 Short version: `python -m pip install -r requirements.txt`, then
 `python emg_dataset_tool.py`.
 
-Results and report: [`../docs/REPORT.md`](../docs/REPORT.md) (numbers in
-`results/experiments.json`); verification: [`../docs/VERIFICATION.md`](../docs/VERIFICATION.md);
-decisions: [`../docs/NOTES.md`](../docs/NOTES.md).
+Results and report: [`../doc/REPORT.md`](../doc/REPORT.md) (numbers in
+`results/experiments.json`); verification: [`../doc/VERIFICATION.md`](../doc/VERIFICATION.md);
+decisions: [`../doc/NOTES.md`](../doc/NOTES.md).
 
 ---
 
@@ -97,7 +97,7 @@ Optional: `scikit-learn` + `joblib` (training and the live classifier),
 Needs a Myo armband and a Bluegiga BLED112 dongle. Windows, in practice — the
 COM-port handling has not been tried elsewhere; on Linux (WSL) the install,
 the offline tests and the GUI start-up were checked, the dongle was not
-([`../docs/install_linux.md`](../docs/install_linux.md)). Only one process can hold the
+([`../doc/install_linux.md`](../doc/install_linux.md)). Only one process can hold the
 port, so close `legacy/test_myo.py` before starting the tool.
 
 **The recorder never imports torch.** It asks a subprocess whether a GPU exists, and runs the neural net in another one, so the app starts, records and predicts identically with torch absent.
@@ -130,7 +130,7 @@ Around them: **per-wearer calibration** (required once per wearer),
 **background training** that keeps going when the window is closed,
 **RETRAIN ML + NEURAL NET** in one button, and **TEST MODEL**, which scores
 the model on you, live. Every screen is explained, with annotated
-screenshots, in [`../docs/UI_GUIDE.md`](../docs/UI_GUIDE.md).
+screenshots, in [`../doc/UI_GUIDE.md`](../doc/UI_GUIDE.md).
 
 **Everything in `emg_app/` outside `gui/` is Qt-free** and importable headless,
 which is what lets a training script do `import emg_dataset_tool as T;
@@ -171,7 +171,7 @@ Timestamped off the newest **sample**, not the GUI clock.
 > **How to actually record**, in one line: make the gesture, let it settle,
 > then **hold it relaxed at the effort you would really use**, and take the
 > armband off between sittings. The full protocol is in
-> [`../docs/UI_GUIDE.md`](../docs/UI_GUIDE.md#the-five-minute-version).
+> [`../doc/UI_GUIDE.md`](../doc/UI_GUIDE.md#the-five-minute-version).
 
 ---
 
@@ -193,11 +193,11 @@ for train, test, held_out in T.leave_one_person_out(groups):
 In practice just press **RETRAIN ON ALL DATA** (or **RETRAIN ML + NEURAL
 NET**). The setup and the vote members were chosen by a 10.5-hour search
 (`training/nn_ml_comb_test.py`, results in
-[`../docs/COMB_TEST.md`](../docs/COMB_TEST.md)) and are **pinned** in
+[`../doc/COMB_TEST.md`](../doc/COMB_TEST.md)) and are **pinned** in
 `models/model_spec.json`, so a retrain takes ~1.5 minutes instead of
 re-sweeping. Unpin it in MODEL SPEC and the trainer runs its full
 **three-stage sweep** again — cheap screen, shortlist probe, full evaluation;
-see [`../docs/how_to_fix_long_training.md`](../docs/how_to_fix_long_training.md).
+see [`../doc/how_to_fix_long_training.md`](../doc/how_to_fix_long_training.md).
 
 **Training is calibrated, always the same way.** Every wearer's training data
 is calibrated from their own recordings (labels unused), so everyone is on
@@ -217,7 +217,7 @@ would be garbage while the cross-validation score stayed perfect.
 
 Both scored the same way: every fold holds out **one whole person**, trained
 on the other four. Full comparison, with every number's source:
-[`../docs/MODELS_COMPARED.md`](../docs/MODELS_COMPARED.md).
+[`../doc/MODELS_COMPARED.md`](../doc/MODELS_COMPARED.md).
 
 | | ML: soft vote ExtraTrees + RandomForest | NN: GRU 0.7 s |
 |---|---|---|
@@ -241,7 +241,7 @@ on the other four. Full comparison, with every number's source:
 ## Using it day to day
 
 The full walkthrough with pictures is the
-[five-minute version](../docs/UI_GUIDE.md#the-five-minute-version). In short:
+[five-minute version](../doc/UI_GUIDE.md#the-five-minute-version). In short:
 
 1. **Calibrate** the wearer (CALIBRATE → START SWEEP → SAVE).
 2. **Record** (free take, then cut clips).
@@ -255,7 +255,7 @@ to do it). It appears everywhere at once — dropdowns, plan, calibration, cues,
 its own colour — and is saved with the data. **Nothing retrains by itself:**
 the panel tells you the models don't know it yet, and you press RETRAIN when
 you have recorded it on at least two people
-([guide](../docs/UI_GUIDE.md#10-adding-a-new-gesture)).
+([guide](../doc/UI_GUIDE.md#10-adding-a-new-gesture)).
 
 ---
 
@@ -329,7 +329,7 @@ emg_app/              the application package (module map: emg_app/README.md)
 training/             trainers, job runner, NN worker, the comb test
 tools/                report and screenshot generators
 tests/                runnable check scripts
-docs/                 every other document
+doc/                 every other document
 legacy/               retired code, kept for the record
 datasets/ models/ exports/
 ```
@@ -344,8 +344,8 @@ datasets/ models/ exports/
 | **`training/train_nn.py`** | trains the **neural network** -- a separate second opinion, on CUDA, never part of the answer |
 | `training/nn_arch.py` / `nn_serve.py` | its architectures, and the subprocess that serves it live |
 | `training/train_job.py` | runs training in the background, so closing the app does not stop it |
-| `training/nn_ml_comb_test.py` | the ML + NN combination search ([`../docs/COMB_TEST.md`](../docs/COMB_TEST.md)) |
-| `tools/make_ui_guide.py` | regenerates the annotated screenshots in `../docs/images/` |
+| `training/nn_ml_comb_test.py` | the ML + NN combination search ([`../doc/COMB_TEST.md`](../doc/COMB_TEST.md)) |
+| `tools/make_ui_guide.py` | regenerates the annotated screenshots in `../doc/images/` |
 | `tools/bench_models.py` | times both models per live window, on real recordings |
 | `legacy/` | the **retired** `train_torch.py`, the original `myo.py` demo and `test_myo.py` monitor |
 | `datasets/` | recorded data (`_`-prefixed folders are never discovered) |
@@ -358,32 +358,32 @@ datasets/ models/ exports/
 
 | File | What it covers |
 |---|---|
-| [`../docs/FEATURES.md`](../docs/FEATURES.md) | every feature: what, on/off, default and why, code location |
-| [`../docs/REPORT.md`](../docs/REPORT.md) | report of the latest work: models, ablation, robustness, latency |
-| [`../docs/install_windows.md`](../docs/install_windows.md), [`../docs/install_linux.md`](../docs/install_linux.md) | installation per platform |
-| [`../docs/sdk_myo.md`](../docs/sdk_myo.md) | Myo SDK and protocol notes |
-| [`../docs/NOTES.md`](../docs/NOTES.md) | decisions and open questions |
-| [`../docs/VERIFICATION.md`](../docs/VERIFICATION.md) | independent check of the claims |
-| [`../docs/calib_plan.md`](../docs/calib_plan.md), [`../docs/recommendation.md`](../docs/recommendation.md) | calibration design study; earlier recommendations |
-| [`../docs/MANUAL.md`](../docs/MANUAL.md) | **the complete manual** — install, architecture, the interface, the ML pipeline, and the full engineering record of what broke and how it was fixed |
-| [`../docs/UI_GUIDE.md`](../docs/UI_GUIDE.md) | **the UI, screen by screen, with annotated screenshots** |
-| [`../docs/GUIDE.md`](../docs/GUIDE.md) | user manual: every file, every setting, ready-made presets |
+| [`../doc/FEATURES.md`](../doc/FEATURES.md) | every feature: what, on/off, default and why, code location |
+| [`../doc/REPORT.md`](../doc/REPORT.md) | report of the latest work: models, ablation, robustness, latency |
+| [`../doc/install_windows.md`](../doc/install_windows.md), [`../doc/install_linux.md`](../doc/install_linux.md) | installation per platform |
+| [`../doc/sdk_myo.md`](../doc/sdk_myo.md) | Myo SDK and protocol notes |
+| [`../doc/NOTES.md`](../doc/NOTES.md) | decisions and open questions |
+| [`../doc/VERIFICATION.md`](../doc/VERIFICATION.md) | independent check of the claims |
+| [`../doc/calib_plan.md`](../doc/calib_plan.md), [`../doc/recommendation.md`](../doc/recommendation.md) | calibration design study; earlier recommendations |
+| [`../doc/MANUAL.md`](../doc/MANUAL.md) | **the complete manual** — install, architecture, the interface, the ML pipeline, and the full engineering record of what broke and how it was fixed |
+| [`../doc/UI_GUIDE.md`](../doc/UI_GUIDE.md) | **the UI, screen by screen, with annotated screenshots** |
+| [`../doc/GUIDE.md`](../doc/GUIDE.md) | user manual: every file, every setting, ready-made presets |
 | [`CLAUDE.md`](CLAUDE.md) | orientation and the invariants — read before changing anything |
 | [`emg_app/README.md`](emg_app/README.md) | the package's module map and the two rules that keep the split correct |
-| [`../docs/MODELS_COMPARED.md`](../docs/MODELS_COMPARED.md) | **ML models, soft voting and the neural net compared** — accuracy, speed, size, training time, which to use |
-| [`../docs/COMB_TEST.md`](../docs/COMB_TEST.md) | the ML + NN combination test of 2026-10-22, every number |
-| [`../docs/EDA.md`](../docs/EDA.md) | **what is actually in `datasets/`, measured** — read before quoting any accuracy |
-| [`../docs/how_to_fix_long_training.md`](../docs/how_to_fix_long_training.md) | why the sweep took 3 h 16 m and what was done |
-| [`../docs/DATASET.md`](../docs/DATASET.md) | on-disk format, filenames, CSV/NPZ schema |
-| [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) | threads, buffers, state machine, data flow |
-| [`../docs/ML_PIPELINE.md`](../docs/ML_PIPELINE.md) | recordings to a validated model |
-| [`../docs/problems.md`](../docs/problems.md) | every failure hit, the fix tried, and whether it worked |
-| [`../docs/EXCLUDING_PEOPLE.md`](../docs/EXCLUDING_PEOPLE.md) | Barbora, rotation augmentation, and training with / without a person, with graphs |
-| [`../docs/DATASET_SUMMARY.md`](../docs/DATASET_SUMMARY.md) | **what is in `datasets/` now**, measured: people, seconds, sample rates, quality flags, lineage, calibrations |
-| [`../docs/TRAINING_HISTORY.md`](../docs/TRAINING_HISTORY.md) | every saved training run (29 classifier sweeps, 8 net sweeps) and what the long runs cost |
-| [`../docs/DATA_MAP.md`](../docs/DATA_MAP.md) | every saved result, where it is, and which question it answers -- start here when writing a report |
-| [`../docs/PUBLICATION_CHECK.md`](../docs/PUBLICATION_CHECK.md) | the check of the paper (`publication.tex`) against the data: what was corrected, added, left open |
-| [`../docs/UI_REVIEW.md`](../docs/UI_REVIEW.md) | the theme-layer UI review and what was fixed |
+| [`../doc/MODELS_COMPARED.md`](../doc/MODELS_COMPARED.md) | **ML models, soft voting and the neural net compared** — accuracy, speed, size, training time, which to use |
+| [`../doc/COMB_TEST.md`](../doc/COMB_TEST.md) | the ML + NN combination test of 2026-10-22, every number |
+| [`../doc/EDA.md`](../doc/EDA.md) | **what is actually in `datasets/`, measured** — read before quoting any accuracy |
+| [`../doc/how_to_fix_long_training.md`](../doc/how_to_fix_long_training.md) | why the sweep took 3 h 16 m and what was done |
+| [`../doc/DATASET.md`](../doc/DATASET.md) | on-disk format, filenames, CSV/NPZ schema |
+| [`../doc/ARCHITECTURE.md`](../doc/ARCHITECTURE.md) | threads, buffers, state machine, data flow |
+| [`../doc/ML_PIPELINE.md`](../doc/ML_PIPELINE.md) | recordings to a validated model |
+| [`../doc/problems.md`](../doc/problems.md) | every failure hit, the fix tried, and whether it worked |
+| [`../doc/EXCLUDING_PEOPLE.md`](../doc/EXCLUDING_PEOPLE.md) | Barbora, rotation augmentation, and training with / without a person, with graphs |
+| [`../doc/DATASET_SUMMARY.md`](../doc/DATASET_SUMMARY.md) | **what is in `datasets/` now**, measured: people, seconds, sample rates, quality flags, lineage, calibrations |
+| [`../doc/TRAINING_HISTORY.md`](../doc/TRAINING_HISTORY.md) | every saved training run (29 classifier sweeps, 8 net sweeps) and what the long runs cost |
+| [`../doc/DATA_MAP.md`](../doc/DATA_MAP.md) | every saved result, where it is, and which question it answers -- start here when writing a report |
+| [`../doc/PUBLICATION_CHECK.md`](../doc/PUBLICATION_CHECK.md) | the check of the paper (`publication.tex`) against the data: what was corrected, added, left open |
+| [`../doc/UI_REVIEW.md`](../doc/UI_REVIEW.md) | the theme-layer UI review and what was fixed |
 | [`tests/README.md`](tests/README.md) | the check scripts; three need the armband |
 
 ---
@@ -436,7 +436,7 @@ points than 5. The ML vote is steadier (77.0 % ± 0.5 over three seeds).
   suspected to be a band sitting rotated on the arm; testing that did **not**
   support it (rotation augmentation and a one-pod shift do not explain her,
   and leaving her out of training changes the others by under a point on
-  average: [`../docs/EXCLUDING_PEOPLE.md`](../docs/EXCLUDING_PEOPLE.md)). Not
+  average: [`../doc/EXCLUDING_PEOPLE.md`](../doc/EXCLUDING_PEOPLE.md)). Not
   something tuning fixes; more wearers and a better fit of the band on her
   arm are the next steps.
 - **What the ML model reads.** Its DC-only control equals its full score

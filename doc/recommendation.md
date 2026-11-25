@@ -4,7 +4,7 @@ Written 2026-10-13 against the tree as it is on that date. Sections 1–3 are
 **measured from the files on disk**, not quoted from the other docs. Sections
 4–9 are **recommendations and assumptions**, and are labelled as such.
 
-Companion reading: `docs/DATASET.md` (format), `docs/ML_PIPELINE.md` (the
+Companion reading: `doc/DATASET.md` (format), `doc/ML_PIPELINE.md` (the
 pipeline as built), `GUIDE.md` §5 (recording presets). This file is the
 forward-looking one: what to collect, what to train, and what to build next.
 
@@ -150,7 +150,7 @@ Two failure patterns, and they need different fixes:
 
 Per-window Fisher ratios (between/within variance) over the 50 `level`
 features peak at only **0.28** (`CH1_log_mean`, `CH2_share`) and bottom out at
-0.046 (`CH8_std`). The `25.5` in `docs/ML_PIPELINE.md` §3a is a different
+0.046 (`CH8_std`). The `25.5` in `doc/ML_PIPELINE.md` §3a is a different
 statistic (per-recording means, not per-window); both are true, they measure
 different things, and the per-window number is the one a window-level
 classifier actually has to work with. 0.28 is weak.
@@ -167,13 +167,13 @@ classifier actually has to work with. 0.28 is weak.
   `train_model.py` is correct because it rebuilds groups from the tree
   (`train_model.py:541`). Anyone training from an export bundle will group by
   person only and leak across overlapping windows. Worth a one-line note in
-  `docs/DATASET.md`, or an extra `rec_uids=` array in the bundle.
+  `doc/DATASET.md`, or an extra `rec_uids=` array in the bundle.
 
 ---
 
 ## 2. Format — what a consumer can rely on
 
-Unchanged from `docs/DATASET.md`; repeated here as the contract a model-side
+Unchanged from `doc/DATASET.md`; repeated here as the contract a model-side
 script may assume.
 
 ### 2.1 Per recording, three files
@@ -669,7 +669,7 @@ roughly on 0…1, where 1 is that person's own maximum effort on that pod. It is
 the standard answer to "person A's signal is three times person B's", and it
 is what would make `mean`-type features — not just `share` — transferable.
 
-**One honest caveat.** `docs/ML_PIPELINE.md` §3a records that baseline
+**One honest caveat.** `doc/ML_PIPELINE.md` §3a records that baseline
 subtraction was *measured* to hurt (Fisher 24.9 → 11.5–17.2). That measurement
 used per-recording baselines within one session, where offsets are constant
 and a per-recording estimate partly cancels the gesture. This proposal differs

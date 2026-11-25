@@ -3,7 +3,7 @@ One figure for the newer-models experiment (tools/new_models_test.py):
 
     python tools/make_figure_new_models.py [RUN_DIR] [OUT_PNG]
         RUN_DIR  default: the newest models/reports/new_models_test_* folder
-        OUT_PNG  default: docs/figures/novesie_modely_test.png
+        OUT_PNG  default: doc/figures/novesie_modely_test.png
 
 Reads only what the run saved (results.jsonl + the out-of-fold probabilities),
 plus -- as the reference row -- the comb test's stored out-of-fold probabilities
@@ -36,7 +36,7 @@ RUNS = sorted(glob.glob(os.path.join(PROJECT, "models", "reports",
                                      "new_models_test_*")))
 RUN = sys.argv[1] if len(sys.argv) > 1 else (RUNS[-1] if RUNS else None)
 OUT_PNG = sys.argv[2] if len(sys.argv) > 2 else os.path.join(
-    PROJECT, "docs", "figures", "novesie_modely_test.png")
+    PROJECT, "..", "doc", "figures", "novesie_modely_test.png")
 if not RUN or not os.path.isdir(RUN):
     raise SystemExit("No run folder. Run tools/new_models_test.py first.")
 COMB = os.path.join(PROJECT, "models", "comb_test", "20261022-003918",
@@ -482,7 +482,7 @@ cap = ("How to read it.  Person held out = the honest number; the 'within-person
        "parameter count is the fixed kernels plus the read-out.  *The ML vote's "
        "reference row is its stored comb-test result (1.0 s windows, not the "
        "0.7 s windows used here; DC-only 77.8 % and the 53 ms live cost are from "
-       "docs/MODELS_COMPARED.md).  ms / live window: one window, batch of 1, "
+       "doc/MODELS_COMPARED.md).  ms / live window: one window, batch of 1, "
        "device synchronised, on this machine's GTX 1650 (ROCKET includes the "
        "feature transform; the ML vote is CPU).")
 ax.text(0, 1.0, textwrap.fill(cap, 215), fontsize=8.8, color=TEXT_2, va="top",

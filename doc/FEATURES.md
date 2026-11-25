@@ -281,7 +281,7 @@ ready.
 state, a trained model keeps what it learned, and with nobody ticked every trainer
 behaves exactly as before. At least two people must stay in.
 
-**Default and why.** Off. Measured on this dataset (docs/EXCLUDING_PEOPLE.md):
+**Default and why.** Off. Measured on this dataset (doc/EXCLUDING_PEOPLE.md):
 leaving Barbora out changed the other four people by about +0.9 points (ML and NN),
 mixed per person and inside the noise, and a model that never saw her reads her far
 worse. Use the models trained *with* her when she is the one wearing the band.

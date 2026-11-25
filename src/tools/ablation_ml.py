@@ -7,7 +7,7 @@ defaults, and whether voting beats its members.
     python tools/ablation_ml.py --summary-only
 
 The deployed model is the soft vote of ET-500 and RF-500-leaf3 on the
-bandpass / `level` features of 1.0 s windows (docs/COMB_TEST.md); that setup is
+bandpass / `level` features of 1.0 s windows (doc/COMB_TEST.md); that setup is
 fixed here, and what varies is one switch at a time:
 
     aug:<type>      training windows augmented (two extra copies each) -- the

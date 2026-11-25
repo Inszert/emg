@@ -52,8 +52,8 @@ citation invented (the `TODO_*` keys are unchanged).
   unseen wearer (97.4 / 95.3 % against 77.6 / 72.4 %); Betka's 17-window thumb up
   and why (her first seven clips were discarded, DATASET_SUMMARY.md 4d).
 - **Two new figures** (new files, `tools/make_figures_paper.py`):
-  `docs/figures/channel_profiles.png` (Fig. `fig:profiles`) and
-  `docs/figures/generalisation_gap_paper.png` (Fig. `fig:gap`). The older
+  `doc/figures/channel_profiles.png` (Fig. `fig:profiles`) and
+  `doc/figures/generalisation_gap_paper.png` (Fig. `fig:gap`). The older
   `generalisation_gap.png` carries a repository reference in its footnote, so a
   clean version was made instead. Both are included with `\safefig`, so a missing
   file gives the red placeholder, not a LaTeX error.
@@ -76,7 +76,7 @@ gesture table, the amplitude-only control (77.8 / 77.6 and 63.3 / 72.4, losses o
 (85.4 -> 86.3, 73.5 -> 74.4, -5.7 to +9.5, 59.7 / 39.7 %), 17 to 102 windows per
 cell, the conclusion's 5 to 13 points.
 
-## 3b. Every document in `docs/` was read, and what it changed
+## 3b. Every document in `doc/` was read, and what it changed
 
 All 26 documents were read, in several passes and in ranges for the long ones (the
 sections that carry numbers were also cross-checked against the saved results): REPORT, MODELS_COMPARED, EXCLUDING_PEOPLE, COMB_TEST, NOTES, DATASET,

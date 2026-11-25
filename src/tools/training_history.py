@@ -12,7 +12,7 @@ Reads (all of it, nothing sampled):
   results/*/log.txt, models/zoo_*   durations of the ablation and zoo runs
   results/ablation*/*/runs.jsonl    run counts
 
-Writes `results/training_history.json` and `docs/TRAINING_HISTORY.md`.
+Writes `results/training_history.json` and `doc/TRAINING_HISTORY.md`.
 """
 import glob
 import json
@@ -295,7 +295,7 @@ if __name__ == "__main__":
     path = os.path.join(ROOT, "results", "training_history.json")
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(out, fh, indent=1)
-    write_md(ml, nn, runs, os.path.join(ROOT, "..", "docs", "TRAINING_HISTORY.md"))
+    write_md(ml, nn, runs, os.path.join(ROOT, "..", "doc", "TRAINING_HISTORY.md"))
     print(f"read {len(ml)} classifier sweeps, {len(nn)} NN sweeps, "
           f"{len(runs)} long runs -> results/training_history.json, "
-          "docs/TRAINING_HISTORY.md")
+          "doc/TRAINING_HISTORY.md")

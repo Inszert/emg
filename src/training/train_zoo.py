@@ -18,7 +18,7 @@ gesture_nn.pt stay what the application's default loads):
 
 The scores are leave-one-person-out -- every window scored by a model that never
 saw that person -- with the project's own windows, dedup and derived calibration,
-so they are comparable across all entries and with docs/COMB_TEST.md.
+so they are comparable across all entries and with doc/COMB_TEST.md.
 
 SOFT-VOTING SUBSETS (`ensembles`). The best subset (size 2-4) per family is
 searched on the stored out-of-fold probabilities. Picking the best of many

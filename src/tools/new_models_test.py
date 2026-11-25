@@ -4,7 +4,7 @@ Newer sequence models, tried on THIS project's data under THIS project's protoco
     python tools/new_models_test.py --probe              # time it, predict the total, train nothing
     python tools/new_models_test.py                      # the run (CUDA)
     python tools/new_models_test.py --resume DIR         # continue an interrupted run
-    python tools/make_figure_new_models.py [DIR]         # draw docs/figures/novesie_modely_test.png
+    python tools/make_figure_new_models.py [DIR]         # draw doc/figures/novesie_modely_test.png
 
 An EXPERIMENT, not a trainer. It never writes into models/ (no checkpoint, no
 sidecar, no spec), never touches the deployed ML model or the net, and puts

@@ -130,7 +130,7 @@ windows covering 185–460 ms of real time.
 
 (The 28-70 Hz range is from the first, archived dataset. On the current five-wearer
 data the per-recording rate, measured as a span average, is 46.5-51.2 Hz with a
-median of 49.9 Hz -- `docs/DATASET_SUMMARY.md`; the delivery is still bursty.)
+median of 49.9 Hz -- `doc/DATASET_SUMMARY.md`; the delivery is still bursty.)
 
 `train_model.py` therefore resamples everything onto a fixed grid
 (`MODEL_FS = 60 Hz`) with `resample_uniform()`, and `LivePredictor` does the

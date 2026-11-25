@@ -4,7 +4,7 @@ Why `train_model.py` grew to **3h 16m**, what was changed, and what each
 change costs in accuracy. Everything here is measured on this machine against
 this dataset; nothing is an estimate unless it says so.
 
-Written 2026-10-15. Companion to `docs/EDA.md` (what the dataset *is*) and
+Written 2026-10-15. Companion to `doc/EDA.md` (what the dataset *is*) and
 CLAUDE.md §8d (why the GPU cannot help).
 
 ---
@@ -92,7 +92,7 @@ TOTAL         310    913.5    410.4   2.23x
 ```
 
 913 seconds of clip material from **410 seconds of unique signal**.
-`docs/EDA.md` found the same thing from the other direction: 74 of the 308
+`doc/EDA.md` found the same thing from the other direction: 74 of the 308
 recordings are byte-identical duplicates of another recording.
 
 The cross-validation groups by recording uid — and that does not help here,
@@ -199,7 +199,7 @@ Two things fall out, and both shaped the design:
 **Nothing is deleted from disk, and no unique signal is lost.** The 103
 recordings that stop contributing are the ones whose every window was already
 covered by an earlier clip of the same take — including the 74 byte-identical
-duplicates `docs/EDA.md` found. The windows that remain cover exactly the same
+duplicates `doc/EDA.md` found. The windows that remain cover exactly the same
 410 seconds of real signal as before.
 
 Per-class windows after dedup: FIST 383, OPEN 345, REST 689, THUMB_UP 325,
@@ -236,7 +236,7 @@ DC-only control (8 channel means): 97.2% per window, 97.6% per recording
 
 A classifier handed **nothing but the 8 per-channel mean levels** — no shape,
 no spectrum, no timing — scores 97.2 % against the full vector's 99.3 %.
-`docs/EDA.md` §3 found the same: the dataset's five active gestures are each a
+`doc/EDA.md` §3 found the same: the dataset's five active gestures are each a
 *single continuous take*, recorded back-to-back without re-donning the
 armband, so **label is perfectly confounded with electrode state and
 wall-clock block.** The model can win by recognising which 50-second block it
@@ -247,7 +247,7 @@ The sweep now prints the control and the majority baseline next to the winner,
 and both go into the sweep report (`confound`) and the saved payload
 (`stats.dc_only_control`), so the number cannot be quoted innocently.
 
-**The fix is in the recording, not the trainer** — `docs/EDA.md` §8 R1–R10.
+**The fix is in the recording, not the trainer** — `doc/EDA.md` §8 R1–R10.
 The shortest version: several separate takes per gesture, armband removed and
 refitted between them, gestures interleaved rather than in one block per
 gesture.
@@ -263,7 +263,7 @@ gesture.
 | **Caching window arrays across setups** | Measured: resample + window for the *whole dataset* is 0.03 s against 1–3.5 s to featurise it. There was nothing to win. |
 | **Shrinking the grid by hand** | The screen covers all 120 distinct setups for ~1.7 s each, so nothing has to be guessed away. Deleting axes would lose the "effect of each choice" table, which is still informative. |
 | **Dropping whole overlapping clips** | Measured worse: 108 of 308 recordings kept and 98.0 %, against 205 kept and 99.0 % for window-level dedup. It throws away the non-overlapping parts too. |
-| **Grouping CV by `parent_take_uid`** | The honest grouping, and currently impossible: each active class is exactly one take, so a leave-one-take-out split puts an entire class in test with none of it in training. `docs/EDA.md` §4 consequence 1. Recorded as a known limitation instead of faked. |
+| **Grouping CV by `parent_take_uid`** | The honest grouping, and currently impossible: each active class is exactly one take, so a leave-one-take-out split puts an entire class in test with none of it in training. `doc/EDA.md` §4 consequence 1. Recorded as a known limitation instead of faked. |
 
 ---
 

@@ -1,8 +1,8 @@
 """
-Behaviour figures for docs/MODELS_COMPARED.md: how the models fail, not just
+Behaviour figures for doc/MODELS_COMPARED.md: how the models fail, not just
 how often.
 
-    python tools/make_figures_behaviour.py [OUT_DIR]      (default: docs/figures)
+    python tools/make_figures_behaviour.py [OUT_DIR]      (default: doc/figures)
 
 Companion to `make_figures.py` (same palette, same colour per model, same
 data) and, like it, reads only what is already saved -- nothing is retrained:
@@ -36,7 +36,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PROJECT = os.path.dirname(HERE)
 sys.path.insert(0, PROJECT)
 RUN = os.path.join(PROJECT, "models", "comb_test", "20261022-003918")
-OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(PROJECT, "..", "docs",
+OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(PROJECT, "..", "doc",
                                                           "figures")
 os.makedirs(OUT, exist_ok=True)
 

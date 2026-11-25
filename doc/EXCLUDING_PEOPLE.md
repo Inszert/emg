@@ -4,7 +4,7 @@
 
 ## 1. The question
 
-Barbora is the hard fold (CLAUDE.md 8, docs/MODELS_COMPARED.md): a model that never saw her reads her far worse than anybody else. Two things were tried, in this order.
+Barbora is the hard fold (CLAUDE.md 8, doc/MODELS_COMPARED.md): a model that never saw her reads her far worse than anybody else. Two things were tried, in this order.
 
 1. **Rotation augmentation** (the band slid round the arm during training), checked on Barbora's fold -- the explanation offered was a band worn at a different angle.
 2. If that does not help, **leave Barbora's recordings out of training**, as a setting, with the recommended models trained that way and ready.
@@ -248,12 +248,12 @@ Windows are after the window-level de-duplication (clips cut from the same free 
 | every number quoted here | `results/exclusion.json` |
 | per person, per model, with / without | `results/exclusion_per_person.csv` |
 | per switch, per person, with / without | `results/exclusion_switches.csv` |
-| figures (PNG, 140 dpi) | `docs/figures/exclusion_rotation.png`, `exclusion_per_person.png`, `exclusion_delta.png`, `exclusion_switches.png` |
+| figures (PNG, 140 dpi) | `doc/figures/exclusion_rotation.png`, `exclusion_per_person.png`, `exclusion_delta.png`, `exclusion_switches.png` |
 | the original ablation (5 people) | `results/ablation/{ml,nn}/` (`runs.jsonl`, out-of-fold probabilities, logs) |
 | the ablation without Barbora | `results/ablation_without_barbora/{ml,nn}/` |
 | the models trained without Barbora | `models/zoo/*-without-barbora/` and their evaluation `results/zoo_eval_without_barbora/` |
-| everything in one file | `results/experiments.json` (keys `variants`, `without`) -> `docs/REPORT.md` |
-| the full ordinary evaluation | `docs/REPORT.md`, `docs/MODELS_COMPARED.md`, `docs/COMB_TEST.md` |
+| everything in one file | `results/experiments.json` (keys `variants`, `without`) -> `doc/REPORT.md` |
+| the full ordinary evaluation | `doc/REPORT.md`, `doc/MODELS_COMPARED.md`, `doc/COMB_TEST.md` |
 
 ### Reproduce
 

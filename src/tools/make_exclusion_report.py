@@ -1,5 +1,5 @@
 """
-Figures and tables for docs/EXCLUDING_PEOPLE.md: what rotation augmentation did
+Figures and tables for doc/EXCLUDING_PEOPLE.md: what rotation augmentation did
 to the hard person's fold, and what training WITHOUT that person did to
 everybody else.
 
@@ -15,7 +15,7 @@ Nothing is retrained; everything is read from what the project saved:
     (the same model trained without PERSON, scored leave-one-person-out on the
     people left).
 
-Writes docs/figures/exclusion_*.png and results/exclusion.json (every number
+Writes doc/figures/exclusion_*.png and results/exclusion.json (every number
 the document quotes).
 
 Reading the with / without comparison. For a kept person P the two numbers are
@@ -38,7 +38,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt                                  # noqa: E402
 
 PERSON = sys.argv[1] if len(sys.argv) > 1 else "Barbora"
-OUT = os.path.join(PROJECT, "..", "docs", "figures")
+OUT = os.path.join(PROJECT, "..", "doc", "figures")
 os.makedirs(OUT, exist_ok=True)
 
 SURFACE, TEXT, TEXT_2, GRID, MUTED = ("#fcfcfb", "#0b0b0b", "#52514e",
@@ -474,7 +474,7 @@ def _pc(v, signed=False):
 
 
 def models_compared_block(summary):
-    """The short with / without block that docs/MODELS_COMPARED.md carries."""
+    """The short with / without block that doc/MODELS_COMPARED.md carries."""
     rows = summary["pairs"]
     if not rows:
         return "*Not measured yet.*"
@@ -554,7 +554,7 @@ def write_doc(summary):
         "from them, none is typed by hand. The numbers are also in "
         "`results/exclusion.json`.*\n")
     add(f"## 1. The question\n\n{PERSON} is the hard fold (CLAUDE.md 8, "
-        "docs/MODELS_COMPARED.md): a model that never saw her reads her "
+        "doc/MODELS_COMPARED.md): a model that never saw her reads her "
         "far worse than anybody else. Two things were tried, in this order.\n")
     add("1. **Rotation augmentation** (the band slid round the arm during "
         f"training), checked on {PERSON}'s fold -- the explanation offered "
@@ -993,7 +993,7 @@ def write_doc(summary):
         "`results/exclusion_per_person.csv` |")
     add("| per switch, per person, with / without | "
         "`results/exclusion_switches.csv` |")
-    add("| figures (PNG, 140 dpi) | `docs/figures/exclusion_rotation.png`, "
+    add("| figures (PNG, 140 dpi) | `doc/figures/exclusion_rotation.png`, "
         "`exclusion_per_person.png`, `exclusion_delta.png`, "
         "`exclusion_switches.png` |")
     add("| the original ablation (5 people) | `results/ablation/{ml,nn}/` "
@@ -1004,9 +1004,9 @@ def write_doc(summary):
         f"`models/zoo/*-without-{PERSON.lower()}/` and their evaluation "
         f"`results/zoo_eval_without_{PERSON.lower()}/` |")
     add("| everything in one file | `results/experiments.json` (keys "
-        "`variants`, `without`) -> `docs/REPORT.md` |")
-    add("| the full ordinary evaluation | `docs/REPORT.md`, "
-        "`docs/MODELS_COMPARED.md`, `docs/COMB_TEST.md` |\n")
+        "`variants`, `without`) -> `doc/REPORT.md` |")
+    add("| the full ordinary evaluation | `doc/REPORT.md`, "
+        "`doc/MODELS_COMPARED.md`, `doc/COMB_TEST.md` |\n")
     add("### Reproduce\n")
     add("```powershell")
     add("# the six recommended models without her (about 16 min)")
@@ -1023,7 +1023,7 @@ def write_doc(summary):
     add("python tools/make_exclusion_report.py")
     add("python tools/make_report.py")
     add("```\n")
-    path = os.path.join(PROJECT, "..", "docs", "EXCLUDING_PEOPLE.md")
+    path = os.path.join(PROJECT, "..", "doc", "EXCLUDING_PEOPLE.md")
     with open(path, "w", encoding="utf-8") as fh:
         fh.write("\n".join(L))
     return path
@@ -1075,11 +1075,11 @@ def main():
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(summary, fh, indent=1, default=float)
     doc = write_doc(summary)
-    fill_marked(os.path.join(PROJECT, "..", "docs", "MODELS_COMPARED.md"),
+    fill_marked(os.path.join(PROJECT, "..", "doc", "MODELS_COMPARED.md"),
                 models_compared_block(summary))
     print(f"{len(rows)} trained-without models found, "
           f"{len(summary['switches'])} switch comparison(s); wrote {path}, "
-          f"{doc}, {', '.join(csvs)} and docs/figures/exclusion_*.png")
+          f"{doc}, {', '.join(csvs)} and doc/figures/exclusion_*.png")
 
 
 if __name__ == "__main__":

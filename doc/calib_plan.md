@@ -56,7 +56,7 @@ This answers two questions:
 2. How does it make the classifier work for a new wearer **without retraining
    the model every time?**
 
-It supersedes the placeholder in [`docs/EDA.md`](EDA.md) §11, and it
+It supersedes the placeholder in [`doc/EDA.md`](EDA.md) §11, and it
 answers the open question that section left standing. The headline is that
 **the obvious scheme — normalise each wearer's amplitude — would do almost
 nothing on this hardware**, and the measurements below are why.
@@ -119,7 +119,7 @@ All numbers from the 85-recording two-wearer dataset on disk
 ### 2.1 Resting level is NOT wearer-specific
 
 > **Update 2026-10-28: this held for two wearers and does not hold for five.**
-> Measured on the current dataset (`docs/DATASET_SUMMARY.md`): Miso has four
+> Measured on the current dataset (`doc/DATASET_SUMMARY.md`): Miso has four
 > channels with a resting level of 86-112 counts, Bruno two at 81-88 and Barbora
 > one (CH2) at 76, against 18-26 for the others. Resting level is therefore partly
 > a property of the wearer (contact, fit), which is why the rest-subtracting
@@ -621,7 +621,7 @@ is why stage 1 comes first.
 | 2.3 | circular-shift correlation of amplitude-normalised profiles, rest floor (~20 counts) removed first |
 | 2.5 | `models/reports/sweep_20261016-160208-546.json`, best row per `representation` |
 | 4.2, 4.3, 5 | the same sweep: `validation.grouping`, `validation.grouping_contrast`, `validation.subject_independent`, `confound.dc_only_control`, `elapsed_s` |
-| 2.5 (Fisher) | the two earlier amplitude-removal experiments recorded in CLAUDE.md §13 and `docs/EDA.md` §11 |
+| 2.5 (Fisher) | the two earlier amplitude-removal experiments recorded in CLAUDE.md §13 and `doc/EDA.md` §11 |
 
 Reproduce §2 with the two scripts used to write it, or re-derive from the
 dataset directly — nothing here needs the armband.

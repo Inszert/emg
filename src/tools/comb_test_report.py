@@ -8,7 +8,7 @@ Writes, into the run folder:
     comb_test_results.xlsx   one sheet per table (needs openpyxl)
     csv/<sheet>.csv          the same tables, ';'-separated with a decimal
                              comma, so they open in columns in a Slovak Excel
-and docs/COMB_TEST.md -- the method, the winners and the main tables.
+and doc/COMB_TEST.md -- the method, the winners and the main tables.
 
 Read-only on everything else: it never touches a model, a spec or the data.
 """
@@ -439,7 +439,7 @@ def main(argv=None):
         print("openpyxl not installed -- CSV only")
     write_csv(os.path.join(run_dir, "csv"), t)
     print("wrote", os.path.join(run_dir, "csv"))
-    doc = os.path.join(PROJECT, "..", "docs", "COMB_TEST.md")
+    doc = os.path.join(PROJECT, "..", "doc", "COMB_TEST.md")
     write_doc(doc, run_dir, t, ml, nn, people)
     print("wrote", doc)
     return 0

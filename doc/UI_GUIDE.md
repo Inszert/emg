@@ -551,7 +551,7 @@ matter how good the model is. See [`EDA.md`](EDA.md) and
 ## Regenerating these pictures
 
 ```powershell
-python tools/make_ui_guide.py . docs/images
+python tools/make_ui_guide.py . doc/images
 ```
 
 It builds the real window with `MYO_PORT` pointed at a port that cannot exist,

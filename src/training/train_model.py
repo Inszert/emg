@@ -143,7 +143,7 @@ RANDOM_STATE = 0
 # Drop windows that re-cover signal another window already covered. This is
 # CORRECTNESS first and speed second: 280 of 308 recordings are clips cut from
 # the same few free takes, they tile those takes with ~50 % overlap, and 74 of
-# them are byte-identical to another clip (docs/EDA.md). Grouping the
+# them are byte-identical to another clip (doc/EDA.md). Grouping the
 # cross-validation by recording uid does not separate them, because every clip
 # legitimately owns its uid -- so without this the SAME samples sit in train
 # and test. Measured: 5598 -> 2425 windows, and the score falls from 99.7 % to
@@ -1108,7 +1108,7 @@ def dc_only_control(model, X, y, groups, labels, feature_names,
     """
     Re-score the winner using ONLY the 8 per-channel mean levels.
 
-    docs/EDA.md section 3 established that on this dataset a classifier given
+    doc/EDA.md section 3 established that on this dataset a classifier given
     nothing but the 8 channel means scores 0.993, against 0.187 for the
     majority class -- because every active gesture is one 50-second take, so
     "which block of time is this" is enough to name the label. CLAUDE.md
@@ -1187,7 +1187,7 @@ def feature_space_projection(X, y, labels, groups, feature_names,
     space without refitting anything and without a second code path.
 
     `take` is the index of each window's parent take. Colouring by it is how
-    the class-take confound in docs/EDA.md section 2 becomes visible: when the
+    the class-take confound in doc/EDA.md section 2 becomes visible: when the
     clusters line up with takes rather than with labels, the model is reading
     the block.
     """
@@ -2281,7 +2281,7 @@ def main(argv=None):
                   "     win by recognising WHICH 50-SECOND BLOCK it is looking "
                   "at. Treat the\n"
                   "     score as a dataset artefact, not as gesture "
-                  "recognition -- docs/EDA.md.")
+                  "recognition -- doc/EDA.md.")
 
     if lopo:
         print(f"\n  leave-one-subject-out: {lopo['mean'] * 100:.1f}% "
@@ -2368,7 +2368,7 @@ def main(argv=None):
                         "continuous take, so label is confounded with "
                         "electrode state and wall-clock block. Compare any "
                         "score against dc_only_control before reading it as "
-                        "gesture recognition. See docs/EDA.md."),
+                        "gesture recognition. See doc/EDA.md."),
         },
     }
     report_path = T.unique_path(os.path.join(report_dir, f"sweep_{stamp}.json"))
@@ -2504,7 +2504,7 @@ def main(argv=None):
               "winner's setup)...")
         try:
             #  uid -> the take it was cut from, so the scatter can be
-            #  coloured by source. This is the confound in docs/EDA.md
+            #  coloured by source. This is the confound in doc/EDA.md
             #  section 2 made visible rather than described.
             take_of = {}
             for rec in all_recs:

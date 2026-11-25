@@ -588,7 +588,7 @@ python tools/make_figures.py              # the first set (needs the dataset, fo
 python tools/make_figures_behaviour.py    # the behaviour set (saved results only, seconds)
 ```
 
-Written to `docs/figures/`. Each is shown where it is discussed above;
+Written to `doc/figures/`. Each is shown where it is discussed above;
 this is the index.
 
 | Figure | Shows |
@@ -620,7 +620,7 @@ this is the index.
 
 ```powershell
 python training/nn_ml_comb_test.py --resume models/comb_test/20261022-003918 --no-apply   # the search (done runs are skipped)
-python tools/comb_test_report.py models/comb_test/20261022-003918                        # spreadsheet + docs/COMB_TEST.md
+python tools/comb_test_report.py models/comb_test/20261022-003918                        # spreadsheet + doc/COMB_TEST.md
 python tools/bench_models.py --windows 300 --json models/reports/bench_models.json      # speed
 python training/train_model.py --spec models/model_spec.json --calibration affine       # the ML numbers for a spec
 python training/train_nn.py --kind gru --window 0.7 --epochs 150 --calibration affine   # the NN numbers

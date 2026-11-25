@@ -1,7 +1,7 @@
 """
 Figures added for publication.tex (new files; no existing figure is touched).
 
-    python tools/make_figures_paper.py [OUT_DIR]          (default: docs/figures)
+    python tools/make_figures_paper.py [OUT_DIR]          (default: doc/figures)
 
   channel_profiles.png   mean level of every channel for every gesture, one panel
                          per wearer, read from the recordings themselves
@@ -27,7 +27,7 @@ from matplotlib.colors import LinearSegmentedColormap, LogNorm      # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "..", "docs", "figures")
+OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "..", "doc", "figures")
 os.makedirs(OUT, exist_ok=True)
 
 SURFACE, TEXT, TEXT_2 = "#fcfcfb", "#0b0b0b", "#52514e"
@@ -103,7 +103,7 @@ fig.tight_layout()
 fig.savefig(os.path.join(OUT, "channel_profiles.png"), bbox_inches="tight",
             pad_inches=0.1)
 plt.close(fig)
-print("wrote docs/figures/channel_profiles.png")
+print("wrote doc/figures/channel_profiles.png")
 
 # ---- 2. the price of a new person ----------------------------------------
 hist = json.load(open(os.path.join(ROOT, "results", "training_history.json"),
@@ -148,6 +148,6 @@ fig.tight_layout()
 fig.savefig(os.path.join(OUT, "generalisation_gap_paper.png"),
             bbox_inches="tight", pad_inches=0.1)
 plt.close(fig)
-print("wrote docs/figures/generalisation_gap_paper.png",
+print("wrote doc/figures/generalisation_gap_paper.png",
       f"(ML {ml_row['window_accuracy']:.4f} / {ml_row['contrast_accuracy']:.4f},"
       f" GRU {nn_row['window_accuracy']:.4f} / {nn_row['contrast_accuracy']:.4f})")

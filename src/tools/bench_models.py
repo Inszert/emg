@@ -14,7 +14,7 @@ What it measures, all on this machine:
 Windows are cut from the wearer's own recordings at the model's window
 length, so the input is the real signal rather than noise. Accuracy is NOT
 measured here -- it comes from the trainers' cross-validation
-(docs/MODELS_COMPARED.md).
+(doc/MODELS_COMPARED.md).
 """
 import argparse
 import json

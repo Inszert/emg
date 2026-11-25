@@ -359,7 +359,7 @@ def variant_stars(entries: List[ZooEntry], yellow=None) -> dict:
                 f"higher than its yellow star {ref.name}: {a * 100:.1f} % "
                 f"against {b * 100:.1f} % ({(a - b) * 100:+.1f} points) on the "
                 f"same {len(common)} people, trained without "
-                f"{', '.join(e.excluded)} (docs/EXCLUDING_PEOPLE.md)")
+                f"{', '.join(e.excluded)} (doc/EXCLUDING_PEOPLE.md)")
     return out
 
 

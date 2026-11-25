@@ -13,7 +13,7 @@ The native platform plugin is used, not `offscreen`, because offscreen ships
 no font database and renders every glyph as a tofu box. `WA_DontShowOnScreen`
 keeps the window off the operator's display while still running layout.
 
-Usage:  python tools/make_ui_guide.py . docs/images
+Usage:  python tools/make_ui_guide.py . doc/images
 """
 import io
 import os

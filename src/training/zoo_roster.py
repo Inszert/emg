@@ -1,7 +1,7 @@
 """
 Which models the zoo holds, and what each one is. No imports of anything heavy.
 
-ML: the sixteen classifiers of the combination test (docs/COMB_TEST.md), all at
+ML: the sixteen classifiers of the combination test (doc/COMB_TEST.md), all at
 the winning feature setup (bandpass / `level` features of 1.0 s windows at 0.75
 overlap), so any of them can be voted with any other. The entries are
 spec-shaped (name, kind, scaler, params) -- `train_model._make_pipeline` builds

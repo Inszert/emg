@@ -419,7 +419,7 @@ done it becomes the honest number this project is after.
 
 Worth making the default grouping in `train_model.py` — which still groups by
 recording uid, even with `dedupe_windows()` in place (see R3) — and the stated
-protocol in `docs/ML_PIPELINE.md`.
+protocol in `doc/ML_PIPELINE.md`.
 
 ### R3 — Deduplicate and de-overlap before training *(partly done)*
 

@@ -11,7 +11,7 @@ Nothing here trains a model except `custom_gesture` (on a temp copy, minutes) an
 `nn` (starts the CPU/GPU worker), which are listed last and skipped with --fast.
 
 Output: one line per suite and, at the end, `tests/last_run.json` (what ran, how
-long, the pass counts) -- the file docs/VERIFICATION.md quotes.
+long, the pass counts) -- the file doc/VERIFICATION.md quotes.
 """
 import json
 import os

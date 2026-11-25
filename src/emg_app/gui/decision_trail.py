@@ -397,9 +397,9 @@ class FeatureSpaceWidget(QtWidgets.QWidget):
       * BY GESTURE  -- do the labels form their own clusters?
       * BY TAKE     -- or do the clusters actually follow the recording
                        session? If this looks tidier than BY GESTURE, the
-                       model is reading the block (docs/EDA.md section 2).
+                       model is reading the block (doc/EDA.md section 2).
       * BY LEVEL    -- where does amplitude sit? This is the picture of
-                       docs/EDA.md R4: the gap between resting and the
+                       doc/EDA.md R4: the gap between resting and the
                        effortful holds that a relaxed gesture falls into.
 
     A painter, not a source. With no projection it paints the reason.
@@ -701,13 +701,13 @@ class FeatureSpaceView(QtWidgets.QWidget):
         mode = self.mode_select.currentData() or "label"
         if mode == "take":
             tail = ("Clusters that follow the take rather than the gesture "
-                    "are the confound in docs/EDA.md section 2: the model "
+                    "are the confound in doc/EDA.md section 2: the model "
                     "can score well by recognising which recording block it "
                     "is looking at.")
         elif mode == "level":
             tail = ("The amplitude bands. A gesture recorded only at full "
                     "effort leaves a gap above rest that a relaxed hold "
-                    "falls into, which is docs/EDA.md R4.")
+                    "falls into, which is doc/EDA.md R4.")
         else:
             tail = ("The ring is the window the classifier just used -- the "
                     "same feature vector, placed by the same transform. "

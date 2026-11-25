@@ -75,15 +75,15 @@ the port, close `test_myo.py` (and Myo Connect, if installed) first.
 | **`GUIDE.md`** | This file. |
 | `requirements.txt` | Dependency list for `pip install -r`. |
 | `CLAUDE.md` | Technical orientation for a developer (or a future AI session). |
-| `docs/DATASET.md` | Exact on-disk format: filenames, CSV columns, NPZ keys, metadata. |
-| `docs/ARCHITECTURE.md` | Threads, buffers, state machine, rendering. |
+| `doc/DATASET.md` | Exact on-disk format: filenames, CSV columns, NPZ keys, metadata. |
+| `doc/ARCHITECTURE.md` | Threads, buffers, state machine, rendering. |
 | **`train_model.py`** | Trains the gesture model: sweeps models and settings, validates honestly, saves `models/gesture_model.joblib`. **This is the one the app loads.** Runs on the CPU. |
 | **`explain_votes.py`** | Builds the DECISION TRAIL file for the model you already have, without re-running a three-hour sweep. Use it if MODEL STATS says there is no decision panel. |
 | **`train_nn.py`** | **Trains the NEURAL NETWORK** -- the separate second opinion behind the NEURAL NETWORK panel. Sweeps five small sequence architectures on the GPU and saves `models/gesture_nn.pt`. It does **not** touch the model the app predicts with. |
 | `nn_arch.py` | The five architectures. Shared by the trainer and the live worker, so a saved net is always rebuilt the way it was trained. |
 | `nn_serve.py` | The neural net's live worker. The only file that imports PyTorch while the app is running -- it runs as a separate process, which is how the net can use CUDA without the recorder ever loading torch. |
 | `train_torch.py` | **Retired experiment, replaced by `train_nn.py`.** The original GPU neural-net trainer. Not run any more -- it lost to a plain LDA and had none of the validation the current one shares with `train_model.py`. Kept for the record. |
-| `docs/ML_PIPELINE.md` | How to turn the data into a validated model, which features matter and why, and the route to a wearer-independent model. |
+| `doc/ML_PIPELINE.md` | How to turn the data into a validated model, which features matter and why, and the route to a wearer-independent model. |
 | `tests/` | Nineteen scripts that verify the tool. Run them after changing config — see `tests/README.md`. |
 
 ## Files that make the armband work — do not touch
@@ -689,7 +689,7 @@ leave-recordings-out, and writes:
 - `models/reports/sweep_<timestamp>.json` — every score
 
 Then set `ENABLE_LIVE_PREDICTION = True` (it already is) and press PREDICT.
-Details and the cross-subject roadmap: `docs/ML_PIPELINE.md`.
+Details and the cross-subject roadmap: `doc/ML_PIPELINE.md`.
 
 ### GPU or CPU — the COMPUTE badge
 
@@ -1457,7 +1457,7 @@ makes the armband think it is not being worn.
 
 With no model the panel explains why and the buttons stay disabled.
 **It never shows an invented prediction.** Model format and the route to a
-wearer-independent model: `docs/ML_PIPELINE.md` §5b and §8.
+wearer-independent model: `doc/ML_PIPELINE.md` §5b and §8.
 
 ---
 
@@ -1659,7 +1659,7 @@ A local path is safer for long sessions; copy it to the cloud afterwards.
 | No green band appears during the review | `AUTO_TRIM` must be `True` — it is what proposes the band. Also check `REVIEW_SHOW_TRIM`. If the detector found nothing the band covers the whole take, which is deliberate: it never drops data because detection failed. |
 | `Space` does nothing in the review | The ACCEPT button lost focus (you clicked elsewhere). Click it, or use **Ctrl+Enter**. |
 | REDO does not seem to lower my recording count | Correct — REDO does not advance the plan, so the same repetition is recorded again and the final counts per gesture stay exactly as planned. |
-| Accuracy is ~99 % and you do not believe it | You are right not to. You probably split windows randomly. Read `docs/ML_PIPELINE.md` §5 and use `leave_one_person_out`. |
+| Accuracy is ~99 % and you do not believe it | You are right not to. You probably split windows randomly. Read `doc/ML_PIPELINE.md` §5 and use `leave_one_person_out`. |
 | Gestures appear seconds late | Watch the `lag` readout in the status bar. `MYO_BULK_READ` must be `True`; if lag still grows, lower `MYO_MAX_BACKLOG_BYTES` so the guard kicks in sooner. |
 | Live prediction is wrong a lot | Check MODEL STATS first — if the cross-validated accuracy is low, the live behaviour is simply honest. Fix the data (see "If the accuracy is low" above), not the model. |
 | Everything gets predicted as REST | Your contractions are too weak to separate from rest. This is the most common failure and it is a recording problem. |

@@ -112,7 +112,7 @@ Only run the light tests above on a small machine; the trainers
   `USB VID:PID=2458:0001 SER=... LOCATION=...`, so the same expression
   applies. **Verified (WSL):** `comports()` returns `[]` and `MyoRaw()` raises
   `ValueError: Myo dongle not found!` as designed; the matching expression
-  itself was checked on a sample string (`docs/sdk_myo.md`).
+  itself was checked on a sample string (`doc/sdk_myo.md`).
 * The port is opened with `serial.Serial(port=tty, baudrate=9600, dsrdtr=1)`,
   nothing Windows-specific.
 * To override auto-detection: `MYO_PORT = "/dev/ttyACM0"` in
@@ -203,7 +203,7 @@ CPU-only torch rather than running slowly.
 | `No module named 'ensurepip'` creating the venv | `sudo apt-get install python3-venv` |
 | `Could not load the Qt platform plugin "xcb"` / `xcb-cursor0 ... is needed` | `sudo apt-get install libxcb-cursor0`; or run with `QT_QPA_PLATFORM=offscreen` for tests |
 | `Failed to create wl_display` | harmless message when a Wayland socket is absent; Qt falls back to xcb |
-| `Myo dongle not found!` | dongle not attached / permissions / udev; run the `comports()` check in `docs/sdk_myo.md` |
+| `Myo dongle not found!` | dongle not attached / permissions / udev; run the `comports()` check in `doc/sdk_myo.md` |
 | `Permission denied: '/dev/ttyACM0'` | not in group `dialout` (log out and in after `usermod`) |
 | port busy / dongle behaves oddly right after plugging | ModemManager probing it; use the udev rule above |
 | `ModuleNotFoundError: emg_dataset_tool` in a test | `export PYTHONPATH=.` from the project root |

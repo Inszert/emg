@@ -1,7 +1,7 @@
 """
-Figures for docs/REPORT.md: the ablation study, voting, the zoo, the tests.
+Figures for doc/REPORT.md: the ablation study, voting, the zoo, the tests.
 
-    python tools/make_figures_ablation.py [OUT_DIR]        (default: docs/figures)
+    python tools/make_figures_ablation.py [OUT_DIR]        (default: doc/figures)
 
 Reads results/experiments.json and the raw runs (results/ablation/*/runs.jsonl);
 trains nothing. Same palette as tools/make_figures.py: the ML family is blue, the
@@ -31,7 +31,7 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "training"))
 import ablation_stats as ST                                       # noqa: E402
 
-OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "..", "docs", "figures")
+OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "..", "doc", "figures")
 os.makedirs(OUT, exist_ok=True)
 
 SURFACE, TEXT, TEXT_2 = "#fcfcfb", "#0b0b0b", "#52514e"

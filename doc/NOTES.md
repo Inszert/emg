@@ -57,12 +57,12 @@ Newest at the bottom of each section.
 ## Open questions / ideas
 
 - Sub-agent C found things only main may change (widgets.py `_stat_tile` nested
-  frames, header cards, MODEL SPEC / CALIBRATE layout); see `docs/UI_REVIEW.md`.
+  frames, header cards, MODEL SPEC / CALIBRATE layout); see `doc/UI_REVIEW.md`.
 - `n_jobs=-1` forests and the NN worker share the machine with the recorder; the
   latency numbers in the report come from `tools/bench_zoo.py` on an idle machine.
 - A second sitting of the weakest person (Barbora) is still the most valuable data
-  to collect (see docs/MODELS_COMPARED.md); no model change substitutes for it.
-- A new band: acquisition is Myo-only (CLAUDE.md 2b). `docs/sdk_myo.md` lists what a
+  to collect (see doc/MODELS_COMPARED.md); no model change substitutes for it.
+- A new band: acquisition is Myo-only (CLAUDE.md 2b). `doc/sdk_myo.md` lists what a
   new backend needs.
 
 ## Findings worth keeping (2026-10-27) -- numbers are in REPORT.md / results/experiments.json
@@ -115,7 +115,7 @@ Newest at the bottom of each section.
   zoo variants, never ranked, with a blue star when they score higher than their
   yellow-star model on the same people (computed live, no margin). The training-switch ablation was re-run without
   her. Everything, with graphs, tables, CSVs and a methods paragraph:
-  `docs/EXCLUDING_PEOPLE.md`.
+  `doc/EXCLUDING_PEOPLE.md`.
 - **Things found by the sub-agents** (all handled or listed): scikit-learn is now
   pinned `<1.8` (the models were pickled with 1.7.2); `train_job.kill_tree` kills
   only the trainer on POSIX, not joblib workers (open, Linux only);
@@ -129,5 +129,5 @@ Newest at the bottom of each section.
   sweep means threading the switches through `build_dataset` for every setup of
   the screen -- not done, because the zoo trains the same models directly at
   the winning setup.
-- UI items not fixable in the theme layer (docs/UI_REVIEW.md items 3 - 5):
+- UI items not fixable in the theme layer (doc/UI_REVIEW.md items 3 - 5):
   MODEL SPEC hyper-parameter scroll area, CALIBRATE dead space, hint font sizes.

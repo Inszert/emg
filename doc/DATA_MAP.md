@@ -15,7 +15,7 @@ document already summarises it. Counts below were taken from the checkout on
 | what if the band is shifted / the signal weaker? | [REPORT.md](REPORT.md) section 7, `experiments.json` (`ablation` robustness columns) | the ablation tools |
 | what does leaving a person out of training do? | [EXCLUDING_PEOPLE.md](EXCLUDING_PEOPLE.md), `results/exclusion.json`, `exclusion_per_person.csv`, `exclusion_switches.csv` | `tools/make_exclusion_report.py` |
 | which ML setup, window length, features won the search? | [COMB_TEST.md](COMB_TEST.md), `models/comb_test/20261022-003918/` | `training/nn_ml_comb_test.py`, `tools/comb_test_report.py` |
-| how do the models fail (per gesture, per person, confidence, timing)? | [MODELS_COMPARED.md](MODELS_COMPARED.md), `docs/figures/` | `tools/make_figures*.py` |
+| how do the models fail (per gesture, per person, confidence, timing)? | [MODELS_COMPARED.md](MODELS_COMPARED.md), `doc/figures/` | `tools/make_figures*.py` |
 | newer architectures | [REPORT.md](REPORT.md) section 5, `models/reports/new_models_test_run1/` | `tools/new_models_test.py`, `tools/make_figure_new_models.py` |
 | how fast is a live window? | [REPORT.md](REPORT.md) section 9, `models/reports/bench_models_20261022.json` | `tools/bench_models.py`, `tools/bench_zoo.py` |
 | do the automatic checks pass? | [REPORT.md](REPORT.md) section 11, `tests/last_run.json` | `tools/run_tests.py` |

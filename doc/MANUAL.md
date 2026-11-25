@@ -1317,7 +1317,7 @@ python training/train_nn.py --calibration off                   # uncalibrated n
 python training/nn_ml_comb_test.py --watch                      # the ML+NN search's progress
 python tools/comb_test_report.py <run dir>                       # its spreadsheet + COMB_TEST.md
 python tools/bench_models.py                                     # both models' speed per window
-python tools/make_ui_guide.py . docs/images                      # regenerate screenshots
+python tools/make_ui_guide.py . doc/images                      # regenerate screenshots
 python legacy/test_myo.py                                     # reference monitor
 ```
 

@@ -3,13 +3,13 @@ What is in `datasets/` right now, measured -- the data a report needs.
 
     python tools/dataset_summary.py
 
-Writes `results/dataset_summary.json` and `docs/DATASET_SUMMARY.md`. Nothing is
+Writes `results/dataset_summary.json` and `doc/DATASET_SUMMARY.md`. Nothing is
 typed by hand: recordings are counted from their own `*_raw_meta.json` files,
 the windows the models were scored on come from the stored evaluation data
 (`results/zoo_eval/data_*.npz`), and the calibrations from each person's own
 `calibration.json` and from the derived calibration the trainers use.
 
-`docs/EDA.md` describes the dataset that was archived on 2026-10-15; this is the
+`doc/EDA.md` describes the dataset that was archived on 2026-10-15; this is the
 description of the working set.
 """
 import glob
@@ -558,7 +558,7 @@ if __name__ == "__main__":
     out_json = os.path.join(RESULTS, "dataset_summary.json")
     with open(out_json, "w", encoding="utf-8") as fh:
         json.dump(summary, fh, indent=1)
-    out_md = os.path.join(ROOT, "..", "docs", "DATASET_SUMMARY.md")
+    out_md = os.path.join(ROOT, "..", "doc", "DATASET_SUMMARY.md")
     write_md(summary, out_md)
     print("wrote", os.path.relpath(out_json, ROOT), "and",
           os.path.relpath(out_md, ROOT))

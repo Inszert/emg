@@ -22,7 +22,7 @@
      T.CALIBRATION_MODE = "off"     # sets emg_app.config.CALIBRATION_MODE,
                                     # which is what every module reads
 
- See CLAUDE.md and docs/ for architecture, dataset format and ML pipeline.
+ See CLAUDE.md and doc/ for architecture, dataset format and ML pipeline.
 ================================================================================
 """
 

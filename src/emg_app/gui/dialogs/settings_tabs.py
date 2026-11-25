@@ -154,7 +154,7 @@ class ModelsTab(QtWidgets.QWidget):
             "Yellow stays the default; the hover text says by how much (often "
             "a fraction of a point). The models' own headline scores cover "
             "fewer people and are not what is compared. "
-            "See docs/EXCLUDING_PEOPLE.md.", 10, False, COL_TEXT_DIM))
+            "See doc/EXCLUDING_PEOPLE.md.", 10, False, COL_TEXT_DIM))
 
         for family, title in (("ml", "ML classifiers"),
                               ("nn", "Neural nets")):
@@ -436,7 +436,7 @@ class TrainingTab(QtWidgets.QWidget):
             "These switches change how models are TRAINED. A model that is "
             "already trained keeps what it learned; train again for a "
             "switch to take effect. Defaults come from the measured ablation "
-            "study (docs/REPORT.md) -- a switch is on by default only if it "
+            "study (doc/REPORT.md) -- a switch is on by default only if it "
             "helped, and the neural nets and the ML classifiers were "
             "measured separately because they do not agree.", 10, False,
             COL_TEXT_DIM))
@@ -547,7 +547,7 @@ class TrainingTab(QtWidgets.QWidget):
             "best ordinary ML model / neural net reads that person when they "
             "were held out of training -- a low number means the other people "
             "do not cover how that person wears the band, so including them "
-            "may cost the rest. Measured: docs/EXCLUDING_PEOPLE.md.",
+            "may cost the rest. Measured: doc/EXCLUDING_PEOPLE.md.",
             10, False, COL_TEXT_DIM))
         scores = self._held_out_scores()
         self.exclude_boxes = {}

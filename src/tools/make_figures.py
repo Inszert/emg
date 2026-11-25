@@ -2,7 +2,7 @@
 Report figures: confusion matrices, the PCA feature space, and the ML vs NN
 comparison charts.
 
-    python tools/make_figures.py [OUT_DIR]          (default: docs/figures)
+    python tools/make_figures.py [OUT_DIR]          (default: doc/figures)
 
 Everything is read from what the project already saved -- nothing is
 retrained:
@@ -35,7 +35,7 @@ import matplotlib.pyplot as plt                                  # noqa: E402
 from matplotlib.colors import LinearSegmentedColormap            # noqa: E402
 
 RUN = os.path.join(PROJECT, "models", "comb_test", "20261022-003918")
-OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(PROJECT, "..", "docs",
+OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(PROJECT, "..", "doc",
                                                           "figures")
 os.makedirs(OUT, exist_ok=True)
 

@@ -70,7 +70,7 @@ from __future__ import annotations
 
 #  The first five are the original set; the last four were added 2026-10-27
 #  after tools/new_models_test.py measured them under the project protocol
-#  (docs/REPORT.md, "newer models"). Order matters: the trainer's default
+#  (doc/REPORT.md, "newer models"). Order matters: the trainer's default
 #  (and `--quick`) is the head of this list.
 KINDS = ["tcn", "gru", "cnn_gru", "lstm", "cnn",
          "circ_gru", "chan_transformer", "inception", "tsmixer"]

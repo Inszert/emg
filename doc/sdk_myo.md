@@ -380,7 +380,7 @@ Key objects:
 | `leave_one_person_out(groups)` | yields `(train_idx, test_idx, held_out_person)`; this is the honest split |
 | `dataset_fingerprint()`, `model_data_status()` | "is the saved model current?" |
 
-Formats and filenames are specified in `docs/DATASET.md`. In short:
+Formats and filenames are specified in `doc/DATASET.md`. In short:
 `datasets/<person>/<session>/<GESTURE>/<GESTURE>_rep001_<stamp>_<uid>_raw.{csv,npz}`
 plus `_meta.json`, a `manifest.jsonl`, and the safety rules of `CLAUDE.md`
 section 9 (raw files are immutable, deletes are moves to `_deleted/`,

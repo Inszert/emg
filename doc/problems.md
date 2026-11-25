@@ -657,7 +657,7 @@ which is now the standing rule.
 
 Windows from the same recording land in both train and test, so the model
 memorises recordings. Fixed by making `groups` and `leave_one_person_out()`
-the default path (`docs/ML_PIPELINE.md` §5), and `GUIDE.md` §6 carries the row
+the default path (`doc/ML_PIPELINE.md` §5), and `GUIDE.md` §6 carries the row
 "Accuracy is ~99 % and you do not believe it → you are right not to."
 
 **Verdict: SOLVED.** Ideal. Leave-one-subject-out is the number that did not

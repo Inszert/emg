@@ -139,7 +139,7 @@ SELECTED_NN = []                    # zoo ids, e.g. ["nn-gru"]
 # ablation study measured them separately and they do not agree. The ML
 # switches act on models trained by the model zoo (training/train_zoo.py); the
 # classic RETRAIN sweep (train_model.py) trains plain models.
-# The defaults come from the ablation study (docs/REPORT.md, "defaults"): a
+# The defaults come from the ablation study (doc/REPORT.md, "defaults"): a
 # switch is only on by default if it was MEASURED to help.
 TRAIN_AUGMENT_NN = []
 TRAIN_AUGMENT_ML = []
@@ -151,7 +151,7 @@ TRAIN_ADAPT_ML = True       # measured; tests/test_defaults.py checks it against
 # is touched, and a model already trained keeps what it learned. The zoo saves
 # such models as separate `<id>-without-<name>` entries beside the ordinary
 # ones. Off ([]) = every person is trained on, as before. Why this exists:
-# docs/EXCLUDING_PEOPLE.md (Barbora, the hard fold).
+# doc/EXCLUDING_PEOPLE.md (Barbora, the hard fold).
 TRAIN_EXCLUDE_PERSONS = []
 
 # ADAPTATION AT RUN TIME. Only has an effect on a model that was trained with

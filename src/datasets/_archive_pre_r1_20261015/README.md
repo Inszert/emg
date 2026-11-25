@@ -21,7 +21,7 @@ features added +0.0 points.
 
 It also had no onsets, no offsets and no transitions anywhere (every take was
 ~100 % contraction), and no relaxed holds for FIST/WAVE_LEFT/REST — which is
-why a held thumbs-up flipped to REST live. `docs/EDA.md` has the full
+why a held thumbs-up flipped to REST live. `doc/EDA.md` has the full
 analysis; CLAUDE.md §8f summarises it.
 
 ## What replaces it
